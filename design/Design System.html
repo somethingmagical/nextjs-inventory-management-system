@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GildedGlow · Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/gildedglow.css" />
+<style>
+  /* ---- documentation-only layout helpers (not part of the reusable system) ---- */
+  .doc-section { margin-bottom: var(--sp-12); scroll-margin-top: 80px; }
+  .doc-eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-600); margin-bottom: var(--sp-3); }
+  .doc-eyebrow::before { content: ""; width: 22px; height: 2px; background: var(--gold-500); border-radius: 2px; }
+  .doc-h { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: var(--ink); letter-spacing: -.02em; margin-bottom: var(--sp-5); }
+  .doc-sub { color: var(--gray-500); font-size: 13.5px; margin: -8px 0 var(--sp-5); max-width: 70ch; }
+  .doc-grid { display: grid; gap: var(--sp-6); }
+  .doc-2 { grid-template-columns: 1fr 1fr; }
+  .doc-label { font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gray-400); margin-bottom: var(--sp-4); }
+
+  /* color swatches */
+  .sw-row { display: grid; grid-template-columns: repeat(10, 1fr); gap: 10px; }
+  .sw { border-radius: var(--r-md); overflow: hidden; border: 1px solid var(--gray-200); box-shadow: var(--shadow-xs); }
+  .sw-chip { height: 60px; }
+  .sw-meta { padding: 8px 10px; background: var(--surface); }
+  .sw-name { font-size: 11.5px; font-weight: 700; color: var(--ink); }
+  .sw-hex { font-size: 10.5px; color: var(--gray-500); font-variant-numeric: tabular-nums; text-transform: uppercase; }
+  .sw-sem { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+  .sw-sem .sw-chip { height: 72px; display: flex; align-items: flex-end; padding: 10px; }
+  .sw-sem .tag { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: var(--r-sm); background: rgba(255,255,255,.85); color: var(--ink); }
+
+  /* type specimen */
+  .spec { display: flex; align-items: baseline; gap: var(--sp-5); padding: var(--sp-4) 0; border-bottom: 1px dashed var(--gray-200); }
+  .spec:last-child { border-bottom: none; }
+  .spec-tag { width: 130px; flex-shrink: 0; font-size: 11.5px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: .04em; }
+  .spec-meta { margin-left: auto; font-size: 11.5px; color: var(--gray-400); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* spacing scale */
+  .space-row { display: flex; align-items: center; gap: var(--sp-4); padding: 7px 0; }
+  .space-bar { height: 16px; background: linear-gradient(90deg, var(--gold-400), var(--gold-600)); border-radius: 4px; }
+  .space-tag { width: 64px; font-size: 12px; font-weight: 700; color: var(--ink); }
+  .space-val { font-size: 12px; color: var(--gray-500); font-variant-numeric: tabular-nums; }
+
+  /* radius + shadow */
+  .demo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--sp-5); }
+  .demo-box { background: var(--surface); border: 1px solid var(--gray-200); height: 92px; display: grid; place-items: center; color: var(--gray-400); font-size: 12px; font-weight: 600; }
+  .demo-box.sh { border: none; }
+  .demo-cap { text-align: center; font-size: 12px; font-weight: 600; color: var(--gray-500); margin-top: 10px; }
+
+  .comp-frame { background: var(--surface); border: 1px solid var(--gray-200); border-radius: var(--r-lg); padding: var(--sp-6); box-shadow: var(--shadow-sm); }
+  .comp-wrap { display: flex; flex-wrap: wrap; gap: var(--sp-4); align-items: center; }
+</style>
+</head>
+<body>
+<template id="__bundler_thumbnail" data-bg-color="#F6F4EE">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#F6F4EE"/>
+    <rect x="360" y="170" width="220" height="220" rx="40" fill="#9C6311"/>
+    <text x="470" y="345" font-family="'Space Grotesk',sans-serif" font-size="170" font-weight="700" fill="#fff" text-anchor="middle">G</text>
+    <text x="600" y="500" font-family="'Space Grotesk',sans-serif" font-size="76" font-weight="700" fill="#1C1A16" text-anchor="middle">GildedGlow</text>
+    <text x="600" y="565" font-family="'Hanken Grotesk',sans-serif" font-size="34" font-weight="500" fill="#7A746A" text-anchor="middle" letter-spacing="6">DESIGN SYSTEM</text>
+  </svg>
+</template>
+<div class="gg-app" id="app">
+  <!-- ===================================================== SIDEBAR ===== -->
+  <aside class="gg-sidebar">
+    <div class="gg-brand">
+      <div class="gg-brand-mark">G</div>
+      <span class="gg-brand-name">GildedGlow</span>
+    </div>
+    <div class="gg-sidebar-search">
+      <div class="gg-input-icon">
+        <i data-lucide="search"></i>
+        <input class="gg-input" type="text" placeholder="Search" />
+      </div>
+    </div>
+    <nav class="gg-nav" id="nav">
+      <div class="gg-nav-item is-active"><i data-lucide="palette" class="gg-nav-ico"></i><span class="gg-nav-label">Design System</span></div>
+      <div class="gg-nav-item"><i data-lucide="layout-dashboard" class="gg-nav-ico"></i><span class="gg-nav-label">Dashboard</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="boxes" class="gg-nav-ico"></i><span class="gg-nav-label">Products</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub">
+          <div class="gg-nav-item"><span class="gg-nav-label">Products</span></div>
+          <div class="gg-nav-item"><span class="gg-nav-label">Product Categories</span></div>
+          <div class="gg-nav-item"><span class="gg-nav-label">Brands</span></div>
+          <div class="gg-nav-item"><span class="gg-nav-label">Units</span></div>
+        </div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="sliders-horizontal" class="gg-nav-ico"></i><span class="gg-nav-label">Adjustments</span></div>
+      <div class="gg-nav-item"><i data-lucide="file-text" class="gg-nav-ico"></i><span class="gg-nav-label">Quotations</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="receipt" class="gg-nav-ico"></i><span class="gg-nav-label">Purchases</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub">
+          <div class="gg-nav-item"><span class="gg-nav-label">Purchases</span></div>
+          <div class="gg-nav-item"><span class="gg-nav-label">Purchases Returns</span></div>
+        </div>
+      </div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="shopping-cart" class="gg-nav-ico"></i><span class="gg-nav-label">Sales</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub">
+          <div class="gg-nav-item"><span class="gg-nav-label">Sales</span></div>
+          <div class="gg-nav-item"><span class="gg-nav-label">Sales Returns</span></div>
+        </div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="repeat" class="gg-nav-ico"></i><span class="gg-nav-label">Transfers</span></div>
+      <div class="gg-nav-item"><i data-lucide="wallet" class="gg-nav-ico"></i><span class="gg-nav-label">Expenses</span></div>
+      <div class="gg-nav-item"><i data-lucide="users" class="gg-nav-ico"></i><span class="gg-nav-label">Peoples</span></div>
+      <div class="gg-nav-item"><i data-lucide="shield-check" class="gg-nav-ico"></i><span class="gg-nav-label">Roles/Permissions</span></div>
+      <div class="gg-nav-item"><i data-lucide="warehouse" class="gg-nav-ico"></i><span class="gg-nav-label">Warehouse</span></div>
+      <div class="gg-nav-item"><i data-lucide="bar-chart-3" class="gg-nav-ico"></i><span class="gg-nav-label">Reports</span></div>
+      <div class="gg-nav-item"><i data-lucide="dollar-sign" class="gg-nav-ico"></i><span class="gg-nav-label">Currencies</span></div>
+      <div class="gg-nav-item"><i data-lucide="languages" class="gg-nav-ico"></i><span class="gg-nav-label">Languages</span></div>
+      <div class="gg-nav-item"><i data-lucide="settings" class="gg-nav-ico"></i><span class="gg-nav-label">Settings</span></div>
+    </nav>
+  </aside>
+
+  <!-- ======================================================== MAIN ===== -->
+  <div class="gg-main">
+    <header class="gg-topbar">
+      <button class="gg-icon-btn" id="collapseBtn" title="Toggle sidebar"><i data-lucide="menu"></i></button>
+      <div class="gg-topbar-title">
+        <span class="gg-breadcrumb">Design System</span>
+      </div>
+      <div class="gg-topbar-spacer"></div>
+      <button class="gg-pos-btn"><i data-lucide="monitor" style="width:16px;height:16px;"></i> POS</button>
+      <button class="gg-icon-btn"><i data-lucide="maximize"></i></button>
+      <div class="gg-user">
+        <div class="gg-avatar">A</div>
+        <span style="font-weight:600;color:var(--ink);font-size:14px;">admin</span>
+        <i data-lucide="chevron-down" style="width:16px;height:16px;color:var(--gray-400);"></i>
+      </div>
+    </header>
+
+    <main class="gg-content">
+      <div class="gg-content-narrow">
+
+        <!-- intro -->
+        <div style="margin-bottom:var(--sp-12);">
+          <div class="doc-eyebrow">GildedGlow · v1.0</div>
+          <h1 class="gg-page-title" style="font-size:34px;">Design System</h1>
+          <p class="doc-sub" style="font-size:15px;margin-top:var(--sp-3);max-width:78ch;">
+            The locked token set and component library for the GildedGlow inventory + POS suite.
+            Every page imports <strong style="color:var(--ink);">assets/gildedglow.css</strong> and composes from these classes — no per-page reinvention.
+            Burnished gold on warm neutrals, Space&nbsp;Grotesk + Hanken&nbsp;Grotesk, soft elevation, comfortable density.
+          </p>
+        </div>
+
+        <!-- ============================================ COLOR ============ -->
+        <section class="doc-section">
+          <div class="doc-eyebrow">Foundations</div>
+          <h2 class="doc-h">Color</h2>
+
+          <div class="comp-frame" style="margin-bottom:var(--sp-6);">
+            <div class="doc-label">Brand — gilded gold ramp</div>
+            <div class="sw-row" id="ramp-gold"></div>
+          </div>
+
+          <div class="comp-frame" style="margin-bottom:var(--sp-6);">
+            <div class="doc-label">Warm neutrals</div>
+            <div class="sw-row" id="ramp-gray"></div>
+          </div>
+
+          <div class="doc-grid doc-2">
+            <div class="comp-frame">
+              <div class="doc-label">Semantic / status</div>
+              <div class="sw-sem" id="sem"></div>
+            </div>
+            <div class="comp-frame">
+              <div class="doc-label">KPI tile family</div>
+              <div class="sw-sem" id="tiles"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================================ TYPE ============= -->
+        <section class="doc-section">
+          <div class="doc-eyebrow">Foundations</div>
+          <h2 class="doc-h">Typography</h2>
+          <p class="doc-sub"><strong style="color:var(--ink);">Space Grotesk</strong> for display &amp; headings · <strong style="color:var(--ink);">Hanken Grotesk</strong> for body, labels &amp; tabular data.</p>
+          <div class="comp-frame">
+            <div class="spec"><span class="spec-tag">Page title</span><span class="gg-page-title">Inventory overview</span><span class="spec-meta">Space Grotesk · 28/700</span></div>
+            <div class="spec"><span class="spec-tag">Section title</span><span class="gg-section-title">Recent sales</span><span class="spec-meta">Space Grotesk · 18/600</span></div>
+            <div class="spec"><span class="spec-tag">Card title</span><span class="gg-card-title">Stock alert</span><span class="spec-meta">Space Grotesk · 16/600</span></div>
+            <div class="spec"><span class="spec-tag">Body</span><span style="font-size:14px;color:var(--gray-700);">The quick brown fox jumps over 1,284 units.</span><span class="spec-meta">Hanken · 14/400</span></div>
+            <div class="spec"><span class="spec-tag">Label</span><span class="gg-label">Product category</span><span class="spec-meta">Hanken · 13/600</span></div>
+            <div class="spec"><span class="spec-tag">Caption</span><span class="gg-caption">Updated 2 minutes ago</span><span class="spec-meta">Hanken · 12/500</span></div>
+            <div class="spec"><span class="spec-tag">Numeric</span><span class="gg-num" style="font-family:var(--font-display);font-size:24px;font-weight:700;color:var(--ink);">$ 186,510.00</span><span class="spec-meta">tabular-nums</span></div>
+          </div>
+        </section>
+
+        <!-- ===================================== SPACING / RADIUS / SHADOW -->
+        <section class="doc-section">
+          <div class="doc-eyebrow">Foundations</div>
+          <h2 class="doc-h">Spacing · Radius · Elevation</h2>
+          <div class="doc-grid doc-2">
+            <div class="comp-frame">
+              <div class="doc-label">Spacing scale (4px base)</div>
+              <div id="spacing"></div>
+            </div>
+            <div class="gg-stack" style="gap:var(--sp-6);">
+              <div class="comp-frame">
+                <div class="doc-label">Radius</div>
+                <div class="demo-grid">
+                  <div><div class="demo-box" style="border-radius:var(--r-sm);">sm</div><div class="demo-cap">6px</div></div>
+                  <div><div class="demo-box" style="border-radius:var(--r-md);">md</div><div class="demo-cap">10px</div></div>
+                  <div><div class="demo-box" style="border-radius:var(--r-lg);">lg</div><div class="demo-cap">14px</div></div>
+                  <div><div class="demo-box" style="border-radius:var(--r-xl);">xl</div><div class="demo-cap">18px</div></div>
+                  <div><div class="demo-box" style="border-radius:var(--r-pill);">pill</div><div class="demo-cap">full</div></div>
+                </div>
+              </div>
+              <div class="comp-frame">
+                <div class="doc-label">Shadow / elevation</div>
+                <div class="demo-grid">
+                  <div><div class="demo-box sh" style="box-shadow:var(--shadow-xs);border-radius:var(--r-md);">xs</div></div>
+                  <div><div class="demo-box sh" style="box-shadow:var(--shadow-sm);border-radius:var(--r-md);">sm</div></div>
+                  <div><div class="demo-box sh" style="box-shadow:var(--shadow-md);border-radius:var(--r-md);">md</div></div>
+                  <div><div class="demo-box sh" style="box-shadow:var(--shadow-lg);border-radius:var(--r-md);">lg</div></div>
+                  <div><div class="demo-box sh" style="box-shadow:var(--shadow-xl);border-radius:var(--r-md);">xl</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================================ BUTTONS ========== -->
+        <section class="doc-section">
+          <div class="doc-eyebrow">Components</div>
+          <h2 class="doc-h">Buttons</h2>
+          <div class="comp-frame">
+            <div class="comp-wrap" style="margin-bottom:var(--sp-5);">
+              <button class="gg-btn gg-btn--primary"><i data-lucide="plus"></i> Create Product</button>
+              <button class="gg-btn gg-btn--secondary"><i data-lucide="download"></i> Export</button>
+              <button class="gg-btn gg-btn--ghost"><i data-lucide="filter"></i> Filter</button>
+              <button class="gg-btn gg-btn--danger"><i data-lucide="trash-2"></i> Delete</button>
+              <button class="gg-btn gg-btn--danger-soft"><i data-lucide="x"></i> Cancel</button>
+              <button class="gg-btn gg-btn--primary is-disabled">Disabled</button>
+            </div>
+            <div class="comp-wrap">
+              <button class="gg-btn gg-btn--lg gg-btn--primary">Large</button>
+              <button class="gg-btn gg-btn--primary">Default</button>
+              <button class="gg-btn gg-btn--sm gg-btn--primary">Small</button>
+              <button class="gg-icon-btn"><i data-lucide="more-vertical"></i></button>
+              <button class="gg-pos-btn">POS</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================================ INPUTS =========== -->
+        <section class="doc-section">
+          <div class="doc-eyebrow">Components</div>
+          <h2 class="doc-h">Inputs &amp; dropdowns</h2>
+          <div class="comp-frame">
+            <div class="gg-form-grid-3">
+              <div class="gg-field">
+                <label class="gg-label">Name <span class="gg-req">*</span></label>
+                <input class="gg-input" type="text" placeholder="Enter name" />
+              </div>
+              <div class="gg-field">
+                <label class="gg-label">Product category <span class="gg-req">*</span></label>
+                <select class="gg-select"><option>Choose product category</option><option>Glow</option><option>Skincare</option></select>
+              </div>
+              <div class="gg-field">
+                <label class="gg-label">Search</label>
+                <div class="gg-input-icon"><i data-lucide="search"></i><input class="gg-input" type="text" placeholder="Search product by code / name" /></div>
+              </div>
+              <div class="gg-field">
+                <label class="gg-label">Product price <span class="gg-req">*</span></label>
+                <div class="gg-input-group"><input class="gg-input gg-num" type="text" placeholder="0.00" /><span class="gg-input-suffix">$</span></div>
+              </div>
+              <div class="gg-field">
+                <label class="gg-label">Order tax</label>
+                <div class="gg-input-group"><input class="gg-input gg-num" type="text" placeholder="0" /><span class="gg-input-suffix">%</span></div>
+              </div>
+              <div class="gg-field">
+                <label class="gg-label">Product unit <span class="gg-req">*</span></label>
+                <div class="gg-input-group gg-input-group--btn"><input class="gg-input" type="text" placeholder="Choose product unit" /><span class="gg-input-suffix"><i data-lucide="plus" style="width:18px;height:18px;"></i></span></div>
+              </div>
+              <div class="gg-field gg-col-span-2" style="grid-column:span 2;">
+                <label class="gg-label">Notes</label>
+                <textarea class="gg-textarea" placeholder="Enter notes"></textarea>
+              </div>
+              <div class="gg-field">
+                <label class="gg-label">Quantity</label>
+                <div class="gg-stepper"><button><i data-lucide="minus" style="width:15px;height:15px;"></i></button><input class="gg-num" value="1" /><button><i data-lucide="plus" style="width:15px;height:15px;"></i></button></div>
+                <span class="gg-caption" style="margin-top:6px;">Stepper · used in order tables</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================================ BADGES =========== -->
+        <section class="doc-section">
+          <div class="doc-eyebrow">Components</div>
+          <h2 class="doc-h">Status badges</h2>
+          <div class="comp-frame comp-wrap">
+            <span class="gg-badge gg-badge--success">Paid</span>
+            <span class="gg-badge gg-badge--success">Received</span>
+            <span class="gg-badge gg-badge--success">Completed</span>
+            <span class="gg-badge gg-badge--warning">Pending</span>
+            <span class="gg-badge gg-badge--danger">Unpaid</span>
+            <span class="gg-badge gg-badge--info">Ordered</span>
+            <span class="gg-badge gg-badge--neutral">Draft</span>
+            <span style="width:1px;height:28px;background:var(--gray-200);"></span>
+            <span class="gg-chip-code">006lpc</span>
+            <span class="gg-chip-unit">piece</span>
+            <span class="gg-chip-time gg-num">11:28 PM<br>03/02/2024</span>
+          </div>
+        </section>
+
+        <!-- ============================================ KPI ============== -->
+        <section class="doc-section">
+          <div class="doc-eyebrow">Components</div>
+          <h2 class="doc-h">KPI / stat tiles</h2>
+          <div class="gg-kpi-grid" id="kpiGrid"></div>
+        </section>
+
+        <!-- ============================================ TABLE ============ -->
+        <section class="doc-section">
+          <div class="doc-eyebrow">Components</div>
+          <h2 class="doc-h">Data table</h2>
+          <div class="gg-card gg-card-pad">
+            <div class="gg-table-toolbar">
+              <div class="gg-input-icon" style="max-width:340px;width:100%;"><i data-lucide="search"></i><input class="gg-input" placeholder="Search" /></div>
+              <div class="gg-spacer"></div>
+              <button class="gg-icon-btn" style="background:var(--gold-600);color:#fff;border-color:var(--gold-600);"><i data-lucide="filter"></i></button>
+              <button class="gg-btn gg-btn--secondary"><i data-lucide="download"></i> Export</button>
+              <button class="gg-btn gg-btn--primary"><i data-lucide="plus"></i> Create Product</button>
+            </div>
+            <div class="gg-table-wrap">
+              <table class="gg-table">
+                <thead><tr><th>Product</th><th>Name</th><th>Code</th><th>Brand</th><th>Price</th><th>Unit</th><th>In stock</th><th>Status</th><th style="text-align:right;">Action</th></tr></thead>
+                <tbody id="tbody"></tbody>
+              </table>
+            </div>
+            <div class="gg-pagination">
+              <div class="gg-perpage"><span class="gg-muted">Records per page</span><select class="gg-select"><option>10</option><option>25</option><option>50</option></select></div>
+              <span class="gg-muted gg-num">1–6 of 6</span>
+              <div class="gg-spacer"></div>
+              <button class="gg-page-btn"><i data-lucide="chevrons-left"></i></button>
+              <button class="gg-page-btn"><i data-lucide="chevron-left"></i></button>
+              <button class="gg-page-btn"><i data-lucide="chevron-right"></i></button>
+              <button class="gg-page-btn"><i data-lucide="chevrons-right"></i></button>
+            </div>
+          </div>
+
+          <div class="comp-frame" style="margin-top:var(--sp-6);max-width:240px;">
+            <div class="doc-label">Row-action menu</div>
+            <div class="gg-menu">
+              <div class="gg-menu-item"><i data-lucide="eye"></i> View</div>
+              <div class="gg-menu-item"><i data-lucide="file-down"></i> Download PDF</div>
+              <div class="gg-menu-item"><i data-lucide="pencil"></i> Edit</div>
+              <div class="gg-menu-item is-danger"><i data-lucide="trash-2"></i> Delete</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================================ FORM CARD ======== -->
+        <section class="doc-section">
+          <div class="doc-eyebrow">Components</div>
+          <h2 class="doc-h">Two-column form card</h2>
+          <div class="gg-card gg-card-pad">
+            <div class="gg-form-grid">
+              <div class="gg-field"><label class="gg-label">Name <span class="gg-req">*</span></label><input class="gg-input" placeholder="Enter name" /></div>
+              <div class="gg-field"><label class="gg-label">Code <span class="gg-req">*</span></label><input class="gg-input" placeholder="Enter code" /></div>
+              <div class="gg-field"><label class="gg-label">Product category <span class="gg-req">*</span></label><select class="gg-select"><option>Choose product category</option></select></div>
+              <div class="gg-field"><label class="gg-label">Brand <span class="gg-req">*</span></label><select class="gg-select"><option>Choose brand</option></select></div>
+              <div class="gg-field"><label class="gg-label">Product cost <span class="gg-req">*</span></label><div class="gg-input-group"><input class="gg-input gg-num" placeholder="0.00" /><span class="gg-input-suffix">$</span></div></div>
+              <div class="gg-field"><label class="gg-label">Order tax</label><div class="gg-input-group"><input class="gg-input gg-num" placeholder="0" /><span class="gg-input-suffix">%</span></div></div>
+              <div class="gg-field" style="grid-column:span 2;"><label class="gg-label">Notes</label><textarea class="gg-textarea" placeholder="Enter notes"></textarea></div>
+            </div>
+            <div class="gg-form-actions">
+              <button class="gg-btn gg-btn--secondary">Cancel</button>
+              <button class="gg-btn gg-btn--primary">Save</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================================ MODAL ============ -->
+        <section class="doc-section">
+          <div class="doc-eyebrow">Components</div>
+          <h2 class="doc-h">Modal</h2>
+          <div class="comp-frame comp-wrap">
+            <button class="gg-btn gg-btn--primary" id="openModal"><i data-lucide="maximize-2"></i> Open example modal</button>
+            <span class="gg-muted" style="font-size:13px;">Centered, soft-blurred overlay, scale-in. Header · body · footer.</span>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ============================================ MODAL MARKUP ============ -->
+<div class="gg-overlay" id="overlay">
+  <div class="gg-modal" role="dialog" aria-modal="true">
+    <div class="gg-modal-head">
+      <span class="gg-card-title">Create Product Category</span>
+      <button class="gg-modal-close" id="closeModal"><i data-lucide="x"></i></button>
+    </div>
+    <div class="gg-modal-body">
+      <div class="gg-field"><label class="gg-label">Name <span class="gg-req">*</span></label><input class="gg-input" placeholder="Enter name" /></div>
+      <div class="gg-field"><label class="gg-label">Logo</label><select class="gg-select"><option>Choose file…</option></select></div>
+    </div>
+    <div class="gg-modal-foot">
+      <button class="gg-btn gg-btn--secondary" id="cancelModal">Cancel</button>
+      <button class="gg-btn gg-btn--primary">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script>
+  /* ---- token data rendered into swatches ---- */
+  const goldRamp = [["50","#FBF6EC"],["100","#F6E9CF"],["200","#ECD29B"],["300","#E0B65F"],["400","#D99A2B"],["500","#C0851A"],["600","#9C6311"],["700","#7E4F0E"],["800","#623D0E"],["900","#4A2F0D"]];
+  const grayRamp = [["50","#F8F6F1"],["100","#F3F0E9"],["200","#E6E1D8"],["300","#D4CEC3"],["400","#A39C90"],["500","#7A746A"],["600","#5E594F"],["700","#46413A"],["800","#322E27"],["ink","#1C1A16"]];
+  const sem = [["Success","#0E9F6E"],["Warning","#C8740C"],["Danger","#D5402F"],["Info","#2B7FE0"],["Neutral","#7A746A"]];
+  const tiles = [["Gold","#C0851A"],["Emerald","#109C6B"],["Blue","#2C7BE0"],["Violet","#6D5BD0"],["Rose","#DD4F88"],["Cyan","#1BA3C2"],["Orange","#DE7A1E"],["Red","#D8473A"]];
+
+  function swatch(name, hex, light) {
+    const txt = light ? '#1C1A16' : '#1C1A16';
+    return `<div class="sw"><div class="sw-chip" style="background:${hex}"></div><div class="sw-meta"><div class="sw-name">${name}</div><div class="sw-hex">${hex}</div></div></div>`;
+  }
+  document.getElementById('ramp-gold').innerHTML = goldRamp.map(c=>swatch(c[0],c[1])).join('');
+  document.getElementById('ramp-gray').innerHTML = grayRamp.map(c=>swatch(c[0],c[1])).join('');
+  document.getElementById('sem').innerHTML = sem.map(c=>`<div class="sw"><div class="sw-chip" style="background:${c[1]}"><span class="tag">${c[0]}</span></div><div class="sw-meta"><div class="sw-hex">${c[1]}</div></div></div>`).join('');
+  document.getElementById('tiles').innerHTML = tiles.map(c=>`<div class="sw"><div class="sw-chip" style="background:${c[1]}"><span class="tag">${c[0]}</span></div><div class="sw-meta"><div class="sw-hex">${c[1]}</div></div></div>`).join('');
+
+  /* spacing scale */
+  const spaces = [["1",4],["2",8],["3",12],["4",16],["5",20],["6",24],["8",32],["10",40],["12",48],["16",64]];
+  document.getElementById('spacing').innerHTML = spaces.map(s=>`<div class="space-row"><span class="space-tag">sp-${s[0]}</span><span class="space-bar" style="width:${s[1]}px"></span><span class="space-val">${s[1]}px</span></div>`).join('');
+
+  /* KPI tiles */
+  const kpis = [
+    ["gold","shopping-cart","$ 24,980","Sales"],
+    ["emerald","shopping-bag","$ 8,420","Purchases"],
+    ["blue","corner-up-left","$ 1,150","Sales Returns"],
+    ["orange","corner-up-right","$ 320","Purchase Returns"],
+    ["violet","dollar-sign","$ 5,990","Today Total Sales"],
+    ["rose","banknote","$ 5,990","Today Received"],
+    ["cyan","truck","$ 2,210","Today Purchases"],
+    ["red","minus-circle","$ 740","Today Expense"]
+  ];
+  document.getElementById('kpiGrid').innerHTML = kpis.map(k=>`<div class="gg-kpi gg-kpi--${k[0]}"><div class="gg-kpi-ico"><i data-lucide="${k[1]}"></i></div><div class="gg-kpi-body"><span class="gg-kpi-value gg-num">${k[2]}</span><span class="gg-kpi-label">${k[3]}</span></div></div>`).join('');
+
+  /* table rows */
+  const rows = [
+    ["lip care set","006lpc","GG","1,790.00","100","success","In stock"],
+    ["collagen powder","005cp","GG","1,690.00","110","success","In stock"],
+    ["intensive hair serum","001hs","GG","2,490.00","94","success","In stock"],
+    ["ultrasonic scrubber","003uc","GG","2,990.00","7","warning","Low"],
+    ["ipl laser hair removal","002","GG","3,990.00","0","danger","Out of stock"],
+    ["face fat & double chin","001","GG","3,490.00","2","warning","Low"]
+  ];
+  document.getElementById('tbody').innerHTML = rows.map(r=>`
+    <tr>
+      <td><div class="gg-thumb" style="background:linear-gradient(135deg,var(--gold-100),var(--gold-300));"></div></td>
+      <td class="gg-td-strong">${r[0]}</td>
+      <td><span class="gg-chip-code">${r[1]}</span></td>
+      <td>${r[2]}</td>
+      <td class="gg-num gg-td-strong">$ ${r[3]}</td>
+      <td><span class="gg-chip-unit">piece</span></td>
+      <td class="gg-num">${r[4]}</td>
+      <td><span class="gg-badge gg-badge--${r[5]}">${r[6]}</span></td>
+      <td style="text-align:right;"><span class="gg-row-action"><i data-lucide="more-vertical"></i></span></td>
+    </tr>`).join('');
+
+  lucide.createIcons();
+
+  /* ---- interactions ---- */
+  document.getElementById('collapseBtn').addEventListener('click', () => {
+    document.getElementById('app').classList.toggle('is-collapsed');
+  });
+  document.querySelectorAll('.gg-nav-group > .gg-nav-item').forEach(item => {
+    item.addEventListener('click', () => item.parentElement.classList.toggle('is-open'));
+  });
+  document.querySelectorAll('.gg-nav-item:not(.gg-nav-group > .gg-nav-item)').forEach(item => {
+    if (item.querySelector('.gg-nav-label') && !item.closest('.gg-nav-group')) {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.gg-nav-item.is-active').forEach(a=>a.classList.remove('is-active'));
+        item.classList.add('is-active');
+      });
+    }
+  });
+  const overlay = document.getElementById('overlay');
+  const openM = () => overlay.classList.add('is-open');
+  const closeM = () => overlay.classList.remove('is-open');
+  document.getElementById('openModal').addEventListener('click', openM);
+  document.getElementById('closeModal').addEventListener('click', closeM);
+  document.getElementById('cancelModal').addEventListener('click', closeM);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeM(); });
+</script>
+</body>
+</html>

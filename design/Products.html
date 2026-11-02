@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GildedGlow · Products</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/gildedglow.css" />
+<style>
+  .prod-name { max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .prod-thumb { width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--gray-200); background-size: cover; background-position: center; }
+  .dash-foot { color: var(--gray-500); font-size: 13px; padding: var(--sp-8) 0 var(--sp-4); }
+  .dash-foot a { font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="gg-app" id="app">
+  <aside class="gg-sidebar">
+    <div class="gg-brand"><div class="gg-brand-mark">G</div><span class="gg-brand-name">GildedGlow</span></div>
+    <div class="gg-sidebar-search"><div class="gg-input-icon"><i data-lucide="search"></i><input class="gg-input" type="text" placeholder="Search" /></div></div>
+    <nav class="gg-nav" id="nav">
+      <div class="gg-nav-item"><i data-lucide="layout-dashboard" class="gg-nav-ico"></i><span class="gg-nav-label">Dashboard</span></div>
+      <div class="gg-nav-group is-open">
+        <div class="gg-nav-item"><i data-lucide="boxes" class="gg-nav-ico"></i><span class="gg-nav-label">Products</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub">
+          <div class="gg-nav-item is-active"><i data-lucide="boxes" class="gg-nav-ico"></i><span class="gg-nav-label">Products</span></div>
+          <div class="gg-nav-item"><span class="gg-nav-label">Product Categories</span></div>
+          <div class="gg-nav-item"><span class="gg-nav-label">Brands</span></div>
+          <div class="gg-nav-item"><span class="gg-nav-label">Units</span></div>
+          <div class="gg-nav-item"><span class="gg-nav-label">Base Units</span></div>
+          <div class="gg-nav-item"><span class="gg-nav-label">Print Barcode</span></div>
+        </div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="sliders-horizontal" class="gg-nav-ico"></i><span class="gg-nav-label">Adjustments</span></div>
+      <div class="gg-nav-item"><i data-lucide="file-text" class="gg-nav-ico"></i><span class="gg-nav-label">Quotations</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="receipt" class="gg-nav-ico"></i><span class="gg-nav-label">Purchases</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">Purchases</span></div><div class="gg-nav-item"><span class="gg-nav-label">Purchases Returns</span></div></div>
+      </div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="shopping-cart" class="gg-nav-ico"></i><span class="gg-nav-label">Sales</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">Sales</span></div><div class="gg-nav-item"><span class="gg-nav-label">Sales Returns</span></div></div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="repeat" class="gg-nav-ico"></i><span class="gg-nav-label">Transfers</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="wallet" class="gg-nav-ico"></i><span class="gg-nav-label">Expenses</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">Expenses</span></div><div class="gg-nav-item"><span class="gg-nav-label">Expense Categories</span></div></div>
+      </div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="users" class="gg-nav-ico"></i><span class="gg-nav-label">Peoples</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">Customers</span></div><div class="gg-nav-item"><span class="gg-nav-label">Suppliers</span></div><div class="gg-nav-item"><span class="gg-nav-label">Users</span></div></div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="shield-check" class="gg-nav-ico"></i><span class="gg-nav-label">Roles/Permissions</span></div>
+      <div class="gg-nav-item"><i data-lucide="warehouse" class="gg-nav-ico"></i><span class="gg-nav-label">Warehouse</span></div>
+      <div class="gg-nav-item"><i data-lucide="bar-chart-3" class="gg-nav-ico"></i><span class="gg-nav-label">Reports</span></div>
+      <div class="gg-nav-item"><i data-lucide="dollar-sign" class="gg-nav-ico"></i><span class="gg-nav-label">Currencies</span></div>
+      <div class="gg-nav-item"><i data-lucide="languages" class="gg-nav-ico"></i><span class="gg-nav-label">Languages</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="layout-template" class="gg-nav-ico"></i><span class="gg-nav-label">Templates</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">SMS Templates</span></div><div class="gg-nav-item"><span class="gg-nav-label">Email Templates</span></div></div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="settings" class="gg-nav-ico"></i><span class="gg-nav-label">Settings</span></div>
+    </nav>
+  </aside>
+
+  <div class="gg-main">
+    <header class="gg-topbar">
+      <button class="gg-icon-btn" id="collapseBtn"><i data-lucide="menu"></i></button>
+      <div class="gg-topbar-title"><span class="gg-page-chip"><i data-lucide="plus"></i></span><span class="gg-breadcrumb">Products</span></div>
+      <div class="gg-topbar-spacer"></div>
+      <button class="gg-pos-btn"><i data-lucide="monitor" style="width:16px;height:16px;"></i> POS</button>
+      <button class="gg-icon-btn"><i data-lucide="grid-2x2"></i></button>
+      <div class="gg-user"><div class="gg-avatar">A</div><span style="font-weight:600;color:var(--ink);font-size:14px;">admin</span><i data-lucide="chevron-down" style="width:16px;height:16px;color:var(--gray-400);"></i></div>
+    </header>
+
+    <main class="gg-content">
+      <div class="gg-table-toolbar">
+        <div class="gg-input-icon" style="max-width:460px;width:100%;"><i data-lucide="search"></i><input class="gg-input" placeholder="Search" /></div>
+        <div class="gg-spacer"></div>
+        <button class="gg-icon-btn" style="background:var(--gold-600);color:#fff;border-color:var(--gold-600);"><i data-lucide="filter"></i></button>
+        <button class="gg-btn gg-btn--secondary"><i data-lucide="upload"></i> Export Products</button>
+        <button class="gg-btn gg-btn--secondary"><i data-lucide="download"></i> Import Products</button>
+        <button class="gg-btn gg-btn--primary"><i data-lucide="plus"></i> Create Product</button>
+      </div>
+
+      <div class="gg-card gg-card-pad">
+        <div class="gg-table-wrap">
+          <table class="gg-table">
+            <thead><tr><th>Product</th><th>Name</th><th>Code</th><th>Brand</th><th>Price</th><th>Product Unit</th><th>In Stock</th><th>Created On</th>
+            <th style="text-align:right;">Action</th>
+            </tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="gg-pagination">
+          <div class="gg-perpage"><span class="gg-muted">Records per page</span><select class="gg-select"><option>10</option><option>25</option><option>50</option></select></div>
+          <span class="gg-muted gg-num">1–6 of 6</span>
+          <div class="gg-spacer"></div>
+          <button class="gg-page-btn"><i data-lucide="chevrons-left"></i></button>
+          <button class="gg-page-btn"><i data-lucide="chevron-left"></i></button>
+          <button class="gg-page-btn"><i data-lucide="chevron-right"></i></button>
+          <button class="gg-page-btn"><i data-lucide="chevrons-right"></i></button>
+        </div>
+      </div>
+
+      <div class="dash-foot">All Rights Reserved &copy; 2026 <a href="#">GildedGlow</a></div>
+    </main>
+  </div>
+</div>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script>
+  /* warm gradient placeholders stand in for product photos (no assets supplied) */
+  const grads = [
+    'linear-gradient(135deg,#F6E9CF,#E0B65F)',
+    'linear-gradient(135deg,#F6D9E4,#DD4F88)',
+    'linear-gradient(135deg,#DCEFE7,#109C6B)',
+    'linear-gradient(135deg,#E7F0FC,#2C7BE0)',
+    'linear-gradient(135deg,#F6E9CF,#DE7A1E)',
+    'linear-gradient(135deg,#EFE7FA,#6D5BD0)'
+  ];
+  const rows = [
+    ["lip care set","006lpc","GG","1,790.00","100","11:28 PM","03/02/2024"],
+    ["collagen powder","005cp","GG","1,690.00","110","11:23 PM","03/02/2024"],
+    ["intensive hair serum","001hs","GG","2,490.00","94","11:15 PM","03/02/2024"],
+    ["ultrasonic scrubber","003uc","GG","2,990.00","7","11:12 PM","03/02/2024"],
+    ["ipl laser hair removal","002","GG","3,990.00","0","11:02 PM","03/02/2024"],
+    ["FACE FAT AND DOUBLE CHIN","001","GG","3,490.00","2","11:08 PM","02/02/2024"]
+  ];
+  document.getElementById('tbody').innerHTML = rows.map((r,i)=>`
+    <tr>
+      <td><div class="prod-thumb" style="background-image:${grads[i]}"></div></td>
+      <td class="gg-td-strong prod-name" title="${r[0]}">${r[0]}</td>
+      <td><span class="gg-chip-code">${r[1]}</span></td>
+      <td>${r[2]}</td>
+      <td class="gg-num gg-td-strong">$ ${r[3]}</td>
+      <td><span class="gg-chip-unit">piece</span></td>
+      <td class="gg-num">${r[4]}</td>
+      <td><span class="gg-chip-time gg-num">${r[5]}<br>${r[6]}</span></td>
+      <td>
+      <div class="gg-row gg-gap-2" style="justify-content:flex-end;">
+        <button class="act-btn act-edit" id="editRow"><i data-lucide="pencil"></i></button>
+        <button class="act-btn act-del"><i data-lucide="trash-2"></i></button>
+      </div>
+    </td>
+    </tr>`).join('');
+
+  lucide.createIcons();
+  document.getElementById('collapseBtn').addEventListener('click', () => document.getElementById('app').classList.toggle('is-collapsed'));
+  document.querySelectorAll('.gg-nav-group > .gg-nav-item').forEach(item => item.addEventListener('click', () => item.parentElement.classList.toggle('is-open')));
+</script>
+</body>
+</html>

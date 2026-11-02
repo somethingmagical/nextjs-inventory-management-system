@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GildedGlow · Sale Details</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/gildedglow.css" />
+<style>
+  .page-head { display: flex; align-items: center; margin-bottom: var(--sp-6); }
+  .page-head .gg-page-title { flex: 1; }
+  .pd-title { text-align: center; font-family: var(--font-display); font-weight: 700; font-size: 20px; color: var(--ink); margin-bottom: var(--sp-8); }
+  .info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-6); margin-bottom: var(--sp-8); }
+  .info-panel { border: 1px solid var(--gray-200); border-radius: var(--r-md); overflow: hidden; }
+  .band { background: var(--gray-100); padding: 14px var(--sp-5); font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gray-500); }
+  .info-body { padding: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-3); }
+  .info-row { display: flex; align-items: flex-start; gap: var(--sp-3); color: var(--gray-700); font-size: 14px; }
+  .info-row svg { width: 17px; height: 17px; color: var(--primary); flex-shrink: 0; margin-top: 2px; }
+  .info-line { display: flex; gap: 8px; padding: 6px 0; font-size: 14px; }
+  .info-line .k { color: var(--gray-500); font-weight: 600; }
+  .info-line .v { color: var(--ink); font-weight: 600; }
+  .totals-box { width: 480px; margin-left: auto; border: 1px solid var(--gray-200); border-radius: var(--r-md); overflow: hidden; margin-top: var(--sp-6); }
+  .totals-row { display: flex; justify-content: space-between; padding: 14px var(--sp-5); border-bottom: 1px solid var(--gray-150); }
+  .totals-row:last-child { border-bottom: none; }
+  .totals-row .lbl { color: var(--gray-600); }
+  .totals-row.grand .lbl, .totals-row.grand .val { color: var(--primary); font-family: var(--font-display); font-weight: 700; font-size: 16px; }
+  .dash-foot { color: var(--gray-500); font-size: 13px; padding: var(--sp-8) 0 var(--sp-4); }
+  .dash-foot a { font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="gg-app" id="app">
+  <aside class="gg-sidebar">
+    <div class="gg-brand"><div class="gg-brand-mark">G</div><span class="gg-brand-name">GildedGlow</span></div>
+    <div class="gg-sidebar-search"><div class="gg-input-icon"><i data-lucide="search"></i><input class="gg-input" type="text" placeholder="Search" /></div></div>
+    <nav class="gg-nav" id="nav">
+      <div class="gg-nav-item"><i data-lucide="layout-dashboard" class="gg-nav-ico"></i><span class="gg-nav-label">Dashboard</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="boxes" class="gg-nav-ico"></i><span class="gg-nav-label">Products</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">Products</span></div><div class="gg-nav-item"><span class="gg-nav-label">Product Categories</span></div><div class="gg-nav-item"><span class="gg-nav-label">Brands</span></div><div class="gg-nav-item"><span class="gg-nav-label">Units</span></div><div class="gg-nav-item"><span class="gg-nav-label">Base Units</span></div><div class="gg-nav-item"><span class="gg-nav-label">Print Barcode</span></div></div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="sliders-horizontal" class="gg-nav-ico"></i><span class="gg-nav-label">Adjustments</span></div>
+      <div class="gg-nav-item"><i data-lucide="file-text" class="gg-nav-ico"></i><span class="gg-nav-label">Quotations</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="receipt" class="gg-nav-ico"></i><span class="gg-nav-label">Purchases</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">Purchases</span></div><div class="gg-nav-item"><span class="gg-nav-label">Purchases Returns</span></div></div>
+      </div>
+      <div class="gg-nav-group is-open">
+        <div class="gg-nav-item"><i data-lucide="shopping-cart" class="gg-nav-ico"></i><span class="gg-nav-label">Sales</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub">
+          <div class="gg-nav-item is-active"><i data-lucide="shopping-cart" class="gg-nav-ico"></i><span class="gg-nav-label">Sales</span></div>
+          <div class="gg-nav-item"><i data-lucide="corner-up-right" class="gg-nav-ico"></i><span class="gg-nav-label">Sales Returns</span></div>
+        </div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="repeat" class="gg-nav-ico"></i><span class="gg-nav-label">Transfers</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="wallet" class="gg-nav-ico"></i><span class="gg-nav-label">Expenses</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">Expenses</span></div><div class="gg-nav-item"><span class="gg-nav-label">Expense Categories</span></div></div>
+      </div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="users" class="gg-nav-ico"></i><span class="gg-nav-label">Peoples</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">Customers</span></div><div class="gg-nav-item"><span class="gg-nav-label">Suppliers</span></div><div class="gg-nav-item"><span class="gg-nav-label">Users</span></div></div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="shield-check" class="gg-nav-ico"></i><span class="gg-nav-label">Roles/Permissions</span></div>
+      <div class="gg-nav-item"><i data-lucide="warehouse" class="gg-nav-ico"></i><span class="gg-nav-label">Warehouse</span></div>
+      <div class="gg-nav-item"><i data-lucide="bar-chart-3" class="gg-nav-ico"></i><span class="gg-nav-label">Reports</span></div>
+      <div class="gg-nav-item"><i data-lucide="dollar-sign" class="gg-nav-ico"></i><span class="gg-nav-label">Currencies</span></div>
+      <div class="gg-nav-item"><i data-lucide="languages" class="gg-nav-ico"></i><span class="gg-nav-label">Languages</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="layout-template" class="gg-nav-ico"></i><span class="gg-nav-label">Templates</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">SMS Templates</span></div><div class="gg-nav-item"><span class="gg-nav-label">Email Templates</span></div></div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="settings" class="gg-nav-ico"></i><span class="gg-nav-label">Settings</span></div>
+    </nav>
+  </aside>
+
+  <div class="gg-main">
+    <header class="gg-topbar">
+      <button class="gg-icon-btn" id="collapseBtn"><i data-lucide="menu"></i></button>
+      <div class="gg-topbar-title"><span class="gg-page-chip"><i data-lucide="plus"></i></span><span class="gg-breadcrumb">Sales</span></div>
+      <div class="gg-topbar-spacer"></div>
+      <button class="gg-pos-btn"><i data-lucide="monitor" style="width:16px;height:16px;"></i> POS</button>
+      <button class="gg-icon-btn"><i data-lucide="grid-2x2"></i></button>
+      <div class="gg-user"><div class="gg-avatar">A</div><span style="font-weight:600;color:var(--ink);font-size:14px;">admin</span><i data-lucide="chevron-down" style="width:16px;height:16px;color:var(--gray-400);"></i></div>
+    </header>
+
+    <main class="gg-content">
+      <div class="page-head">
+        <h1 class="gg-page-title">Sale Details</h1>
+        <button class="gg-btn gg-btn--secondary"><i data-lucide="arrow-left"></i> Back</button>
+      </div>
+
+      <div class="gg-card gg-card-pad">
+        <div class="pd-title">Sale Details : SA_11149</div>
+
+        <div class="info-grid">
+          <div class="info-panel">
+            <div class="band">Customer Info</div>
+            <div class="info-body">
+              <div class="info-row"><i data-lucide="user"></i><span>direct-customer</span></div>
+              <div class="info-row"><i data-lucide="mail"></i><span>customer@gildedglow.com</span></div>
+              <div class="info-row"><i data-lucide="smartphone"></i><span class="gg-num">123456789</span></div>
+              <div class="info-row"><i data-lucide="map-pin"></i><span>Dr Asma</span></div>
+            </div>
+          </div>
+          <div class="info-panel">
+            <div class="band">Company Info</div>
+            <div class="info-body">
+              <div class="info-row"><i data-lucide="user"></i><span>GildedGlow</span></div>
+              <div class="info-row"><i data-lucide="mail"></i><span>support@gildedglow.com</span></div>
+              <div class="info-row"><i data-lucide="smartphone"></i><span class="gg-num">01708750611</span></div>
+              <div class="info-row"><i data-lucide="map-pin"></i><span>Sector: 10, Road: 06, Uttara, Dhaka, Bangladesh.</span></div>
+            </div>
+          </div>
+          <div class="info-panel">
+            <div class="band">Invoice Info</div>
+            <div class="info-body">
+              <div class="info-line"><span class="k">Reference :</span><span class="v">SA_11149</span></div>
+              <div class="info-line" style="align-items:center;"><span class="k">Status :</span><span class="gg-badge gg-badge--success">Received</span></div>
+              <div class="info-line"><span class="k">Warehouse :</span><span class="v">Office</span></div>
+              <div class="info-line" style="align-items:center;"><span class="k">Payment Status :</span><span class="gg-badge gg-badge--success">Paid</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="band" style="border-radius:var(--r-md);margin-bottom:var(--sp-5);">Order Summary</div>
+        <div class="gg-table-wrap">
+          <table class="gg-table">
+            <thead><tr><th>Product</th><th>Net Unit Cost</th><th>Quantity</th><th>Unit Cost</th><th>Discount</th><th>Tax</th><th style="text-align:right;">Subtotal</th></tr></thead>
+            <tbody>
+              <tr>
+                <td class="gg-td-strong">001 (FACE FAT AND DOUBLE CHIN)</td>
+                <td class="gg-num">$ 3,490.00</td>
+                <td class="gg-num">12</td>
+                <td class="gg-num">$ 3,490.00</td>
+                <td class="gg-num">$ 0.00</td>
+                <td class="gg-num">$ 0.00</td>
+                <td class="gg-num gg-td-strong" style="text-align:right;">$ 41,880.00</td>
+              </tr>
+              <tr>
+                <td class="gg-td-strong">002 (ipl laser hair removal)</td>
+                <td class="gg-num">$ 3,990.00</td>
+                <td class="gg-num">6</td>
+                <td class="gg-num">$ 3,990.00</td>
+                <td class="gg-num">$ 0.00</td>
+                <td class="gg-num">$ 0.00</td>
+                <td class="gg-num gg-td-strong" style="text-align:right;">$ 23,940.00</td>
+              </tr>
+              <tr>
+                <td class="gg-td-strong">003uc (ultrasonic scrubber)</td>
+                <td class="gg-num">$ 2,990.00</td>
+                <td class="gg-num">2</td>
+                <td class="gg-num">$ 2,990.00</td>
+                <td class="gg-num">$ 0.00</td>
+                <td class="gg-num">$ 0.00</td>
+                <td class="gg-num gg-td-strong" style="text-align:right;">$ 5,980.00</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="totals-box">
+          <div class="totals-row"><span class="lbl">Order Tax</span><span class="val gg-num">$ 0.00 (0.00%)</span></div>
+          <div class="totals-row"><span class="lbl">Discount</span><span class="val gg-num">$ 0.00</span></div>
+          <div class="totals-row"><span class="lbl">Shipping</span><span class="val gg-num">$ 0.00</span></div>
+          <div class="totals-row grand"><span class="lbl">Grand Total</span><span class="val gg-num">$ 71,800.00</span></div>
+        </div>
+      </div>
+
+      <div class="dash-foot">All Rights Reserved &copy; 2026 <a href="#">GildedGlow</a></div>
+    </main>
+  </div>
+</div>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script>
+  lucide.createIcons();
+  document.getElementById('collapseBtn').addEventListener('click', () => document.getElementById('app').classList.toggle('is-collapsed'));
+  document.querySelectorAll('.gg-nav-group > .gg-nav-item').forEach(item => item.addEventListener('click', () => item.parentElement.classList.toggle('is-open')));
+</script>
+</body>
+</html>

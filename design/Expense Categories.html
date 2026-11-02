@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GildedGlow · Expense Categories</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/gildedglow.css" />
+<style>
+  .cat-thumb { width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--gray-200); background: linear-gradient(135deg,#F6E9CF,#E0B65F); display: grid; place-items: center; }
+  .cat-thumb svg { width: 20px; height: 20px; color: var(--gold-700); }
+  .act-btn { width: 36px; height: 36px; border-radius: var(--r-sm); border: none; background: transparent; display: grid; place-items: center; cursor: pointer; transition: background .14s; }
+  .act-btn svg { width: 18px; height: 18px; }
+  .act-edit { color: var(--info); } .act-edit:hover { background: var(--info-bg); }
+  .act-del { color: var(--danger); } .act-del:hover { background: var(--danger-bg); }
+  /* logo uploader inside modal */
+  .logo-drop { position: relative; width: 116px; height: 116px; border: 1px solid var(--gray-200); border-radius: var(--r-md); background: var(--gray-50); display: grid; place-items: center; }
+  .logo-drop > .ph { width: 46px; height: 46px; color: var(--gray-300); }
+  .logo-edit { position: absolute; top: -10px; right: -10px; width: 30px; height: 30px; border-radius: 50%; background: var(--surface); border: 1px solid var(--gray-200); box-shadow: var(--shadow-sm); display: grid; place-items: center; cursor: pointer; color: var(--info); }
+  .logo-edit svg { width: 15px; height: 15px; }
+  .dash-foot { color: var(--gray-500); font-size: 13px; padding: var(--sp-8) 0 var(--sp-4); }
+  .dash-foot a { font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="gg-app" id="app">
+  <aside class="gg-sidebar">
+    <div class="gg-brand"><div class="gg-brand-mark">G</div><span class="gg-brand-name">GildedGlow</span></div>
+    <div class="gg-sidebar-search"><div class="gg-input-icon"><i data-lucide="search"></i><input class="gg-input" type="text" placeholder="Search" /></div></div>
+    <nav class="gg-nav" id="nav">
+      <div class="gg-nav-item"><i data-lucide="layout-dashboard" class="gg-nav-ico"></i><span class="gg-nav-label">Dashboard</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="boxes" class="gg-nav-ico"></i><span class="gg-nav-label">Products</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">Products</span></div><div class="gg-nav-item"><span class="gg-nav-label">Product Categories</span></div><div class="gg-nav-item"><span class="gg-nav-label">Brands</span></div><div class="gg-nav-item"><span class="gg-nav-label">Units</span></div><div class="gg-nav-item"><span class="gg-nav-label">Base Units</span></div><div class="gg-nav-item"><span class="gg-nav-label">Print Barcode</span></div></div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="sliders-horizontal" class="gg-nav-ico"></i><span class="gg-nav-label">Adjustments</span></div>
+      <div class="gg-nav-item"><i data-lucide="file-text" class="gg-nav-ico"></i><span class="gg-nav-label">Quotations</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="receipt" class="gg-nav-ico"></i><span class="gg-nav-label">Purchases</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">Purchases</span></div><div class="gg-nav-item"><span class="gg-nav-label">Purchases Returns</span></div></div>
+      </div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="shopping-cart" class="gg-nav-ico"></i><span class="gg-nav-label">Sales</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">Sales</span></div><div class="gg-nav-item"><span class="gg-nav-label">Sales Returns</span></div></div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="repeat" class="gg-nav-ico"></i><span class="gg-nav-label">Transfers</span></div>
+      <div class="gg-nav-group is-open">
+        <div class="gg-nav-item"><i data-lucide="wallet" class="gg-nav-ico"></i><span class="gg-nav-label">Expenses</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub">
+          <div class="gg-nav-item"><i data-lucide="wallet" class="gg-nav-ico"></i><span class="gg-nav-label">Expenses</span></div>
+          <div class="gg-nav-item is-active"><i data-lucide="list" class="gg-nav-ico"></i><span class="gg-nav-label">Expense Categories</span></div>
+        </div>
+      </div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="users" class="gg-nav-ico"></i><span class="gg-nav-label">Peoples</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">Customers</span></div><div class="gg-nav-item"><span class="gg-nav-label">Suppliers</span></div><div class="gg-nav-item"><span class="gg-nav-label">Users</span></div></div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="shield-check" class="gg-nav-ico"></i><span class="gg-nav-label">Roles/Permissions</span></div>
+      <div class="gg-nav-item"><i data-lucide="warehouse" class="gg-nav-ico"></i><span class="gg-nav-label">Warehouse</span></div>
+      <div class="gg-nav-item"><i data-lucide="bar-chart-3" class="gg-nav-ico"></i><span class="gg-nav-label">Reports</span></div>
+      <div class="gg-nav-item"><i data-lucide="dollar-sign" class="gg-nav-ico"></i><span class="gg-nav-label">Currencies</span></div>
+      <div class="gg-nav-item"><i data-lucide="languages" class="gg-nav-ico"></i><span class="gg-nav-label">Languages</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="layout-template" class="gg-nav-ico"></i><span class="gg-nav-label">Templates</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">SMS Templates</span></div><div class="gg-nav-item"><span class="gg-nav-label">Email Templates</span></div></div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="settings" class="gg-nav-ico"></i><span class="gg-nav-label">Settings</span></div>
+    </nav>
+  </aside>
+
+  <div class="gg-main">
+    <header class="gg-topbar">
+      <button class="gg-icon-btn" id="collapseBtn"><i data-lucide="menu"></i></button>
+      <div class="gg-topbar-title"><span class="gg-page-chip"><i data-lucide="plus"></i></span><span class="gg-breadcrumb">Expense Categories</span></div>
+      <div class="gg-topbar-spacer"></div>
+      <button class="gg-pos-btn"><i data-lucide="monitor" style="width:16px;height:16px;"></i> POS</button>
+      <button class="gg-icon-btn"><i data-lucide="grid-2x2"></i></button>
+      <div class="gg-user"><div class="gg-avatar">A</div><span style="font-weight:600;color:var(--ink);font-size:14px;">admin</span><i data-lucide="chevron-down" style="width:16px;height:16px;color:var(--gray-400);"></i></div>
+    </header>
+
+    <main class="gg-content">
+      <div class="gg-table-toolbar">
+        <div class="gg-input-icon" style="max-width:460px;width:100%;"><i data-lucide="search"></i><input class="gg-input" placeholder="Search" /></div>
+        <div class="gg-spacer"></div>
+        <button class="gg-btn gg-btn--primary" id="openModal"><i data-lucide="plus"></i> Create Expense Category</button>
+      </div>
+
+      <div class="gg-card gg-card-pad">
+        <div class="gg-table-wrap">
+          <table class="gg-table">
+            <thead><tr><th>Name</th><th style="text-align:right;">Action</th></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="gg-pagination">
+          <div class="gg-perpage"><span class="gg-muted">Records per page</span><select class="gg-select"><option>10</option><option>25</option><option>50</option></select></div>
+          <span class="gg-muted gg-num">1–9 of 9</span>
+          <div class="gg-spacer"></div>
+          <button class="gg-page-btn"><i data-lucide="chevrons-left"></i></button>
+          <button class="gg-page-btn"><i data-lucide="chevron-left"></i></button>
+          <button class="gg-page-btn"><i data-lucide="chevron-right"></i></button>
+          <button class="gg-page-btn"><i data-lucide="chevrons-right"></i></button>
+        </div>
+      </div>
+
+      <div class="dash-foot">All Rights Reserved &copy; 2026 <a href="#">GildedGlow</a></div>
+    </main>
+  </div>
+</div>
+
+<!-- ============================================ MODAL ============ -->
+<div class="gg-overlay" id="overlay">
+  <div class="gg-modal" role="dialog" aria-modal="true">
+    <div class="gg-modal-head">
+      <span class="gg-card-title">Create Expense Category</span>
+      <button class="gg-modal-close" id="closeModal"><i data-lucide="x"></i></button>
+    </div>
+    <div class="gg-modal-body">
+      <div class="gg-field"><label class="gg-label">Name <span class="gg-req">*</span></label><input class="gg-input" placeholder="Enter Name" /></div>
+    </div>
+    <div class="gg-modal-foot">
+      <button class="gg-btn gg-btn--primary"><i data-lucide="check"></i> Save</button>
+      <button class="gg-btn gg-btn--secondary" id="cancelModal">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script>
+  lucide.createIcons();
+  document.getElementById('collapseBtn').addEventListener('click', () => document.getElementById('app').classList.toggle('is-collapsed'));
+  document.querySelectorAll('.gg-nav-group > .gg-nav-item').forEach(item => item.addEventListener('click', () => item.parentElement.classList.toggle('is-open')));
+
+  const cats = ["USA Raju Payment","Shopping Bag Cost","Office Cost","Marketing FB Live","Transportation","TA/TD","Other Cost","Arabi Salary","Shohan Salary"];
+  document.getElementById('tbody').innerHTML = cats.map(c=>`
+    <tr>
+      <td><span class="gg-td-strong">${c}</span></td>
+      <td>
+        <div class="gg-row gg-gap-2" style="justify-content:flex-end;">
+          <button class="act-btn act-edit editRow"><i data-lucide="pencil"></i></button>
+          <button class="act-btn act-del"><i data-lucide="trash-2"></i></button>
+        </div>
+      </td>
+    </tr>`).join('');
+  lucide.createIcons();
+
+  const overlay = document.getElementById('overlay');
+  const open = () => overlay.classList.add('is-open');
+  const close = () => overlay.classList.remove('is-open');
+  document.getElementById('openModal').addEventListener('click', open);
+  document.querySelectorAll('.editRow').forEach(b => b.addEventListener('click', open));
+  document.getElementById('closeModal').addEventListener('click', close);
+  document.getElementById('cancelModal').addEventListener('click', close);
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+</script>
+</body>
+</html>

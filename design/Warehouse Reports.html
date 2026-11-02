@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GildedGlow · Warehouse Reports</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/gildedglow.css" />
+<style>
+  .date-field { position: relative; }
+  .date-field svg { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: var(--gray-500); pointer-events: none; }
+  .date-field .gg-input { padding-right: 46px; color: var(--gray-500); }
+  .action-cell { position: relative; }
+  .action-cell .gg-menu { position: absolute; right: 44px; top: 6px; z-index: 25; display: none; }
+  .action-cell.is-open .gg-menu { display: block; }
+  .dash-foot { color: var(--gray-500); font-size: 13px; padding: var(--sp-8) 0 var(--sp-4); }
+  .dash-foot a { font-weight: 600; }
+  .gg-check { width: 18px; height: 18px; border: 1.5px solid var(--gray-300); border-radius: var(--r-xs); background: #fff; cursor: pointer; appearance: none; -webkit-appearance: none; position: relative; flex: none; transition: border-color .15s, background .15s; }
+  .gg-check:checked { background: var(--gold-600); border-color: var(--gold-600); }
+  .gg-check:checked::after { content: ""; position: absolute; left: 5px; top: 2px; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+  .row-acts { display: inline-flex; align-items: center; gap: 6px; }
+  .row-acts button { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--r-sm); border: none; background: transparent; cursor: pointer; transition: background .15s; }
+  .row-acts button:hover { background: var(--gray-100); }
+  .row-acts button svg { width: 17px; height: 17px; }
+  .row-acts .act-view { color: var(--success-fg); }
+  .row-acts .act-edit { color: var(--info-fg); }
+  .row-acts .act-del { color: var(--danger); }
+  .ppl-cell { display: flex; flex-direction: column; gap: 3px; }
+  .ppl-cell .nm { font-family: var(--font-display); font-weight: 600; color: var(--gold-700); font-size: 14px; cursor: pointer; }
+  .ppl-cell .nm:hover { text-decoration: underline; }
+  .ppl-cell .em { color: var(--gray-600); font-size: 13px; }
+  .ppl-name { display: flex; align-items: center; gap: var(--sp-3); }
+  .ppl-ava { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, var(--gold-500), var(--gold-700)); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 600; font-size: 13px; flex: none; }
+  .rpt-tabs { display: flex; align-items: center; gap: var(--sp-6); margin-left: var(--sp-5); overflow-x: auto; }
+  .rpt-tab { font-size: 14px; color: var(--gray-600); font-weight: 500; cursor: pointer; padding: 6px 0; position: relative; white-space: nowrap; text-decoration: none; }
+  .rpt-tab:hover { color: var(--ink); }
+  .rpt-tab.is-active { color: var(--gold-700); font-weight: 600; }
+  .rpt-tab.is-active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; background: var(--gold-600); border-radius: 2px; }
+  .rpt-more { display: inline-flex; align-items: center; gap: 4px; }
+  .wh-filter { max-width: 560px; margin: 0 auto var(--sp-7); text-align: center; }
+  .wh-filter label { display: block; font-weight: 600; color: var(--ink); margin-bottom: var(--sp-3); font-size: 14px; }
+  .rpt-toolbar { display: flex; align-items: center; gap: var(--sp-4); margin-bottom: var(--sp-6); }
+  .btn-icon-gold { width: 46px; height: 42px; border-radius: var(--r-md); background: var(--gold-600); color: #fff; border: none; display: grid; place-items: center; cursor: pointer; transition: background .15s; }
+  .btn-icon-gold:hover { background: var(--gold-700); }
+  .btn-icon-gold svg { width: 18px; height: 18px; }
+  .btn-excel { height: 42px; padding: 0 22px; border-radius: var(--r-md); background: var(--gold-600); color: #fff; border: none; font-weight: 600; font-family: var(--font-display); cursor: pointer; transition: background .15s; }
+  .btn-excel:hover { background: var(--gold-700); }
+  .btn-reports { height: 36px; padding: 0 24px; border-radius: var(--r-sm); background: var(--gold-600); color: #fff; border: none; font-weight: 600; font-family: var(--font-display); cursor: pointer; transition: background .15s; }
+  .btn-reports:hover { background: var(--gold-700); }
+  .date-pick { display: inline-flex; align-items: center; gap: 12px; height: 42px; padding: 0 16px; border: 1px solid var(--gray-200); border-radius: var(--r-md); background: #fff; color: var(--gray-500); font-size: 14px; }
+  .date-pick svg { width: 18px; height: 18px; }
+  .rpt-subtabs { display: flex; gap: var(--sp-7); border-bottom: 1px solid var(--gray-200); margin-bottom: var(--sp-6); }
+  .rpt-subtab { padding: 0 0 12px; font-size: 14px; color: var(--gray-600); font-weight: 500; cursor: pointer; position: relative; }
+  .rpt-subtab:hover { color: var(--ink); }
+  .rpt-subtab.is-active { color: var(--gold-700); font-weight: 600; }
+  .rpt-subtab.is-active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--gold-600); }
+  .stock-count { display: inline-flex; align-items: center; height: 24px; padding: 0 11px; border-radius: var(--r-sm); background: var(--info-bg); color: var(--info-fg); font-weight: 600; font-size: 13px; }
+  .gg-table--spaced { border-collapse: separate; border-spacing: 0 10px; }
+  .gg-table--spaced thead th { border: none; }
+  .gg-table--spaced tbody tr { background: #fff; box-shadow: var(--shadow-sm); }
+  .gg-table--spaced tbody td { border-top: none; border-bottom: none; }
+  .gg-table--spaced tbody td:first-child { border-radius: var(--r-md) 0 0 var(--r-md); }
+  .gg-table--spaced tbody td:last-child { border-radius: 0 var(--r-md) var(--r-md) 0; }
+</style>
+</head>
+<body>
+<div class="gg-app" id="app">
+  <aside class="gg-sidebar">
+    <div class="gg-brand"><div class="gg-brand-mark">G</div><span class="gg-brand-name">GildedGlow</span></div>
+    <div class="gg-sidebar-search"><div class="gg-input-icon"><i data-lucide="search"></i><input class="gg-input" type="text" placeholder="Search" /></div></div>
+    <nav class="gg-nav" id="nav">
+      <div class="gg-nav-item"><i data-lucide="layout-dashboard" class="gg-nav-ico"></i><span class="gg-nav-label">Dashboard</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="boxes" class="gg-nav-ico"></i><span class="gg-nav-label">Products</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">Products</span></div><div class="gg-nav-item"><span class="gg-nav-label">Product Categories</span></div><div class="gg-nav-item"><span class="gg-nav-label">Brands</span></div><div class="gg-nav-item"><span class="gg-nav-label">Units</span></div><div class="gg-nav-item"><span class="gg-nav-label">Base Units</span></div><div class="gg-nav-item"><span class="gg-nav-label">Print Barcode</span></div></div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="sliders-horizontal" class="gg-nav-ico"></i><span class="gg-nav-label">Adjustments</span></div>
+      <div class="gg-nav-item"><i data-lucide="file-text" class="gg-nav-ico"></i><span class="gg-nav-label">Quotations</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="receipt" class="gg-nav-ico"></i><span class="gg-nav-label">Purchases</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">Purchases</span></div><div class="gg-nav-item"><span class="gg-nav-label">Purchases Returns</span></div></div>
+      </div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="shopping-cart" class="gg-nav-ico"></i><span class="gg-nav-label">Sales</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">Sales</span></div><div class="gg-nav-item"><span class="gg-nav-label">Sales Returns</span></div></div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="repeat" class="gg-nav-ico"></i><span class="gg-nav-label">Transfers</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="wallet" class="gg-nav-ico"></i><span class="gg-nav-label">Expenses</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">Expenses</span></div><div class="gg-nav-item"><span class="gg-nav-label">Expense Categories</span></div></div>
+      </div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="users" class="gg-nav-ico"></i><span class="gg-nav-label">Peoples</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub">
+          <div class="gg-nav-item"><i data-lucide="truck" class="gg-nav-ico"></i><span class="gg-nav-label">Suppliers</span></div>
+          <div class="gg-nav-item"><i data-lucide="users" class="gg-nav-ico"></i><span class="gg-nav-label">Customers</span></div>
+          <div class="gg-nav-item"><i data-lucide="user" class="gg-nav-ico"></i><span class="gg-nav-label">Users</span></div>
+        </div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="shield-check" class="gg-nav-ico"></i><span class="gg-nav-label">Roles/Permissions</span></div>
+      <div class="gg-nav-item"><i data-lucide="warehouse" class="gg-nav-ico"></i><span class="gg-nav-label">Warehouse</span></div>
+      <div class="gg-nav-item is-active"><i data-lucide="bar-chart-3" class="gg-nav-ico"></i><span class="gg-nav-label">Reports</span></div>
+      <div class="gg-nav-item"><i data-lucide="dollar-sign" class="gg-nav-ico"></i><span class="gg-nav-label">Currencies</span></div>
+      <div class="gg-nav-item"><i data-lucide="languages" class="gg-nav-ico"></i><span class="gg-nav-label">Languages</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="layout-template" class="gg-nav-ico"></i><span class="gg-nav-label">Templates</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">SMS Templates</span></div><div class="gg-nav-item"><span class="gg-nav-label">Email Templates</span></div></div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="settings" class="gg-nav-ico"></i><span class="gg-nav-label">Settings</span></div>
+    </nav>
+  </aside>
+
+  <div class="gg-main">
+    <header class="gg-topbar">
+      <button class="gg-icon-btn" id="collapseBtn"><i data-lucide="menu"></i></button>
+      <div class="gg-topbar-title"><span class="gg-page-chip"><i data-lucide="plus"></i></span></div>
+      <nav class="rpt-tabs">
+        <a class="rpt-tab is-active" href="Warehouse Reports.html">Warehouse Reports</a>
+        <a class="rpt-tab" href="Sale Reports.html">Sale Reports</a>
+        <a class="rpt-tab" href="Stock Reports.html">Stock Reports</a>
+        <a class="rpt-tab" href="Purchase Reports.html">Purchase Reports</a>
+        <a class="rpt-tab" href="#">Top Selling Products Reports</a>
+        <a class="rpt-tab rpt-more" href="#">More <i data-lucide="chevron-down" style="width:15px;height:15px;"></i></a>
+      </nav>
+      <div class="gg-topbar-spacer"></div>
+      <button class="gg-pos-btn"><i data-lucide="monitor" style="width:16px;height:16px;"></i> POS</button>
+      <button class="gg-icon-btn"><i data-lucide="grid-2x2"></i></button>
+      <div class="gg-user"><div class="gg-avatar">A</div><span style="font-weight:600;color:var(--ink);font-size:14px;">admin</span><i data-lucide="chevron-down" style="width:16px;height:16px;color:var(--gray-400);"></i></div>
+    </header>
+
+    <main class="gg-content">
+      <div class="wh-filter">
+        <label>Warehouse :</label>
+        <select class="gg-select"><option>All Warehouse</option><option>Office</option><option>Warehouse 2</option></select>
+      </div>
+
+      <div class="gg-kpi-grid" style="margin-bottom:var(--sp-7);">
+        <div class="gg-kpi gg-kpi--violet"><div class="gg-kpi-ico"><i data-lucide="shopping-cart"></i></div><div class="gg-kpi-body"><span class="gg-kpi-value gg-num">49.00</span><span class="gg-kpi-label">Sales</span></div></div>
+        <div class="gg-kpi gg-kpi--emerald"><div class="gg-kpi-ico"><i data-lucide="shopping-bag"></i></div><div class="gg-kpi-body"><span class="gg-kpi-value gg-num">9.00</span><span class="gg-kpi-label">Purchases</span></div></div>
+        <div class="gg-kpi gg-kpi--blue"><div class="gg-kpi-ico"><i data-lucide="arrow-right"></i></div><div class="gg-kpi-body"><span class="gg-kpi-value gg-num">6.00</span><span class="gg-kpi-label">Sales Return</span></div></div>
+        <div class="gg-kpi gg-kpi--orange"><div class="gg-kpi-ico"><i data-lucide="arrow-left"></i></div><div class="gg-kpi-body"><span class="gg-kpi-value gg-num">4.00</span><span class="gg-kpi-label">Purchases Return</span></div></div>
+      </div>
+
+      <div class="rpt-subtabs">
+        <span class="rpt-subtab is-active" style="margin: 0px 10px 0px 0px; font-size: 16px">Sales</span>
+        <span class="rpt-subtab" style="padding: 0px 100px 12px 0px; font-size: 16px">Sales Returns</span>
+        <span class="rpt-subtab" style="padding: 0px 10px 12px 0px; font-size: 16px">Purchases Returns</span>
+        <span class="rpt-subtab" style="font-size: 16px">Expenses</span>
+      </div>
+
+      <div class="rpt-toolbar">
+        <div class="gg-input-icon" style="max-width:440px;width:100%;"><i data-lucide="search"></i><input class="gg-input" placeholder="Search" /></div>
+        <div class="gg-spacer"></div>
+        <button class="btn-icon-gold"><i data-lucide="filter"></i></button>
+        <button class="btn-excel">EXCEL</button>
+      </div>
+
+      <div class="gg-card gg-card-pad">
+        <div class="gg-table-wrap">
+          <table class="gg-table">
+            <thead><tr><th>Reference</th><th>Customer</th><th>Warehouse</th><th>Status</th><th>Grand Total</th><th>Paid</th><th>Due</th><th>Payment Status</th></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="gg-pagination">
+          <div class="gg-perpage"><span class="gg-muted">Records per page</span><select class="gg-select"><option>10</option><option>25</option><option>50</option></select></div>
+          <span class="gg-muted gg-num">1–10 of 49</span>
+          <div class="gg-spacer"></div>
+          <button class="gg-page-btn"><i data-lucide="chevrons-left"></i></button>
+          <button class="gg-page-btn"><i data-lucide="chevron-left"></i></button>
+          <button class="gg-page-btn"><i data-lucide="chevron-right"></i></button>
+          <button class="gg-page-btn"><i data-lucide="chevrons-right"></i></button>
+        </div>
+      </div>
+
+      <div class="dash-foot">All Rights Reserved &copy; 2026 <a href="#">GildedGlow</a></div>
+    </main>
+  </div>
+</div>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script>
+  const rows = Array.from({length:10}, (_,i)=>{
+    const refs=["SA_11149","SA_11148","SA_11147","SA_11146","SA_11145","SA_11144","SA_11143","SA_11142","SA_11141","SA_11140"];
+    const totals=["71,800.00","31,920.00","7,980.00","11,970.00","7,980.00","7,480.00","11,970.00","11,470.00","11,970.00","11,970.00"];
+    return [refs[i], totals[i]];
+  });
+  document.getElementById('tbody').innerHTML = rows.map(r=>`
+    <tr>
+      <td><span class="gg-chip-code">${r[0]}</span></td>
+      <td>direct-customer</td>
+      <td>Office</td>
+      <td><span class="gg-badge gg-badge--success">Received</span></td>
+      <td class="gg-num gg-td-strong">$ ${r[1]}</td>
+      <td class="gg-num">$ ${r[1]}</td>
+      <td class="gg-num">$ 0.00</td>
+      <td><span class="gg-badge gg-badge--success">Paid</span></td>
+    </tr>`).join('');
+
+  lucide.createIcons();
+  document.getElementById('collapseBtn').addEventListener('click', () => document.getElementById('app').classList.toggle('is-collapsed'));
+  document.querySelectorAll('.gg-nav-group > .gg-nav-item').forEach(item => item.addEventListener('click', () => item.parentElement.classList.toggle('is-open')));
+  document.querySelectorAll('.rpt-subtab').forEach(t => t.addEventListener('click', () => {
+    document.querySelectorAll('.rpt-subtab').forEach(x => x.classList.remove('is-active'));
+    t.classList.add('is-active');
+  }));
+</script>
+</body>
+</html>

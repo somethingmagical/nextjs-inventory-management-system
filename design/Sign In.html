@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GildedGlow · Sign In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/gildedglow.css" />
+<style>
+  html, body { height: 100%; }
+  body { background: var(--canvas); display: grid; place-items: center; }
+  .auth { width: 540px; max-width: calc(100vw - 48px); display: flex; flex-direction: column; align-items: center; }
+  .auth-ava { width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, var(--gold-400), var(--gold-700)); display: grid; place-items: center; box-shadow: var(--shadow-md); margin-bottom: var(--sp-6); overflow: hidden; }
+  .auth-ava svg { width: 36px; height: 36px; color: #fff; }
+  .auth-card { width: 100%; background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow-md); padding: var(--sp-8) var(--sp-10) var(--sp-10); }
+  .auth-title { font-family: var(--font-display); font-weight: 700; font-size: 26px; color: var(--ink); text-align: center; margin: 0 0 var(--sp-8); letter-spacing: -.01em; }
+  .auth-field { margin-bottom: var(--sp-6); }
+  .auth-label-row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: var(--sp-3); }
+  .auth-label { font-family: var(--font-display); font-weight: 600; font-size: 14px; color: var(--ink); }
+  .auth-label .req { color: var(--danger); }
+  .auth-forgot { font-size: 14px; font-weight: 600; color: var(--gold-600); text-decoration: none; }
+  .auth-forgot:hover { color: var(--gold-700); text-decoration: underline; }
+  .auth-input { width: 100%; height: 52px; border: 1px solid var(--gray-200); border-radius: var(--r-md); padding: 0 18px; font-family: var(--font-body); font-size: 15px; color: var(--ink); outline: none; transition: border-color .15s, box-shadow .15s; }
+  .auth-input::placeholder { color: var(--gray-400); }
+  .auth-input:focus { border-color: var(--gold-400); box-shadow: var(--ring); }
+  .auth-btn { width: 100%; height: 54px; margin-top: var(--sp-5); border: none; border-radius: var(--r-md); background: var(--gold-600); color: #fff; font-family: var(--font-display); font-weight: 600; font-size: 16px; cursor: pointer; transition: background .15s; }
+  .auth-btn:hover { background: var(--gold-700); }
+</style>
+</head>
+<body>
+<div class="auth">
+  <div class="auth-ava"><i data-lucide="user-round"></i></div>
+  <div class="auth-card">
+    <h1 class="auth-title">Sign In</h1>
+    <form onsubmit="return false;">
+      <div class="auth-field">
+        <div class="auth-label-row"><label class="auth-label">Email : <span class="req">*</span></label></div>
+        <input class="auth-input" type="email" placeholder="Enter Email" />
+      </div>
+      <div class="auth-field">
+        <div class="auth-label-row">
+          <label class="auth-label">Password: <span class="req">*</span></label>
+          <a href="#" class="auth-forgot">Forgot Password ?</a>
+        </div>
+        <input class="auth-input" type="password" placeholder="Enter Password" />
+      </div>
+      <button class="auth-btn" type="submit">Login</button>
+    </form>
+  </div>
+</div>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script>
+  lucide.createIcons();
+</script>
+</body>
+</html>

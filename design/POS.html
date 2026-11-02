@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GildedGlow · POS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/gildedglow.css" />
+<style>
+  html, body { height: 100%; }
+  body { background: var(--canvas); overflow: hidden; }
+  .pos { display: grid; grid-template-columns: 620px 1fr; gap: var(--sp-4); height: 100vh; padding: var(--sp-4); }
+  .pos-col { display: flex; flex-direction: column; gap: var(--sp-4); min-height: 0; }
+
+  /* ---- top bars ---- */
+  .pos-bar { display: flex; gap: var(--sp-3); flex: none; }
+  .cust-box { flex: 1; display: flex; align-items: stretch; background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); overflow: hidden; }
+  .cust-box .who { flex: 1; display: flex; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-5); font-weight: 600; color: var(--ink); }
+  .cust-box .who svg { width: 18px; height: 18px; color: var(--gray-500); }
+  .cust-box .add { width: 62px; background: var(--gold-600); color: #fff; border: none; display: grid; place-items: center; cursor: pointer; transition: background .15s; }
+  .cust-box .add:hover { background: var(--gold-700); }
+  .cust-box .add svg { width: 20px; height: 20px; }
+  .wh-box { width: 250px; display: flex; align-items: center; gap: var(--sp-3); background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); padding: 0 var(--sp-5); height: 70px; cursor: pointer; }
+  .wh-box svg.h { width: 18px; height: 18px; color: var(--gray-500); }
+  .wh-box .nm { flex: 1; font-weight: 600; color: var(--ink); }
+  .wh-box svg.c { width: 18px; height: 18px; color: var(--gray-400); }
+
+  .search-box { flex: 1; display: flex; align-items: center; gap: var(--sp-3); background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); padding: 0 var(--sp-6); height: 70px; }
+  .search-box svg { width: 22px; height: 22px; color: var(--gray-400); }
+  .search-box input { flex: 1; border: none; outline: none; font-family: var(--font-body); font-size: 17px; color: var(--ink); background: transparent; }
+  .search-box input::placeholder { color: var(--gray-400); }
+  .pos-tools { display: flex; gap: var(--sp-3); }
+  .tool { position: relative; width: 70px; height: 70px; border-radius: var(--r-lg); border: none; cursor: pointer; display: grid; place-items: center; box-shadow: var(--shadow-sm); transition: filter .15s; }
+  .tool:hover { filter: brightness(.96); }
+  .tool svg { width: 26px; height: 26px; color: #fff; }
+  .tool--rose { background: var(--tile-rose); }
+  .tool--green { background: var(--success); }
+  .tool--gold { background: var(--gold-500); }
+  .tool .badge { position: absolute; top: -6px; right: -6px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: var(--r-pill); background: var(--gray-800); color: #fff; font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+
+  /* ---- cart card ---- */
+  .cart { flex: 1; display: flex; flex-direction: column; background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); padding: var(--sp-5) var(--sp-6); min-height: 0; }
+  .cart-head, .cart-row { display: grid; grid-template-columns: 1fr 132px 110px 110px 34px; align-items: center; gap: var(--sp-3); }
+  .cart-head > *, .cart-row > * { min-width: 0; }
+  .cart-head { padding-bottom: var(--sp-4); border-bottom: 1px solid var(--gray-200); }
+  .cart-head span { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--gray-500); }
+  .cart-body { flex: 1; overflow-y: auto; padding-top: var(--sp-4); }
+  .cart-row { padding: var(--sp-3) 0; }
+  .cart-row .pname { font-family: var(--font-display); font-weight: 600; color: var(--ink); font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cart-row .pmeta { display: flex; align-items: center; gap: var(--sp-2); margin-top: 5px; }
+  .pcode { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: var(--r-sm); background: var(--info-bg); color: var(--info-fg); font-weight: 600; font-size: 12px; }
+  .pedit { width: 24px; height: 24px; border: none; background: transparent; color: var(--gray-400); display: grid; place-items: center; cursor: pointer; }
+  .pedit svg { width: 14px; height: 14px; }
+  .stepper { display: inline-flex; align-items: center; gap: var(--sp-2); }
+  .stepper button { width: 34px; height: 34px; border-radius: var(--r-sm); border: none; background: var(--gold-50); color: var(--gold-700); display: grid; place-items: center; cursor: pointer; transition: background .15s; }
+  .stepper button:hover { background: var(--gold-100); }
+  .stepper button svg { width: 16px; height: 16px; }
+  .stepper .q { min-width: 22px; text-align: center; font-weight: 600; color: var(--ink); }
+  .cart-row .price, .cart-row .sub { font-variant-numeric: tabular-nums; color: var(--gray-600); }
+  .cart-row .sub { color: var(--ink); font-weight: 600; }
+  .cart-row .del { width: 30px; height: 30px; border: none; background: transparent; color: var(--danger); display: grid; place-items: center; cursor: pointer; }
+  .cart-row .del svg { width: 17px; height: 17px; }
+
+  /* ---- cart footer ---- */
+  .cart-foot { flex: none; padding-top: var(--sp-5); }
+  .foot-grid { display: grid; grid-template-columns: 300px 1fr; gap: var(--sp-6); align-items: end; }
+  .foot-fields { display: flex; flex-direction: column; gap: var(--sp-3); }
+  .foot-input { position: relative; }
+  .foot-input input { width: 100%; height: 50px; border: 1px solid var(--gray-200); border-radius: var(--r-md); padding: 0 46px 0 16px; font-family: var(--font-body); font-size: 15px; color: var(--ink); outline: none; }
+  .foot-input input:focus { border-color: var(--gold-400); box-shadow: var(--ring); }
+  .foot-input .suf { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: var(--gray-400); font-weight: 600; }
+  .totals { text-align: right; }
+  .totals .tq { color: var(--gray-600); font-size: 17px; }
+  .totals .st { color: var(--gray-700); font-size: 19px; margin-top: 6px; }
+  .totals .gt { font-family: var(--font-display); font-weight: 700; color: var(--ink); font-size: 28px; margin-top: 8px; letter-spacing: -.01em; }
+  .totals .gt b { color: var(--gold-700); }
+  .cart-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--sp-4); margin-top: var(--sp-5); }
+  .pos-btn { height: 58px; border: none; border-radius: var(--r-md); font-family: var(--font-display); font-weight: 600; font-size: 17px; color: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-3); transition: filter .15s; }
+  .pos-btn:hover { filter: brightness(.95); }
+  .pos-btn svg { width: 19px; height: 19px; }
+  .btn-hold { background: var(--tile-rose); }
+  .btn-reset { background: var(--danger); }
+  .btn-pay { background: var(--success); }
+
+  /* ---- products ---- */
+  .prods { flex: 1; display: flex; flex-direction: column; background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); padding: var(--sp-6); min-height: 0; }
+  .chip-row { display: flex; gap: var(--sp-3); margin-bottom: var(--sp-4); flex-wrap: wrap; }
+  .fchip { height: 44px; padding: 0 24px; border-radius: var(--r-md); border: 1px solid var(--gray-200); background: var(--gray-50); color: var(--gray-600); font-weight: 600; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; transition: all .15s; }
+  .fchip:hover { border-color: var(--gold-300); color: var(--ink); }
+  .fchip.is-active { background: var(--gold-600); border-color: var(--gold-600); color: #fff; }
+  .prod-grid { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: var(--sp-4); align-content: start; margin-top: var(--sp-2); }
+  .pcard { border: 1px solid var(--gray-200); border-radius: var(--r-lg); overflow: hidden; background: var(--surface); cursor: pointer; transition: box-shadow .15s, border-color .15s, transform .1s; }
+  .pcard:hover { box-shadow: var(--shadow-md); border-color: var(--gold-300); transform: translateY(-2px); }
+  .pcard .ph { position: relative; height: 152px; display: grid; place-items: center; }
+  .pcard .ph svg { width: 46px; height: 46px; color: rgba(255,255,255,.9); }
+  .pcard .tag { position: absolute; top: 9px; height: 24px; padding: 0 9px; border-radius: var(--r-sm); font-weight: 600; font-size: 12.5px; display: inline-flex; align-items: center; }
+  .pcard .price { left: 9px; background: rgba(255,255,255,.92); color: var(--info-fg); }
+  .pcard .stock { right: 9px; background: var(--info); color: #fff; }
+  .pcard .body { padding: var(--sp-3) var(--sp-4) var(--sp-4); }
+  .pcard .nm { font-family: var(--font-display); font-weight: 600; color: var(--ink); font-size: 14.5px; line-height: 1.3; min-height: 38px; }
+  .pcard .code { color: var(--gold-700); font-weight: 600; font-size: 13px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="pos">
+  <!-- ============================= LEFT : CART ============================= -->
+  <div class="pos-col">
+    <div class="pos-bar">
+      <div class="cust-box">
+        <div class="who"><i data-lucide="user"></i><span>direct-customer</span></div>
+        <button class="add" title="Add customer"><i data-lucide="user-plus"></i></button>
+      </div>
+      <div class="wh-box"><i data-lucide="home" class="h"></i><span class="nm">Office</span><i data-lucide="chevron-down" class="c"></i></div>
+    </div>
+
+    <div class="cart">
+      <div class="cart-head"><span>Product</span><span style="text-align:center;">Qty</span><span>Price</span><span>Sub Total</span><span></span></div>
+      <div class="cart-body" id="cartBody"></div>
+
+      <div class="cart-foot">
+        <div class="foot-grid">
+          <div class="foot-fields">
+            <div class="foot-input"><input placeholder="Tax" /><span class="suf">%</span></div>
+            <div class="foot-input"><input placeholder="Discount" /><span class="suf">$</span></div>
+            <div class="foot-input"><input placeholder="Shipping" /><span class="suf">$</span></div>
+          </div>
+          <div class="totals">
+            <div class="tq gg-num">Total QTY : <span id="tQty">2</span></div>
+            <div class="st gg-num">Sub Total : $ <span id="tSub">4,180.00</span></div>
+            <div class="gt gg-num">Total : <b>$ <span id="tTotal">4,180.00</span></b></div>
+          </div>
+        </div>
+        <div class="cart-actions">
+          <button class="pos-btn btn-hold">Hold <i data-lucide="hand"></i></button>
+          <button class="pos-btn btn-reset" id="resetBtn">Reset <i data-lucide="rotate-cw"></i></button>
+          <button class="pos-btn btn-pay">Pay Now <i data-lucide="banknote"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================= RIGHT : PRODUCTS ======================= -->
+  <div class="pos-col">
+    <div class="pos-bar">
+      <div class="search-box"><i data-lucide="search"></i><input placeholder="Scan/Search Product by Code Name" /></div>
+      <div class="pos-tools">
+        <button class="tool tool--rose"><i data-lucide="list"></i><span class="badge gg-num">0</span></button>
+        <button class="tool tool--green"><i data-lucide="shopping-bag"></i></button>
+        <button class="tool tool--gold"><i data-lucide="maximize"></i></button>
+        <button class="tool tool--gold"><i data-lucide="calculator"></i></button>
+        <button class="tool tool--gold"><i data-lucide="gauge"></i></button>
+      </div>
+    </div>
+
+    <div class="prods">
+      <div class="chip-row">
+        <button class="fchip is-active">All Categories</button>
+        <button class="fchip">Glow</button>
+      </div>
+      <div class="chip-row">
+        <button class="fchip is-active">All Brands</button>
+        <button class="fchip">GG</button>
+      </div>
+      <div class="prod-grid" id="prodGrid"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script>
+  /* ---------- cart ---------- */
+  const cart = [
+    { name: "Intensive Hair Serum Set", code: "001hs", price: 2490.00, qty: 1 },
+    { name: "Collagen Powder", code: "005cp", price: 1690.00, qty: 1 }
+  ];
+  const money = n => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  function renderCart() {
+    document.getElementById('cartBody').innerHTML = cart.map((it, i) => `
+      <div class="cart-row" data-i="${i}">
+        <div>
+          <div class="pname">${it.name}</div>
+          <div class="pmeta"><span class="pcode">${it.code}</span><button class="pedit"><i data-lucide="pencil"></i></button></div>
+        </div>
+        <div class="stepper">
+          <button class="dec"><i data-lucide="minus"></i></button>
+          <span class="q gg-num">${it.qty}</span>
+          <button class="inc"><i data-lucide="plus"></i></button>
+        </div>
+        <div class="price gg-num">$ ${money(it.price)}</div>
+        <div class="sub gg-num">$ ${money(it.price * it.qty)}</div>
+        <button class="del"><i data-lucide="trash-2"></i></button>
+      </div>`).join('');
+    lucide.createIcons();
+    wireRows();
+    renderTotals();
+  }
+  function renderTotals() {
+    const qty = cart.reduce((s, it) => s + it.qty, 0);
+    const sub = cart.reduce((s, it) => s + it.price * it.qty, 0);
+    document.getElementById('tQty').textContent = qty;
+    document.getElementById('tSub').textContent = money(sub);
+    document.getElementById('tTotal').textContent = money(sub);
+  }
+  function wireRows() {
+    document.querySelectorAll('.cart-row').forEach(row => {
+      const i = +row.dataset.i;
+      row.querySelector('.inc').onclick = () => { cart[i].qty++; renderCart(); };
+      row.querySelector('.dec').onclick = () => { if (cart[i].qty > 1) { cart[i].qty--; renderCart(); } };
+      row.querySelector('.del').onclick = () => { cart.splice(i, 1); renderCart(); };
+    });
+  }
+
+  /* ---------- products ---------- */
+  const products = [
+    { name: "FACE FAT AND DOUBLE CHIN", code: "001", price: 3490.00, stock: 2, c1: "#E48FA6", c2: "#C75C7E" },
+    { name: "ultrasonic scrubber", code: "003uc", price: 2990.00, stock: 7, c1: "#9FB6C9", c2: "#6E8BA6" },
+    { name: "intensive hair serum set", code: "001hs", price: 2490.00, stock: 94, c1: "#8FC9A6", c2: "#4E9E73" },
+    { name: "collagen powder", code: "005cp", price: 1690.00, stock: 110, c1: "#E8A6B4", c2: "#D06A82" },
+    { name: "lip care set", code: "006lpc", price: 1790.00, stock: 100, c1: "#E79BB0", c2: "#CE6B88" }
+  ];
+  document.getElementById('prodGrid').innerHTML = products.map(p => `
+    <div class="pcard">
+      <div class="ph" style="background:linear-gradient(140deg,${p.c1},${p.c2});">
+        <span class="tag price gg-num">$ ${money(p.price)}</span>
+        <span class="tag stock gg-num">${p.stock} piece</span>
+        <i data-lucide="sparkles"></i>
+      </div>
+      <div class="body">
+        <div class="nm">${p.name}</div>
+        <div class="code">${p.code}</div>
+      </div>
+    </div>`).join('');
+
+  renderCart();
+  lucide.createIcons();
+  document.getElementById('resetBtn').onclick = () => { cart.length = 0; renderCart(); };
+  document.querySelectorAll('.chip-row').forEach(rowEl => {
+    rowEl.querySelectorAll('.fchip').forEach(ch => ch.onclick = () => {
+      rowEl.querySelectorAll('.fchip').forEach(x => x.classList.remove('is-active'));
+      ch.classList.add('is-active');
+    });
+  });
+</script>
+</body>
+</html>

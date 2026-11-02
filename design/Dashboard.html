@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GildedGlow · Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/gildedglow.css" />
+<style>
+  /* ---- Dashboard page layout (composed from gildedglow.css tokens) ---- */
+  .dash-section-gap { display: flex; flex-direction: column; gap: var(--sp-6); }
+  .dash-2col { display: grid; grid-template-columns: 2fr 1fr; gap: var(--sp-6); align-items: start; }
+  .dash-col { display: flex; flex-direction: column; gap: var(--sp-6); }
+  .chart-box { position: relative; width: 100%; }
+  .dash-foot { text-align: left; color: var(--gray-500); font-size: 13px; padding: var(--sp-8) 0 var(--sp-4); }
+  .dash-foot a { font-weight: 600; }
+  .empty-table-body { min-height: 90px; }
+  .qty-pill { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: var(--r-sm); background: var(--info-bg); color: var(--info-fg); font-weight: 700; font-size: 12.5px; }
+  .qty-pill.is-zero { background: var(--info-bg); color: var(--info-fg); }
+  .alert-pill { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: var(--r-sm); background: var(--danger-bg); color: var(--danger-fg); font-weight: 700; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="gg-app" id="app">
+  <!-- ===================================================== SIDEBAR ===== -->
+  <aside class="gg-sidebar">
+    <div class="gg-brand">
+      <div class="gg-brand-mark">G</div>
+      <span class="gg-brand-name">GildedGlow</span>
+    </div>
+    <div class="gg-sidebar-search">
+      <div class="gg-input-icon">
+        <i data-lucide="search"></i>
+        <input class="gg-input" type="text" placeholder="Search" />
+      </div>
+    </div>
+    <nav class="gg-nav" id="nav">
+      <div class="gg-nav-item is-active"><i data-lucide="layout-dashboard" class="gg-nav-ico"></i><span class="gg-nav-label">Dashboard</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="boxes" class="gg-nav-ico"></i><span class="gg-nav-label">Products</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub">
+          <div class="gg-nav-item"><span class="gg-nav-label">Products</span></div>
+          <div class="gg-nav-item"><span class="gg-nav-label">Product Categories</span></div>
+          <div class="gg-nav-item"><span class="gg-nav-label">Brands</span></div>
+          <div class="gg-nav-item"><span class="gg-nav-label">Units</span></div>
+          <div class="gg-nav-item"><span class="gg-nav-label">Base Units</span></div>
+          <div class="gg-nav-item"><span class="gg-nav-label">Print Barcode</span></div>
+        </div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="sliders-horizontal" class="gg-nav-ico"></i><span class="gg-nav-label">Adjustments</span></div>
+      <div class="gg-nav-item"><i data-lucide="file-text" class="gg-nav-ico"></i><span class="gg-nav-label">Quotations</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="receipt" class="gg-nav-ico"></i><span class="gg-nav-label">Purchases</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub">
+          <div class="gg-nav-item"><span class="gg-nav-label">Purchases</span></div>
+          <div class="gg-nav-item"><span class="gg-nav-label">Purchases Returns</span></div>
+        </div>
+      </div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="shopping-cart" class="gg-nav-ico"></i><span class="gg-nav-label">Sales</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub">
+          <div class="gg-nav-item"><span class="gg-nav-label">Sales</span></div>
+          <div class="gg-nav-item"><span class="gg-nav-label">Sales Returns</span></div>
+        </div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="repeat" class="gg-nav-ico"></i><span class="gg-nav-label">Transfers</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="wallet" class="gg-nav-ico"></i><span class="gg-nav-label">Expenses</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub">
+          <div class="gg-nav-item"><span class="gg-nav-label">Expenses</span></div>
+          <div class="gg-nav-item"><span class="gg-nav-label">Expense Categories</span></div>
+        </div>
+      </div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="users" class="gg-nav-ico"></i><span class="gg-nav-label">Peoples</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub">
+          <div class="gg-nav-item"><span class="gg-nav-label">Customers</span></div>
+          <div class="gg-nav-item"><span class="gg-nav-label">Suppliers</span></div>
+          <div class="gg-nav-item"><span class="gg-nav-label">Users</span></div>
+        </div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="shield-check" class="gg-nav-ico"></i><span class="gg-nav-label">Roles/Permissions</span></div>
+      <div class="gg-nav-item"><i data-lucide="warehouse" class="gg-nav-ico"></i><span class="gg-nav-label">Warehouse</span></div>
+      <div class="gg-nav-item"><i data-lucide="bar-chart-3" class="gg-nav-ico"></i><span class="gg-nav-label">Reports</span></div>
+      <div class="gg-nav-item"><i data-lucide="dollar-sign" class="gg-nav-ico"></i><span class="gg-nav-label">Currencies</span></div>
+      <div class="gg-nav-item"><i data-lucide="languages" class="gg-nav-ico"></i><span class="gg-nav-label">Languages</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="layout-template" class="gg-nav-ico"></i><span class="gg-nav-label">Templates</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub">
+          <div class="gg-nav-item"><span class="gg-nav-label">SMS Templates</span></div>
+          <div class="gg-nav-item"><span class="gg-nav-label">Email Templates</span></div>
+        </div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="settings" class="gg-nav-ico"></i><span class="gg-nav-label">Settings</span></div>
+    </nav>
+  </aside>
+
+  <!-- ======================================================== MAIN ===== -->
+  <div class="gg-main">
+    <header class="gg-topbar">
+      <button class="gg-icon-btn" id="collapseBtn" title="Toggle sidebar"><i data-lucide="menu"></i></button>
+      <div class="gg-topbar-title">
+        <span class="gg-page-chip"><i data-lucide="plus"></i></span>
+        <span class="gg-breadcrumb">Dashboard</span>
+      </div>
+      <div class="gg-topbar-spacer"></div>
+      <button class="gg-pos-btn"><i data-lucide="monitor" style="width:16px;height:16px;"></i> POS</button>
+      <button class="gg-icon-btn"><i data-lucide="grid-2x2"></i></button>
+      <div class="gg-user">
+        <div class="gg-avatar">A</div>
+        <span style="font-weight:600;color:var(--ink);font-size:14px;">admin</span>
+        <i data-lucide="chevron-down" style="width:16px;height:16px;color:var(--gray-400);"></i>
+      </div>
+    </header>
+
+    <main class="gg-content">
+      <div class="dash-section-gap">
+
+        <!-- =============================================== KPI TILES ==== -->
+        <div class="gg-kpi-grid" id="kpiGrid"></div>
+
+        <!-- =============================== CHARTS + SECONDARY TABLES ==== -->
+        <div class="dash-2col">
+          <!-- LEFT column -->
+          <div class="dash-col">
+            <div class="gg-card">
+              <div class="gg-card-head">
+                <span class="gg-card-title">This Week Sales &amp; Purchases</span>
+                <button class="gg-icon-btn" style="width:34px;height:34px;"><i data-lucide="menu" style="width:16px;height:16px;"></i></button>
+              </div>
+              <div class="gg-card-pad">
+                <div class="chart-box" style="height:300px;"><canvas id="weekChart"></canvas></div>
+              </div>
+            </div>
+
+            <div class="gg-card">
+              <div class="gg-card-head"><span class="gg-card-title">Top Selling Products (May)</span></div>
+              <div class="gg-card-pad" style="padding-top:0;">
+                <table class="gg-table">
+                  <thead><tr><th>Product</th><th>Quantity</th><th style="text-align:right;">Grand Total</th></tr></thead>
+                  <tbody class="empty-table-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT column -->
+          <div class="dash-col">
+            <div class="gg-card">
+              <div class="gg-card-head"><span class="gg-card-title">Top Selling Products (2026)</span></div>
+              <div class="gg-card-pad">
+                <div class="chart-box" style="height:340px;"><canvas id="topProductsChart"></canvas></div>
+              </div>
+            </div>
+
+            <div class="gg-card">
+              <div class="gg-card-head"><span class="gg-card-title">Top 5 Customers (May)</span></div>
+              <div class="gg-card-pad">
+                <div class="chart-box" style="height:300px;"><canvas id="customersChart"></canvas></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================ RECENT SALES ==== -->
+        <div class="gg-card">
+          <div class="gg-card-head"><span class="gg-card-title">Recent Sales</span></div>
+          <div class="gg-card-pad" style="padding-top:0;">
+            <div class="gg-table-wrap">
+              <table class="gg-table">
+                <thead><tr><th>Reference</th><th>Customer</th><th>Status</th><th>Grand Total</th><th>Paid</th><th>Due</th><th>Payment Status</th></tr></thead>
+                <tbody id="recentSales"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================ STOCK ALERT ===== -->
+        <div class="gg-card">
+          <div class="gg-card-head"><span class="gg-card-title">Stock Alert</span></div>
+          <div class="gg-card-pad" style="padding-top:0;">
+            <div class="gg-table-wrap">
+              <table class="gg-table">
+                <thead><tr><th>Code</th><th>Product</th><th>Warehouse</th><th>Quantity</th><th style="text-align:right;">Alert Quantity</th></tr></thead>
+                <tbody id="stockAlert"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="dash-foot">All Rights Reserved &copy; 2026 <a href="#">GildedGlow</a></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  /* ---- design-system token values for charts ---- */
+  const T = {
+    gold:'#C0851A', emerald:'#109C6B', blue:'#2C7BE0', violet:'#6D5BD0',
+    rose:'#DD4F88', cyan:'#1BA3C2', orange:'#DE7A1E', red:'#D8473A',
+    ink:'#1C1A16', gray500:'#7A746A', gray300:'#D4CEC3', gray200:'#E6E1D8', gray100:'#F3F0E9'
+  };
+
+  /* ---- KPI tiles (all $0.00 — fresh data, matches reference) ---- */
+  const kpis = [
+    ["gold","shopping-cart","$ 0.00","Sales"],
+    ["emerald","shopping-bag","$ 0.00","Purchases"],
+    ["blue","arrow-right","$ 0.00","Sales Returns"],
+    ["orange","arrow-left","$ 0.00","Purchases Returns"],
+    ["violet","dollar-sign","$ 0.00","Today Total Sales"],
+    ["rose","banknote","$ 0.00","Today Total Received (Sales)"],
+    ["cyan","shopping-cart","$ 0.00","Today Total Purchases"],
+    ["red","minus-circle","$ 0.00","Today Total Expense"]
+  ];
+  document.getElementById('kpiGrid').innerHTML = kpis.map(k=>`
+    <div class="gg-kpi gg-kpi--${k[0]}">
+      <div class="gg-kpi-ico"><i data-lucide="${k[1]}"></i></div>
+      <div class="gg-kpi-body"><span class="gg-kpi-value gg-num">${k[2]}</span><span class="gg-kpi-label">${k[3]}</span></div>
+    </div>`).join('');
+
+  /* ---- Recent Sales ---- */
+  const sales = [
+    ["SA_11149","direct-customer","71,800.00","71,800.00","0.00"],
+    ["SA_11148","direct-customer","31,920.00","31,920.00","0.00"],
+    ["SA_11147","direct-customer","7,980.00","7,980.00","0.00"],
+    ["SA_11146","direct-customer","11,970.00","11,970.00","0.00"],
+    ["SA_11145","direct-customer","7,980.00","7,980.00","0.00"]
+  ];
+  document.getElementById('recentSales').innerHTML = sales.map(s=>`
+    <tr>
+      <td><span class="gg-chip-code">${s[0]}</span></td>
+      <td>${s[1]}</td>
+      <td><span class="gg-badge gg-badge--success">Received</span></td>
+      <td class="gg-num gg-td-strong">$ ${s[2]}</td>
+      <td class="gg-num">$ ${s[3]}</td>
+      <td class="gg-num">$ ${s[4]}</td>
+      <td><span class="gg-badge gg-badge--success">Paid</span></td>
+    </tr>`).join('');
+
+  /* ---- Stock Alert ---- */
+  const stock = [
+    ["002","ipl laser hair removal","Office","0"],
+    ["001","FACE FAT AND DOUBLE CHIN","Office","2"]
+  ];
+  document.getElementById('stockAlert').innerHTML = stock.map(s=>`
+    <tr>
+      <td class="gg-num">${s[0]}</td>
+      <td class="gg-td-strong">${s[1]}</td>
+      <td>${s[2]}</td>
+      <td><span class="qty-pill gg-num">${s[3]}</span> <span class="gg-chip-unit">piece</span></td>
+      <td style="text-align:right;"><span class="alert-pill gg-num">3</span> <span class="gg-chip-unit">piece</span></td>
+    </tr>`).join('');
+
+  lucide.createIcons();
+
+  /* ---- interactions ---- */
+  document.getElementById('collapseBtn').addEventListener('click', () =>
+    document.getElementById('app').classList.toggle('is-collapsed'));
+  document.querySelectorAll('.gg-nav-group > .gg-nav-item').forEach(item =>
+    item.addEventListener('click', () => item.parentElement.classList.toggle('is-open')));
+
+  /* ---- Charts ---- */
+  Chart.defaults.font.family = "'Hanken Grotesk', sans-serif";
+  Chart.defaults.font.size = 12;
+  Chart.defaults.color = T.gray500;
+
+  const dates = ['2026-05-20','2026-05-21','2026-05-22','2026-05-23','2026-05-24','2026-05-25','2026-05-26'];
+  new Chart(document.getElementById('weekChart'), {
+    type: 'line',
+    data: {
+      labels: dates,
+      datasets: [
+        { label:'Sales', data:[0,0,0,0,0,0,0], borderColor:T.gold, backgroundColor:'rgba(192,133,26,.12)', tension:.35, fill:true, pointRadius:3, pointBackgroundColor:T.gold, borderWidth:2 },
+        { label:'Purchases', data:[0,0,0,0,0,0,0], borderColor:T.emerald, backgroundColor:'rgba(16,156,107,.10)', tension:.35, fill:true, pointRadius:3, pointBackgroundColor:T.emerald, borderWidth:2 }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'top', align:'center', labels:{ usePointStyle:true, pointStyle:'rectRounded', boxWidth:14, padding:18, font:{ weight:600 } } } },
+      scales:{
+        y:{ beginAtZero:true, suggestedMax:1, ticks:{ callback:v=>'$ '+v, stepSize:0.1 }, title:{ display:true, text:'Amount', font:{ weight:600 } }, grid:{ color:T.gray100 } },
+        x:{ grid:{ color:T.gray100 } }
+      }
+    }
+  });
+
+  new Chart(document.getElementById('topProductsChart'), {
+    type: 'doughnut',
+    data: { labels:['No data'], datasets:[{ data:[1], backgroundColor:[T.gray200], borderWidth:0 }] },
+    options: { responsive:true, maintainAspectRatio:false, cutout:'62%', plugins:{ legend:{ display:false }, tooltip:{ enabled:false } } }
+  });
+
+  new Chart(document.getElementById('customersChart'), {
+    type: 'pie',
+    data: { labels:['direct-customer'], datasets:[{ data:[100], backgroundColor:[T.violet], borderColor:'#fff', borderWidth:3 }] },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'top', align:'end', labels:{ usePointStyle:true, pointStyle:'rectRounded', boxWidth:14, padding:10, font:{ weight:600 } } } }
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GildedGlow · Create Role</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/gildedglow.css" />
+<style>
+  .page-head { display: flex; align-items: center; margin-bottom: var(--sp-6); }
+  .page-head .gg-page-title { flex: 1; }
+  .pur-top { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--sp-6); margin-bottom: var(--sp-6); }
+  .date-field { position: relative; }
+  .date-field svg { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: var(--gray-500); pointer-events: none; }
+  .date-field .gg-input { padding-right: 46px; }
+  .stock-chip { display: inline-flex; align-items: center; height: 26px; padding: 0 12px; border-radius: var(--r-sm); background: var(--warning-bg); color: var(--warning-fg); font-weight: 600; font-size: 13px; }
+  .prod-cell { display: flex; flex-direction: column; gap: 6px; }
+  .prod-code { font-family: var(--font-display); font-weight: 600; color: var(--ink); font-size: 15px; }
+  .prod-name-row { display: inline-flex; align-items: center; gap: 6px; }
+  .prod-edit { width: 26px; height: 26px; border-radius: var(--r-sm); border: none; background: var(--info-bg); color: var(--info); display: grid; place-items: center; cursor: pointer; }
+  .prod-edit svg { width: 14px; height: 14px; }
+  .totals-box { width: 480px; margin-left: auto; border: 1px solid var(--gray-200); border-radius: var(--r-md); overflow: hidden; margin-top: var(--sp-6); }
+  .totals-row { display: flex; justify-content: space-between; padding: 14px var(--sp-5); border-bottom: 1px solid var(--gray-150); }
+  .totals-row:last-child { border-bottom: none; }
+  .totals-row .lbl { color: var(--gray-600); }
+  .totals-row.grand .lbl, .totals-row.grand .val { color: var(--primary); font-family: var(--font-display); font-weight: 700; font-size: 16px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--sp-6); margin-top: var(--sp-8); }
+  .dash-foot { color: var(--gray-500); font-size: 13px; padding: var(--sp-8) 0 var(--sp-4); }
+  .dash-foot a { font-weight: 600; }
+  .exp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-5) var(--sp-8); }
+  .gg-check { width: 20px; height: 20px; border: 1.5px solid var(--gray-300); border-radius: var(--r-xs); background: #fff; cursor: pointer; appearance: none; -webkit-appearance: none; position: relative; flex: none; transition: border-color .15s, background .15s; }
+  .gg-check:checked { background: var(--gold-600); border-color: var(--gold-600); }
+  .gg-check:checked::after { content: ""; position: absolute; left: 6px; top: 2px; width: 4px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+  .perm-head { display: flex; align-items: center; gap: var(--sp-4); margin: var(--sp-7) 0 var(--sp-5); }
+  .perm-head .lbl { font-family: var(--font-display); font-weight: 600; color: var(--ink); font-size: 15px; }
+  .perm-all { display: inline-flex; align-items: center; gap: var(--sp-2); cursor: pointer; }
+  .perm-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--sp-5) var(--sp-8); }
+  .perm-item { display: flex; align-items: center; gap: var(--sp-3); cursor: pointer; color: var(--gray-700); font-size: 14px; }
+  .perm-item:hover { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="gg-app" id="app">
+  <aside class="gg-sidebar">
+    <div class="gg-brand"><div class="gg-brand-mark">G</div><span class="gg-brand-name">GildedGlow</span></div>
+    <div class="gg-sidebar-search"><div class="gg-input-icon"><i data-lucide="search"></i><input class="gg-input" type="text" placeholder="Search" /></div></div>
+    <nav class="gg-nav" id="nav">
+      <div class="gg-nav-item"><i data-lucide="layout-dashboard" class="gg-nav-ico"></i><span class="gg-nav-label">Dashboard</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="boxes" class="gg-nav-ico"></i><span class="gg-nav-label">Products</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">Products</span></div><div class="gg-nav-item"><span class="gg-nav-label">Product Categories</span></div><div class="gg-nav-item"><span class="gg-nav-label">Brands</span></div><div class="gg-nav-item"><span class="gg-nav-label">Units</span></div><div class="gg-nav-item"><span class="gg-nav-label">Base Units</span></div><div class="gg-nav-item"><span class="gg-nav-label">Print Barcode</span></div></div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="sliders-horizontal" class="gg-nav-ico"></i><span class="gg-nav-label">Adjustments</span></div>
+      <div class="gg-nav-item"><i data-lucide="file-text" class="gg-nav-ico"></i><span class="gg-nav-label">Quotations</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="receipt" class="gg-nav-ico"></i><span class="gg-nav-label">Purchases</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">Purchases</span></div><div class="gg-nav-item"><span class="gg-nav-label">Purchases Returns</span></div></div>
+      </div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="shopping-cart" class="gg-nav-ico"></i><span class="gg-nav-label">Sales</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">Sales</span></div><div class="gg-nav-item"><span class="gg-nav-label">Sales Returns</span></div></div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="repeat" class="gg-nav-ico"></i><span class="gg-nav-label">Transfers</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="wallet" class="gg-nav-ico"></i><span class="gg-nav-label">Expenses</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">Expenses</span></div><div class="gg-nav-item"><span class="gg-nav-label">Expense Categories</span></div></div>
+      </div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="users" class="gg-nav-ico"></i><span class="gg-nav-label">Peoples</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub">
+          <div class="gg-nav-item"><i data-lucide="truck" class="gg-nav-ico"></i><span class="gg-nav-label">Suppliers</span></div>
+          <div class="gg-nav-item"><i data-lucide="users" class="gg-nav-ico"></i><span class="gg-nav-label">Customers</span></div>
+          <div class="gg-nav-item"><i data-lucide="user" class="gg-nav-ico"></i><span class="gg-nav-label">Users</span></div>
+        </div>
+      </div>
+      <div class="gg-nav-item is-active"><i data-lucide="shield-check" class="gg-nav-ico"></i><span class="gg-nav-label">Roles/Permissions</span></div>
+      <div class="gg-nav-item"><i data-lucide="warehouse" class="gg-nav-ico"></i><span class="gg-nav-label">Warehouse</span></div>
+      <div class="gg-nav-item"><i data-lucide="bar-chart-3" class="gg-nav-ico"></i><span class="gg-nav-label">Reports</span></div>
+      <div class="gg-nav-item"><i data-lucide="dollar-sign" class="gg-nav-ico"></i><span class="gg-nav-label">Currencies</span></div>
+      <div class="gg-nav-item"><i data-lucide="languages" class="gg-nav-ico"></i><span class="gg-nav-label">Languages</span></div>
+      <div class="gg-nav-group">
+        <div class="gg-nav-item"><i data-lucide="layout-template" class="gg-nav-ico"></i><span class="gg-nav-label">Templates</span><i data-lucide="chevron-right" class="gg-nav-chev"></i></div>
+        <div class="gg-nav-sub"><div class="gg-nav-item"><span class="gg-nav-label">SMS Templates</span></div><div class="gg-nav-item"><span class="gg-nav-label">Email Templates</span></div></div>
+      </div>
+      <div class="gg-nav-item"><i data-lucide="settings" class="gg-nav-ico"></i><span class="gg-nav-label">Settings</span></div>
+    </nav>
+  </aside>
+
+  <div class="gg-main">
+    <header class="gg-topbar">
+      <button class="gg-icon-btn" id="collapseBtn"><i data-lucide="menu"></i></button>
+      <div class="gg-topbar-title"><span class="gg-page-chip"><i data-lucide="plus"></i></span><span class="gg-breadcrumb">Roles</span></div>
+      <div class="gg-topbar-spacer"></div>
+      <button class="gg-pos-btn"><i data-lucide="monitor" style="width:16px;height:16px;"></i> POS</button>
+      <button class="gg-icon-btn"><i data-lucide="grid-2x2"></i></button>
+      <div class="gg-user"><div class="gg-avatar">A</div><span style="font-weight:600;color:var(--ink);font-size:14px;">admin</span><i data-lucide="chevron-down" style="width:16px;height:16px;color:var(--gray-400);"></i></div>
+    </header>
+
+    <main class="gg-content">
+      <div class="page-head">
+        <h1 class="gg-page-title">Create Role</h1>
+        <button class="gg-btn gg-btn--secondary"><i data-lucide="arrow-left"></i> Back</button>
+      </div>
+
+      <div class="gg-card gg-card-pad">
+        <div class="gg-field"><label class="gg-label">Name <span class="gg-req">*</span></label><input class="gg-input" placeholder="Enter Name" /></div>
+
+        <div class="perm-head">
+          <span class="lbl">Permissions <span class="gg-req">*</span></span>
+          <label class="perm-all"><input type="checkbox" class="gg-check" id="allPerms" /><span style="color:var(--gray-700);font-size:14px;">All Permissions</span></label>
+        </div>
+        <div class="perm-grid" id="permGrid"></div>
+
+        <div class="gg-form-actions">
+          <button class="gg-btn gg-btn--primary"><i data-lucide="check"></i> Save</button>
+          <button class="gg-btn gg-btn--secondary">Cancel</button>
+        </div>
+      </div>
+
+      <div class="dash-foot">All Rights Reserved &copy; 2026 <a href="#">GildedGlow</a></div>
+    </main>
+  </div>
+</div>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script>
+  const perms = [
+    "Manage Adjustments","Manage Transfers","Manage Roles",
+    "Manage Brands","Manage Currency","Manage Warehouses",
+    "Manage Units","Manage Product Categories","Manage Products",
+    "Manage Suppliers","Manage Customers","Manage Users",
+    "Manage Expense Categories","Manage Expenses","Manage Setting",
+    "Manage Dashboard","Manage Pos Screen","Manage Purchase",
+    "Manage Sale","Manage Purchase Return","Manage Sale Return",
+    "Manage Email Templates","Manage Reports","Manage Quotations",
+    "Manage Sms Templates","Manage Sms Apis","Manage Language"
+  ];
+  document.getElementById('permGrid').innerHTML = perms.map(p=>`
+    <label class="perm-item"><input type="checkbox" class="gg-check perm-box" /><span>${p}</span></label>`).join('');
+
+  lucide.createIcons();
+  document.getElementById('collapseBtn').addEventListener('click', () => document.getElementById('app').classList.toggle('is-collapsed'));
+  document.querySelectorAll('.gg-nav-group > .gg-nav-item').forEach(item => item.addEventListener('click', () => item.parentElement.classList.toggle('is-open')));
+
+  const all = document.getElementById('allPerms');
+  const boxes = () => document.querySelectorAll('.perm-box');
+  all.addEventListener('change', e => boxes().forEach(b => b.checked = e.target.checked));
+  document.getElementById('permGrid').addEventListener('change', () => {
+    const arr = [...boxes()];
+    all.checked = arr.every(b => b.checked);
+  });
+</script>
+</body>
+</html>
