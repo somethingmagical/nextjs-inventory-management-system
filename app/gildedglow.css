@@ -231,13 +231,19 @@ button { font-family: inherit; }
   padding: 5px 10px 5px 5px; border-radius: var(--r-pill);
   cursor: pointer; transition: background .14s;
 }
+.gg-user-menu { position: relative; }
+.gg-user-dropdown { position: absolute; top: calc(100% + var(--sp-2)); right: 0; z-index: 50; }
+.gg-user-dropdown .gg-menu-item { width: 100%; text-decoration: none; text-align: left; background: transparent; border: 0; font-family: inherit; }
+.gg-user-dropdown .gg-menu-item:hover { background: var(--gray-50); }
 .gg-user:hover { background: var(--gray-50); }
 .gg-avatar {
   width: 38px; height: 38px; border-radius: 50%;
   background: linear-gradient(150deg, var(--gold-400), var(--gold-700));
   color: #fff; display: grid; place-items: center;
   font-family: var(--font-display); font-weight: 700; font-size: 15px;
+  overflow: hidden;
 }
+.gg-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .gg-pos-btn {
   display: inline-flex; align-items: center; gap: 8px;
   height: 40px; padding: 0 var(--sp-5); border-radius: var(--r-pill);
@@ -474,8 +480,11 @@ button { font-family: inherit; }
 .auth-input { width: 100%; height: 52px; border: 1px solid var(--gray-200); border-radius: var(--r-md); padding: 0 18px; font-family: var(--font-body); font-size: 15px; color: var(--ink); outline: none; transition: border-color .15s, box-shadow .15s; }
 .auth-input::placeholder { color: var(--gray-400); }
 .auth-input:focus { border-color: var(--gold-400); box-shadow: var(--ring); }
+.auth-error { display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-4); padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); background: var(--danger-bg); color: var(--danger-fg); font-size: 14px; }
+.auth-error svg { flex-shrink: 0; }
 .auth-btn { width: 100%; height: 54px; margin-top: var(--sp-5); border: none; border-radius: var(--r-md); background: var(--gold-600); color: #fff; font-family: var(--font-display); font-weight: 600; font-size: 16px; cursor: pointer; transition: background .15s; }
 .auth-btn:hover { background: var(--gold-700); }
+.auth-btn:disabled { cursor: wait; opacity: .7; }
 
 /* Dashboard page */
 .gg-nav-toggle { appearance: none; width: 100%; border: 0; background: transparent; text-align: left; }

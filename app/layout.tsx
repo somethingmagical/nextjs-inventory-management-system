@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Sign In | GildedGlow",
-  description: "Sign in to the GildedGlow inventory workspace",
+  title: "Sign In | Inventory",
+  description: "Sign in to the Inventory workspace",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

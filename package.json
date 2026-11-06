@@ -2,6 +2,9 @@
   "name": "inventory",
   "version": "0.1.0",
   "private": true,
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -9,14 +12,16 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@next-auth/prisma-adapter": "^1.0.7",
+    "@prisma/adapter-mariadb": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
+    "dotenv": "^18.0.9",
     "formidable": "^3.5.4",
+    "lucide-react": "^0.468.0",
     "mysql2": "^3.24.6",
     "next": "16.4.3",
-    "next-auth": "^4.24.15",
+    "next-auth": "^5.0.0-beta.32",
     "pdf-parse": "^2.4.5",
     "prisma": "^7.10.1",
     "react": "19.3.0",
@@ -32,6 +37,7 @@
     "eslint": "^4.0.0",
     "eslint-config-next": "^0.2.4",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   },
   "allowScripts": {

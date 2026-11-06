@@ -1,0 +1,67 @@
+import "dotenv/config";
+
+import { hash } from "bcryptjs";
+import { z } from "zod";
+import { db } from "../lib/db";
+
+const adminSchema = z.object({
+  email: z.string().trim().email(),
+  password: z.string().min(1),
+  firstName: z.string().trim().min(1).default("Admin"),
+  lastName: z.string().trim().min(1).default("User"),
+  phoneNumber: z.string().trim().optional(),
+  image: z.string().trim().url().optional(),
+});
+
+async function seedAdmin() {
+  const parsed = adminSchema.safeParse({
+    email: process.env.ADMIN_EMAIL,
+    password: process.env.ADMIN_PASSWORD,
+    firstName: process.env.ADMIN_FIRST_NAME || undefined,
+    lastName: process.env.ADMIN_LAST_NAME || undefined,
+    phoneNumber: process.env.ADMIN_PHONE_NUMBER || undefined,
+    image: process.env.ADMIN_IMAGE || undefined,
+  });
+
+  if (!parsed.success) {
+    throw new Error(
+      `Invalid admin seed configuration: ${parsed.error.issues
+        .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+        .join("; ")}`,
+    );
+  }
+
+  const password = await hash(parsed.data.password, 12);
+  const admin = await db.user.upsert({
+    where: { email: parsed.data.email },
+    update: {
+      firstName: parsed.data.firstName,
+      lastName: parsed.data.lastName,
+      password,
+      phoneNumber: parsed.data.phoneNumber ?? null,
+      image: parsed.data.image ?? null,
+      role: "admin",
+    },
+    create: {
+      firstName: parsed.data.firstName,
+      lastName: parsed.data.lastName,
+      email: parsed.data.email,
+      password,
+      phoneNumber: parsed.data.phoneNumber ?? null,
+      image: parsed.data.image ?? null,
+      role: "admin",
+    },
+    select: { email: true },
+  });
+
+  console.info(`Admin user seeded: ${admin.email}`);
+}
+
+seedAdmin()
+  .catch((error: unknown) => {
+    console.error("Failed to seed admin user.", error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await db.$disconnect();
+  });

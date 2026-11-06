@@ -20,6 +20,32 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Seeding the Admin User
+
+Configure the admin account and database connection in your local `.env` file:
+
+```env
+DATABASE_URL="mysql://USER:PASSWORD@HOST:3306/DATABASE"
+ADMIN_EMAIL="admin@example.com"
+ADMIN_PASSWORD="choose-a-strong-password"
+
+# Optional account details
+ADMIN_FIRST_NAME="Admin"
+ADMIN_LAST_NAME="User"
+ADMIN_PHONE_NUMBER=""
+ADMIN_IMAGE=""
+```
+
+Keep `.env` private and do not commit it. The seed script reads `ADMIN_PASSWORD` as input, hashes it with `bcryptjs` before writing to the database, and stores only the hash. It does not require you to generate a password hash yourself.
+
+Run the seed from the project root:
+
+```bash
+npx prisma db seed
+```
+
+The script upserts the admin by email: it creates the account if that email is not in the database, or updates its details and password hash if it already exists.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
