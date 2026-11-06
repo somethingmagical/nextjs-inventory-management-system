@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { useState } from "react";
 
@@ -54,7 +55,7 @@ const navigation = [
   { label: "Expenses", icon: "wallet", children: ["Expenses", "Expense Categories"] },
   { label: "Peoples", icon: "users", children: ["Customers", "Suppliers", "Users"] },
   { label: "Roles/Permissions", icon: "shieldCheck" },
-  { label: "Warehouse", icon: "warehouse" },
+  { label: "Warehouse", icon: "warehouse", href: "/warehouse" },
   { label: "Reports", icon: "chart" },
   { label: "Currencies", icon: "dollar" },
   { label: "Languages", icon: "languages" },
@@ -63,6 +64,7 @@ const navigation = [
 ];
 
 export default function Sidebar() {
+  const pathname = usePathname();
   const [openGroups, setOpenGroups] = useState<string[]>([]);
 
   function toggleGroup(label: string) {
@@ -102,7 +104,15 @@ export default function Sidebar() {
             );
           }
           return (
-            <Link key={item.label} className={`gg-nav-item ${item.href === "/dashboard" ? "is-active" : ""}`} href={item.href ?? "#"}>
+            <Link
+              key={item.label}
+              className={`gg-nav-item ${
+                item.href === pathname || (item.href === "/warehouse" && pathname.startsWith("/warehouse/"))
+                  ? "is-active"
+                  : ""
+              }`}
+              href={item.href ?? "#"}
+            >
               {content}
             </Link>
           );

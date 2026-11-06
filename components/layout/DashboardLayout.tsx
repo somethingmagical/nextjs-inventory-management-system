@@ -8,9 +8,11 @@ import Sidebar from "./Sidebar";
 export default function DashboardLayout({
   children,
   user,
+  pageTitle = "Dashboard",
 }: {
   children: ReactNode;
   user: { name: string; image: string | null };
+  pageTitle?: string;
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -21,6 +23,7 @@ export default function DashboardLayout({
         <Header
           onToggleSidebar={() => setIsCollapsed((collapsed) => !collapsed)}
           user={user}
+          pageTitle={pageTitle}
         />
         {children}
         <Footer />

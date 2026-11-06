@@ -4,16 +4,18 @@ import UserMenu from "./UserMenu";
 export default function Header({
   onToggleSidebar,
   user,
+  pageTitle = "Dashboard",
 }: {
   onToggleSidebar: () => void;
   user: { name: string; image: string | null };
+  pageTitle?: string;
 }) {
   return (
     <header className="gg-topbar">
       <button className="gg-icon-btn" type="button" onClick={onToggleSidebar} aria-label="Toggle sidebar"><Icon name="menu" /></button>
       <div className="gg-topbar-title">
         <span className="gg-page-chip"><Icon name="plus" /></span>
-        <span className="gg-breadcrumb">Dashboard</span>
+        <span className="gg-breadcrumb">{pageTitle}</span>
       </div>
       <div className="gg-topbar-spacer" />
       <button className="gg-pos-btn" type="button"><Icon name="monitor" size={16} />POS</button>

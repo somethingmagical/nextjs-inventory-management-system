@@ -28,11 +28,21 @@ async function AuthenticatedDashboard({ children }: { children: ReactNode }) {
     redirect("/");
   }
 
+  const { db } = await import("@/lib/db");
+  const user = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { firstName: true, lastName: true, email: true, image: true },
+  });
+
+  if (!user) {
+    redirect("/");
+  }
+
   return (
     <DashboardLayout
       user={{
-        name: session.user.name || session.user.email || "Account",
-        image: session.user.image ?? null,
+        name: `${user.firstName} ${user.lastName}`.trim() || user.email,
+        image: user.image,
       }}
     >
       {children}

@@ -1,13 +1,13 @@
 /* ==========================================================================
-   GildedGlow Design System  ·  v1.0
-   Inventory + POS UI · light theme · warm gilded palette
+   Inventory Design System  ·  v1.0
+   Inventory + POS UI · light theme · warm gold palette
    Fonts: Space Grotesk (display) + Hanken Grotesk (body)
    Reuse: link this file on every page, then use the component classes.
    ========================================================================== */
 
 /* ------------------------------------------------------------------ TOKENS */
 :root {
-  /* --- Brand: gilded gold ramp ----------------------------------------- */
+  /* --- Brand: gold gold ramp ----------------------------------------- */
   --gold-50:  #FBF6EC;
   --gold-100: #F6E9CF;
   --gold-200: #ECD29B;
@@ -346,6 +346,78 @@ button { font-family: inherit; }
 .gg-form-actions { display: flex; justify-content: flex-end; gap: var(--sp-3); margin-top: var(--sp-8); padding-top: var(--sp-6); border-top: 1px solid var(--gray-150); }
 .gg-form-section-title { font-family: var(--font-display); font-weight: 700; font-size: var(--text-section); color: var(--ink); text-align: center; margin-bottom: var(--sp-2); }
 
+/* =============================================================== PROFILE */
+.profile-page-head { display: flex; align-items: center; gap: var(--sp-4); margin-bottom: var(--sp-6); }
+.profile-page-title { flex: 1; }
+.profile-avatar-section { margin-bottom: var(--sp-6); }
+.profile-avatar-label { display: block; margin-bottom: var(--sp-3); }
+.profile-avatar-control { position: relative; width: 116px; height: 116px; }
+.profile-avatar-circle {
+  position: relative; display: grid; width: 116px; height: 116px; place-items: center;
+  overflow: hidden; border-radius: 50%; background: linear-gradient(135deg, #2b3a55, #1e2a40);
+  color: rgba(255,255,255,.85);
+}
+.profile-avatar-fallback { width: 60px; height: 60px; color: inherit; }
+.profile-avatar-image { object-fit: cover; }
+.profile-avatar-button {
+  position: absolute; top: 4px; right: 4px; display: grid; width: 30px; height: 30px;
+  place-items: center; cursor: pointer; border: 1px solid var(--gray-200); border-radius: 50%;
+  background: #fff; box-shadow: var(--shadow-sm); color: var(--gray-600);
+}
+.profile-avatar-button svg { width: 15px; height: 15px; }
+.profile-file-input {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0);
+  white-space: nowrap; clip-path: inset(50%);
+}
+.profile-field-error { color: var(--danger-fg); font-size: var(--text-caption); }
+.profile-role-input { text-transform: capitalize; background: var(--gray-100); color: var(--gray-600); cursor: default; }
+.profile-alert, .profile-success, .profile-info {
+  display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-5);
+  padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md);
+}
+.profile-alert { background: var(--danger-bg); color: var(--danger-fg); }
+.profile-info {
+  position: fixed; right: var(--sp-6); bottom: var(--sp-6); z-index: 60;
+  width: min(460px, calc(100vw - var(--sp-8))); margin: 0;
+  background: var(--info-bg); color: var(--info-fg); box-shadow: var(--shadow-lg);
+  opacity: 0; transform: translateY(8px);
+  transition: opacity .25s ease, transform .25s ease;
+}
+.profile-success {
+  position: fixed; right: var(--sp-6); bottom: var(--sp-6); z-index: 60;
+  width: min(460px, calc(100vw - var(--sp-8))); margin: 0;
+  background: var(--success-bg); color: var(--success-fg); box-shadow: var(--shadow-lg);
+  opacity: 0; transform: translateY(8px);
+  transition: opacity .25s ease, transform .25s ease;
+}
+.profile-info.is-visible, .profile-success.is-visible { opacity: 1; transform: translateY(0); }
+.profile-alert svg, .profile-success svg, .profile-info svg { flex: 0 0 auto; }
+.profile-image-hint { display: block; margin-top: var(--sp-2); }
+.password-form-fields { display: flex; flex-direction: column; gap: var(--sp-6); max-width: 720px; }
+.password-input-wrap { position: relative; }
+.password-input { padding-right: 48px; }
+.password-visibility-toggle {
+  position: absolute; top: 50%; right: var(--sp-3); display: grid; width: 32px; height: 32px;
+  place-items: center; transform: translateY(-50%); cursor: pointer; border: 0;
+  border-radius: var(--r-sm); background: transparent; color: var(--gray-500);
+}
+.password-visibility-toggle:hover { background: var(--gray-100); color: var(--ink); }
+.password-visibility-toggle svg { width: 18px; height: 18px; }
+.password-toast {
+  position: fixed; right: var(--sp-6); bottom: var(--sp-6); z-index: 60;
+  display: flex; align-items: center; gap: var(--sp-2);
+  width: min(460px, calc(100vw - var(--sp-8))); margin: 0; padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md); box-shadow: var(--shadow-lg); opacity: 0; transform: translateY(8px);
+  transition: opacity .25s ease, transform .25s ease;
+}
+.password-toast-success { background: var(--success-bg); color: var(--success-fg); }
+.password-toast-error { background: var(--danger-bg); color: var(--danger-fg); }
+.password-toast svg { flex: 0 0 auto; }
+.password-toast.is-visible { opacity: 1; transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) {
+  .password-toast { transition: none; }
+}
+
 /* ================================================================== BADGE */
 .gg-badge {
   display: inline-flex; align-items: center; gap: 5px;
@@ -438,6 +510,72 @@ button { font-family: inherit; }
 .gg-page-btn svg { width: 17px; height: 17px; }
 .gg-perpage { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .gg-perpage .gg-select { width: 78px; height: 38px; }
+.gg-page-btn.is-disabled { color: var(--gray-300); cursor: not-allowed; }
+.warehouse-search-form { width: min(460px, 100%); }
+.warehouse-search-control .warehouse-search-submit {
+  position: absolute; top: 50%; right: 6px; display: grid; width: 34px; height: 34px;
+  place-items: center; padding: 0; transform: translateY(-50%); border: 0; border-radius: var(--r-sm);
+  background: transparent; color: var(--gray-500); cursor: pointer;
+}
+.warehouse-search-control .warehouse-search-submit:hover { background: var(--gray-100); color: var(--ink); }
+.warehouse-search-control .warehouse-search-submit svg { position: static; width: 17px; height: 17px; transform: none; }
+.warehouse-search-control .gg-input { padding-right: 48px; }
+.warehouse-name-cell, .warehouse-detail-cell { display: flex; flex-direction: column; gap: 3px; }
+.warehouse-name-cell .nm { font-family: var(--font-display); font-weight: 600; color: var(--gold-700); }
+.warehouse-detail-cell span + span { color: var(--gray-500); font-size: 13px; }
+.warehouse-actions-heading, .warehouse-actions-cell { text-align: right !important; }
+.warehouse-row-actions { display: inline-flex; align-items: center; gap: 6px; }
+.warehouse-row-actions > a, .warehouse-row-actions > form > button {
+  display: inline-flex; width: 32px; height: 32px; align-items: center; justify-content: center;
+  border: 0; border-radius: var(--r-sm); background: transparent; cursor: pointer; transition: background .15s;
+}
+.warehouse-row-actions > a:hover, .warehouse-row-actions > form > button:not(:disabled):hover { background: var(--gray-100); }
+.warehouse-row-actions svg { width: 17px; height: 17px; }
+.warehouse-row-actions .act-edit { color: var(--info-fg); }
+.warehouse-row-actions .act-del { color: var(--danger); }
+.warehouse-row-actions > form > button:disabled { color: var(--gray-300); cursor: not-allowed; }
+.warehouse-empty-cell { padding: var(--sp-10) var(--sp-5) !important; text-align: center; }
+.warehouse-empty-title { margin-bottom: var(--sp-2); color: var(--ink); font-weight: 600; }
+.warehouse-empty-cell .gg-btn { margin-top: var(--sp-4); }
+.warehouse-page-size-submit { width: 32px; height: 38px; }
+.warehouse-page-size-submit svg { width: 16px; height: 16px; }
+.warehouse-form-head { display: flex; align-items: center; margin-bottom: var(--sp-6); }
+.warehouse-form-head .gg-page-title { flex: 1; }
+.warehouse-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-5) var(--sp-8); }
+.warehouse-field-error { color: var(--danger-fg); font-size: var(--text-caption); }
+.warehouse-toast {
+  position: fixed; right: var(--sp-6); bottom: var(--sp-6); z-index: 60;
+  display: flex; align-items: center; gap: var(--sp-2);
+  width: min(460px, calc(100vw - var(--sp-8))); margin: 0; padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md); box-shadow: var(--shadow-lg); opacity: 0; transform: translateY(8px);
+  transition: opacity .25s ease, transform .25s ease;
+}
+.warehouse-toast-success { background: var(--success-bg); color: var(--success-fg); }
+.warehouse-toast:not(.warehouse-toast-success) { background: var(--danger-bg); color: var(--danger-fg); }
+.warehouse-toast svg { flex: 0 0 auto; }
+.warehouse-toast.is-visible {
+  opacity: 1; transform: translateY(0);
+  animation: warehouse-toast-enter .25s ease both;
+}
+.warehouse-confirm-dialog {
+  width: min(520px, calc(100vw - 32px)); max-width: none; margin: auto;
+  padding: 0; border: 1px solid var(--gray-200); color: var(--ink);
+}
+.warehouse-confirm-dialog::backdrop { background: rgba(34,28,16,.42); backdrop-filter: blur(2px); }
+.warehouse-confirm-icon {
+  display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center;
+  border-radius: 50%; background: var(--danger-bg); color: var(--danger);
+}
+.warehouse-confirm-icon svg { width: 20px; height: 20px; }
+.warehouse-confirm-dialog .gg-modal-body { color: var(--gray-700); line-height: 1.55; }
+.warehouse-confirm-dialog .gg-modal-body strong { color: var(--ink); }
+@keyframes warehouse-toast-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .warehouse-toast { transition: none; animation: none; }
+}
 
 /* ================================================================== MODAL */
 .gg-overlay {
@@ -540,6 +678,8 @@ button { font-family: inherit; }
 
 @media (max-width: 560px) {
   .auth-card { padding: var(--sp-6) var(--sp-5); }
+  .profile-page-head { align-items: flex-start; }
+  .warehouse-form-head { align-items: flex-start; }
   :root { --sidebar-w-collapsed: 60px; --topbar-h: 58px; }
   .gg-topbar { padding-inline: 10px; gap: 8px; }
   .gg-page-chip, .gg-apps-btn, .gg-user-name, .gg-user-chevron { display: none; }
@@ -547,6 +687,7 @@ button { font-family: inherit; }
   .gg-user { padding: 0; }
   .gg-avatar { width: 34px; height: 34px; }
   .gg-content { padding: 16px 12px; }
+  .warehouse-form-grid { grid-template-columns: minmax(0, 1fr); gap: var(--sp-5); }
   .gg-kpi-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .gg-kpi { min-height: 84px; }
   .gg-card-head { padding: 14px 16px; }
