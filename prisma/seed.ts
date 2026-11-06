@@ -13,6 +13,27 @@ const adminSchema = z.object({
   image: z.string().trim().url().optional(),
 });
 
+async function seedDirectCustomer() {
+  await db.customer.upsert({
+    where: { id: "direct-customer" },
+    update: {
+      name: "direct-customer",
+      deletedAt: null,
+    },
+    create: {
+      id: "direct-customer",
+      name: "direct-customer",
+      email: "direct-customer@inventory.local",
+      phoneNumber: "N/A",
+      country: "N/A",
+      city: "N/A",
+      address: "POS walk-in customer",
+    },
+  });
+
+  console.info("Default direct customer ensured.");
+}
+
 async function seedAdmin() {
   const parsed = adminSchema.safeParse({
     email: process.env.ADMIN_EMAIL,
@@ -57,7 +78,8 @@ async function seedAdmin() {
   console.info(`Admin user seeded: ${admin.email}`);
 }
 
-seedAdmin()
+seedDirectCustomer()
+  .then(seedAdmin)
   .catch((error: unknown) => {
     console.error("Failed to seed admin user.", error);
     process.exitCode = 1;

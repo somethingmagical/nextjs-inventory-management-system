@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   experimental: {
     agentFeedback: true,
     serverActions: {
-      bodySizeLimit: "2mb",
+      bodySizeLimit: "24mb",
     },
   },
   cacheComponents: true,

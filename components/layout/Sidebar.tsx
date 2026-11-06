@@ -85,7 +85,11 @@ export default function Sidebar() {
       </div>
       <nav className="gg-nav" aria-label="Main navigation">
         {navigation.map((item) => {
-          const isOpen = openGroups.includes(item.label);
+          const isOpen = openGroups.includes(item.label)
+            || (item.label === "Peoples" && (pathname.startsWith("/suppliers") || pathname.startsWith("/customers") || pathname.startsWith("/users")))
+            || (item.label === "Products" && (
+              pathname.startsWith("/products") || pathname.startsWith("/product-categories") || pathname.startsWith("/brands")
+            ));
           const content = (
             <>
               <Icon name={item.icon} className="gg-nav-ico" />
@@ -98,7 +102,59 @@ export default function Sidebar() {
               <div key={item.label} className={`gg-nav-group ${isOpen ? "is-open" : ""}`}>
                 <button className="gg-nav-item gg-nav-toggle" type="button" aria-expanded={isOpen} onClick={() => toggleGroup(item.label)}>{content}</button>
                 <div className="gg-nav-sub">
-                  {item.children.map((child) => <a className="gg-nav-item" href="#" key={child} onClick={(event) => event.preventDefault()}><span className="gg-nav-label">{child}</span></a>)}
+                  {item.children.map((child) => child === "Products" ? (
+                    <Link
+                      className={`gg-nav-item ${pathname.startsWith("/products") ? "is-active" : ""}`}
+                      href="/products"
+                      key={child}
+                    >
+                      <span className="gg-nav-label">{child}</span>
+                    </Link>
+                  ) : child === "Product Categories" ? (
+                    <Link
+                      className={`gg-nav-item ${pathname.startsWith("/product-categories") ? "is-active" : ""}`}
+                      href="/product-categories"
+                      key={child}
+                    >
+                      <span className="gg-nav-label">{child}</span>
+                    </Link>
+                  ) : child === "Brands" ? (
+                    <Link
+                      className={`gg-nav-item ${pathname.startsWith("/brands") ? "is-active" : ""}`}
+                      href="/brands"
+                      key={child}
+                    >
+                      <span className="gg-nav-label">{child}</span>
+                    </Link>
+                  ) : child === "Suppliers" ? (
+                    <Link
+                      className={`gg-nav-item ${pathname.startsWith("/suppliers") ? "is-active" : ""}`}
+                      href="/suppliers"
+                      key={child}
+                    >
+                      <span className="gg-nav-label">{child}</span>
+                    </Link>
+                  ) : child === "Users" ? (
+                    <Link
+                      className={`gg-nav-item ${pathname.startsWith("/users") ? "is-active" : ""}`}
+                      href="/users"
+                      key={child}
+                    >
+                      <span className="gg-nav-label">{child}</span>
+                    </Link>
+                  ) : child === "Customers" ? (
+                    <Link
+                      className={`gg-nav-item ${pathname.startsWith("/customers") ? "is-active" : ""}`}
+                      href="/customers"
+                      key={child}
+                    >
+                      <span className="gg-nav-label">{child}</span>
+                    </Link>
+                  ) : (
+                    <a className="gg-nav-item" href="#" key={child} onClick={(event) => event.preventDefault()}>
+                      <span className="gg-nav-label">{child}</span>
+                    </a>
+                  ))}
                 </div>
               </div>
             );
