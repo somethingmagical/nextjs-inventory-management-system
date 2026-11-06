@@ -1,62 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Inventory
 
-## Getting Started
+Inventory is a web-based system for managing products, stock, warehouses, suppliers, customers, and staff accounts. It includes role-based access, searchable management pages, and per-warehouse stock tracking, with MySQL persistence through Prisma.
 
-First, run the development server:
+## Project Setup
+
+Follow these steps to prepare a local development environment: install dependencies, connect the app to MySQL, apply the database schema, create the initial admin account, and start the development server.
+
+### Requirements
+
+- Node.js 20.9 or newer
+- npm
+- MySQL
+
+### Install and configure
+
+1. From the repository root, install dependencies:
+
+   ```bash
+   npm ci
+   ```
+
+2. Create a MySQL database for the application.
+
+3. Create a `.env` file in the repository root:
+
+   ```env
+   DATABASE_URL="mysql://USER:PASSWORD@HOST:3306/DATABASE"
+   AUTH_SECRET="replace-with-a-random-secret"
+   ADMIN_EMAIL="admin@example.com"
+   ADMIN_PASSWORD="choose-a-strong-password"
+
+   # Optional account details
+   ADMIN_FIRST_NAME="Admin"
+   ADMIN_LAST_NAME="User"
+   ADMIN_PHONE_NUMBER=""
+   ADMIN_IMAGE=""
+   ```
+
+   Generate an authentication secret, for example with `openssl rand -base64 32`. URL-encode special characters in the database username or password if needed. Keep `.env` private; it is ignored by git.
+
+4. Apply the checked-in Prisma migrations:
+
+   ```bash
+   npx prisma migrate deploy
+   ```
+
+5. Seed the default walk-in customer and admin user:
+
+   ```bash
+   npx prisma db seed
+   ```
+
+   The seed script hashes `ADMIN_PASSWORD` with `bcryptjs` before storing it. It upserts the admin by email, so rerunning the seed updates that account's details and password hash.
+
+6. Start the development server:
+
+   ```bash
+   npm run dev
+   ```
+
+Open [http://localhost:3000](http://localhost:3000) and sign in with the configured `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
+
+### Other useful commands
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run build   # Create a production build
+npm run start   # Serve the production build
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Seeding the Admin User
-
-Configure the admin account and database connection in your local `.env` file:
-
-```env
-DATABASE_URL="mysql://USER:PASSWORD@HOST:3306/DATABASE"
-ADMIN_EMAIL="admin@example.com"
-ADMIN_PASSWORD="choose-a-strong-password"
-
-# Optional account details
-ADMIN_FIRST_NAME="Admin"
-ADMIN_LAST_NAME="User"
-ADMIN_PHONE_NUMBER=""
-ADMIN_IMAGE=""
-```
-
-Keep `.env` private and do not commit it. The seed script reads `ADMIN_PASSWORD` as input, hashes it with `bcryptjs` before writing to the database, and stores only the hash. It does not require you to generate a password hash yourself.
-
-Run the seed from the project root:
-
-```bash
-npx prisma db seed
-```
-
-The script upserts the admin by email: it creates the account if that email is not in the database, or updates its details and password hash if it already exists.
 
 ## Learn More
 
-To learn more about Next.js, take a look at the following resources:
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Prisma Documentation](https://www.prisma.io/docs)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deploy
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See the [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for deployment guidance.
