@@ -40,7 +40,7 @@ export default function RouteLoadingBar() {
   return (
     <LoadingBar
       ref={loadingBar}
-      color="#c59d4f"
+      color="#4D8A4A"
       height={3}
       shadow={false}
       containerStyle={{ position: "fixed", top: 0, left: 0, zIndex: 9999 }}
