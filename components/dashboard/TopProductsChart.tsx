@@ -1,18 +1,28 @@
 import DashboardCard from "./DashboardCard";
+import { ProductSalesChart } from "./DashboardCharts";
 
-export default function TopProductsChart() {
+type ProductSales = { name: string; quantity: string; revenue: string };
+
+export default function TopProductsChart({
+  year,
+  products,
+}: {
+  year: number;
+  products: ProductSales[];
+}) {
+  const labels = products.map(({ name }) => name);
+  const amounts = products.map(({ revenue }) => Number(revenue));
+
   return (
-    <DashboardCard title="Top Selling Products (2026)">
-      <div className="chart-box dashboard-doughnut" role="img" aria-label="No top selling product data available">
-        <div className="dashboard-doughnut-hole"><span>No data</span></div>
-      </div>
+    <DashboardCard title={`Top Selling Products (${year})`}>
+      <ProductSalesChart labels={labels} amounts={amounts} />
     </DashboardCard>
   );
 }
 
-export function TopProductsTable() {
+export function TopProductsTable({ month, products }: { month: string; products: ProductSales[] }) {
   return (
-    <DashboardCard title="Top Selling Products (May)" contentClassName="dashboard-table-pad">
+    <DashboardCard title={`Top Selling Products (${month})`} contentClassName="dashboard-table-pad">
       <div className="gg-table-wrap">
         <table className="gg-table">
           <thead>
@@ -22,7 +32,18 @@ export function TopProductsTable() {
               <th className="dashboard-align-right">Grand Total</th>
             </tr>
           </thead>
-          <tbody className="empty-table-body" />
+          <tbody className="empty-table-body">
+            {products.map((product) => (
+              <tr key={product.name}>
+                <td className="gg-td-strong">{product.name}</td>
+                <td className="gg-num">{product.quantity}</td>
+                <td className="gg-num dashboard-align-right">$ {product.revenue}</td>
+              </tr>
+            ))}
+            {products.length === 0 && (
+              <tr><td colSpan={3} className="gg-muted">No sales recorded in {month}.</td></tr>
+            )}
+          </tbody>
         </table>
       </div>
     </DashboardCard>

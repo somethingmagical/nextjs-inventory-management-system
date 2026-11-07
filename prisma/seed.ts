@@ -3,6 +3,7 @@ import "dotenv/config";
 import { hash } from "bcryptjs";
 import { z } from "zod";
 import { db } from "../lib/db";
+import { PERMISSIONS } from "../lib/permissions";
 
 const adminSchema = z.object({
   email: z.string().trim().email(),
@@ -52,6 +53,17 @@ async function seedAdmin() {
     );
   }
 
+  const adminRole = await db.role.upsert({
+    where: { name: "admin" },
+    update: { deletedAt: null },
+    create: { name: "admin" },
+    select: { id: true },
+  });
+  await db.rolePermission.createMany({
+    data: PERMISSIONS.map((permission) => ({ roleId: adminRole.id, permission })),
+    skipDuplicates: true,
+  });
+
   const password = await hash(parsed.data.password, 12);
   const admin = await db.user.upsert({
     where: { email: parsed.data.email },
@@ -62,6 +74,7 @@ async function seedAdmin() {
       phoneNumber: parsed.data.phoneNumber ?? null,
       image: parsed.data.image ?? null,
       role: "admin",
+      roleId: adminRole.id,
     },
     create: {
       firstName: parsed.data.firstName,
@@ -71,6 +84,7 @@ async function seedAdmin() {
       phoneNumber: parsed.data.phoneNumber ?? null,
       image: parsed.data.image ?? null,
       role: "admin",
+      roleId: adminRole.id,
     },
     select: { email: true },
   });

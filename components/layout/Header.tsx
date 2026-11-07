@@ -1,25 +1,46 @@
-import { Icon } from "./Sidebar";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { getActiveNavigationIcon, Icon } from "./Sidebar";
+import { PERMISSION, type Permission } from "@/lib/permissions";
+import type { ReactNode } from "react";
 import UserMenu from "./UserMenu";
 
 export default function Header({
   onToggleSidebar,
   user,
   pageTitle = "Dashboard",
+  pageIcon = "dashboard",
+  permissions,
+  headerContent,
 }: {
   onToggleSidebar: () => void;
   user: { name: string; image: string | null };
   pageTitle?: string;
+  pageIcon?: "dashboard" | "plus" | "chart";
+  permissions: Permission[];
+  headerContent?: ReactNode;
 }) {
+  const pathname = usePathname();
+  const isDashboard = pathname === "/dashboard";
+  const activePageTitle = isDashboard ? "Dashboard" : pageTitle;
+  const activePageIcon = pathname ? getActiveNavigationIcon(pathname) : null;
+  const showBreadcrumb = Boolean(activePageTitle && (isDashboard || !headerContent));
+
   return (
-    <header className="gg-topbar">
+    <header className={`gg-topbar${headerContent && !isDashboard ? " gg-topbar--with-nav" : ""}`}>
       <button className="gg-icon-btn" type="button" onClick={onToggleSidebar} aria-label="Toggle sidebar"><Icon name="menu" /></button>
       <div className="gg-topbar-title">
-        <span className="gg-page-chip"><Icon name="plus" /></span>
-        <span className="gg-breadcrumb">{pageTitle}</span>
+        <span className="gg-page-chip"><Icon name={isDashboard ? "dashboard" : activePageIcon ?? pageIcon} /></span>
+        {showBreadcrumb && <span className="gg-breadcrumb">{activePageTitle}</span>}
       </div>
+      {!isDashboard && headerContent}
       <div className="gg-topbar-spacer" />
-      <button className="gg-pos-btn" type="button"><Icon name="monitor" size={16} />POS</button>
-      <button className="gg-icon-btn gg-apps-btn" type="button" aria-label="Apps"><Icon name="grid" /></button>
+      {permissions.includes(PERMISSION.managePosScreen) && (
+        <Link className="gg-pos-btn" href="/pos"><Icon name="monitor" size={16} />POS</Link>
+      )}
+      <Link className="gg-icon-btn gg-apps-btn" href="/dashboard" aria-label="Apps" title="Dashboard">
+        <Icon name="grid" />
+      </Link>
       <UserMenu name={user.name} image={user.image} />
     </header>
   );

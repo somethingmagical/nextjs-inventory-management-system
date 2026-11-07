@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { PERMISSION, type Permission } from "@/lib/permissions";
+
+const appName = process.env.NEXT_PUBLIC_APP_NAME || "Inventory";
 
 const iconPaths: Record<string, ReactNode> = {
   dashboard: <><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="4" rx="1.5" /><rect x="14" y="11" width="7" height="10" rx="2" /><rect x="3" y="12" width="7" height="9" rx="2" /></>,
@@ -44,28 +47,142 @@ export function Icon({ name, className, size = 18 }: { name: string; className?:
   );
 }
 
-const navigation = [
-  { label: "Dashboard", icon: "dashboard", href: "/dashboard" },
-  { label: "Products", icon: "boxes", children: ["Products", "Product Categories", "Brands", "Units", "Base Units", "Print Barcode"] },
-  { label: "Adjustments", icon: "sliders" },
-  { label: "Quotations", icon: "fileText" },
-  { label: "Purchases", icon: "receipt", children: ["Purchases", "Purchases Returns"] },
-  { label: "Sales", icon: "shoppingCart", children: ["Sales", "Sales Returns"] },
-  { label: "Transfers", icon: "repeat" },
-  { label: "Expenses", icon: "wallet", children: ["Expenses", "Expense Categories"] },
-  { label: "Peoples", icon: "users", children: ["Customers", "Suppliers", "Users"] },
-  { label: "Roles/Permissions", icon: "shieldCheck" },
-  { label: "Warehouse", icon: "warehouse", href: "/warehouse" },
-  { label: "Reports", icon: "chart" },
-  { label: "Currencies", icon: "dollar" },
-  { label: "Languages", icon: "languages" },
-  { label: "Templates", icon: "layoutTemplate", children: ["SMS Templates", "Email Templates"] },
-  { label: "Settings", icon: "settings" },
+type NavigationLink = {
+  label: string;
+  href?: string;
+  permission: Permission;
+  activePrefix?: string;
+  excludePrefix?: string;
+};
+
+type NavigationItem = {
+  label: string;
+  icon: string;
+  href?: string;
+  activePrefix?: string;
+  permission?: Permission;
+  children?: NavigationLink[];
+};
+
+const navigation: NavigationItem[] = [
+  { label: "Dashboard", icon: "dashboard", href: "/dashboard", permission: PERMISSION.manageDashboard },
+  {
+    label: "Products",
+    icon: "boxes",
+    children: [
+      { label: "Products", href: "/products", permission: PERMISSION.manageProducts, activePrefix: "/products" },
+      { label: "Product Category", href: "/product-categories", permission: PERMISSION.manageProductCategories, activePrefix: "/product-categories" },
+      { label: "Brands", href: "/brands", permission: PERMISSION.manageBrands, activePrefix: "/brands" },
+      // { label: "Units", permission: PERMISSION.manageUnits },
+      // { label: "Base Units", permission: PERMISSION.manageUnits },
+      // { label: "Print Barcode", permission: PERMISSION.manageProducts },
+    ],
+  },
+  { label: "Adjustments", icon: "sliders", href: "/adjustments", permission: PERMISSION.manageAdjustments },
+  // { label: "Quotations", icon: "fileText", permission: PERMISSION.manageQuotations },
+  {
+    label: "Purchases",
+    icon: "receipt",
+    children: [
+      { label: "Purchases", href: "/purchases", permission: PERMISSION.managePurchase, activePrefix: "/purchases", excludePrefix: "/purchases/returns" },
+      { label: "Purchases Returns", href: "/purchases/returns", permission: PERMISSION.managePurchaseReturn, activePrefix: "/purchases/returns" },
+    ],
+  },
+  {
+    label: "Sales",
+    icon: "shoppingCart",
+    children: [
+      { label: "Sales", href: "/sales", permission: PERMISSION.manageSale, activePrefix: "/sales", excludePrefix: "/sales/returns" },
+      { label: "Sales Returns", href: "/sales/returns", permission: PERMISSION.manageSaleReturn, activePrefix: "/sales/returns" },
+    ],
+  },
+  { label: "Transfers", icon: "repeat", href: "/transfers", permission: PERMISSION.manageTransfers },
+  {
+    label: "Expenses",
+    icon: "wallet",
+    children: [
+      { label: "Expenses", href: "/expenses", permission: PERMISSION.manageExpenses, activePrefix: "/expenses" },
+      { label: "Expense Categories", href: "/expense-categories", permission: PERMISSION.manageExpenseCategories, activePrefix: "/expense-categories" },
+    ],
+  },
+  {
+    label: "Peoples",
+    icon: "users",
+    children: [
+      { label: "Customers", href: "/customers", permission: PERMISSION.manageCustomers, activePrefix: "/customers" },
+      { label: "Suppliers", href: "/suppliers", permission: PERMISSION.manageSuppliers, activePrefix: "/suppliers" },
+      { label: "Users", href: "/users", permission: PERMISSION.manageUsers, activePrefix: "/users" },
+    ],
+  },
+  { label: "Roles/Permissions", icon: "shieldCheck", href: "/roles", permission: PERMISSION.manageRoles },
+  { label: "Warehouse", icon: "warehouse", href: "/warehouse", permission: PERMISSION.manageWarehouses, activePrefix: "/warehouse" },
+  { label: "Reports", icon: "chart", href: "/reports/warehouse", permission: PERMISSION.manageReports },
+  // { label: "Currencies", icon: "dollar", permission: PERMISSION.manageCurrency },
+  // { label: "Languages", icon: "languages", permission: PERMISSION.manageLanguage },
+  // {
+  //   label: "Templates",
+  //   icon: "layoutTemplate",
+  //   children: [
+  //     { label: "SMS Templates", permission: PERMISSION.manageSmsTemplates },
+  //     { label: "Email Templates", permission: PERMISSION.manageEmailTemplates },
+  //   ],
+  // },
+  // { label: "Settings", icon: "settings", permission: PERMISSION.manageSetting },
 ];
 
-export default function Sidebar() {
+export function getActiveNavigationIcon(pathname: string): string | null {
+  for (const item of navigation) {
+    if (item.children?.some((child) => (
+      child.activePrefix
+      && pathname.startsWith(child.activePrefix)
+      && (!child.excludePrefix || !pathname.startsWith(child.excludePrefix))
+    ))) {
+      return item.icon;
+    }
+
+    if (
+      item.href === pathname
+      || (item.href && pathname.startsWith(`${item.href}/`))
+      || (item.activePrefix && pathname.startsWith(item.activePrefix))
+    ) {
+      return item.icon;
+    }
+  }
+  return null;
+}
+
+export default function Sidebar({
+  permissions,
+  isCollapsed,
+}: {
+  permissions: Permission[];
+  isCollapsed: boolean;
+}) {
   const pathname = usePathname();
+  const router = useRouter();
   const [openGroups, setOpenGroups] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const allowedPermissions = useMemo(() => new Set(permissions), [permissions]);
+  const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
+  const visibleNavigation = useMemo(() => navigation.flatMap((item) => {
+    if (item.permission && !allowedPermissions.has(item.permission)) return [];
+
+    if (item.children) {
+      const allowedChildren = item.children.filter((child) => allowedPermissions.has(child.permission));
+      if (!allowedChildren.length) return [];
+      if (!normalizedSearch) return [{ ...item, children: allowedChildren }];
+
+      const parentMatches = item.label.toLocaleLowerCase().includes(normalizedSearch);
+      const matchingChildren = parentMatches
+        ? allowedChildren
+        : allowedChildren.filter((child) => child.label.toLocaleLowerCase().includes(normalizedSearch));
+      return matchingChildren.length ? [{ ...item, children: matchingChildren }] : [];
+    }
+
+    return !normalizedSearch || item.label.toLocaleLowerCase().includes(normalizedSearch)
+      ? [item]
+      : [];
+  }), [allowedPermissions, normalizedSearch]);
 
   function toggleGroup(label: string) {
     setOpenGroups((groups) => groups.includes(label) ? groups.filter((group) => group !== label) : [...groups, label]);
@@ -73,106 +190,98 @@ export default function Sidebar() {
 
   return (
     <aside className="gg-sidebar">
-      <Link className="gg-brand" href="/dashboard" aria-label="Inventory dashboard">
-        <span className="gg-brand-mark">I</span>
-        <span className="gg-brand-name">Inventory</span>
+      <Link className="gg-brand" href="/dashboard" aria-label={`${appName} dashboard`} title="Dashboard">
+        <img className="gg-brand-favicon" src="/favicon.ico" alt="" width={30} height={30} aria-hidden="true" />
+        {/* <span className="gg-brand-mark">I</span> */}
+        <span className="gg-brand-name">{appName}</span>
       </Link>
       <div className="gg-sidebar-search">
         <div className="gg-input-icon">
           <Icon name="search" />
-          <input className="gg-input" type="search" placeholder="Search" aria-label="Search navigation" />
+          <input
+            className="gg-input"
+            type="search"
+            placeholder="Search"
+            aria-label="Search navigation"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+          />
         </div>
       </div>
       <nav className="gg-nav" aria-label="Main navigation">
-        {navigation.map((item) => {
+        {visibleNavigation.map((item) => {
+          const children = item.children;
+
           const isOpen = openGroups.includes(item.label)
-            || (item.label === "Peoples" && (pathname.startsWith("/suppliers") || pathname.startsWith("/customers") || pathname.startsWith("/users")))
-            || (item.label === "Products" && (
-              pathname.startsWith("/products") || pathname.startsWith("/product-categories") || pathname.startsWith("/brands")
-            ));
+            || Boolean(normalizedSearch && children)
+            || children?.some((child) => child.activePrefix && pathname.startsWith(child.activePrefix));
           const content = (
             <>
               <Icon name={item.icon} className="gg-nav-ico" />
               <span className="gg-nav-label">{item.label}</span>
-              {item.children ? <Icon name="chevronRight" className="gg-nav-chev" /> : null}
+              {children ? <Icon name="chevronRight" className="gg-nav-chev" /> : null}
             </>
           );
-          if (item.children) {
+          if (children) {
+            const primaryLink = children.find((child) => child.href);
+            const handleGroupClick = () => {
+              const isIconMode = isCollapsed || window.matchMedia("(max-width: 820px)").matches;
+              if (isIconMode && primaryLink?.href) {
+                router.push(primaryLink.href);
+                return;
+              }
+              toggleGroup(item.label);
+            };
+
             return (
               <div key={item.label} className={`gg-nav-group ${isOpen ? "is-open" : ""}`}>
-                <button className="gg-nav-item gg-nav-toggle" type="button" aria-expanded={isOpen} onClick={() => toggleGroup(item.label)}>{content}</button>
+                <button
+                  className="gg-nav-item gg-nav-toggle"
+                  type="button"
+                  aria-expanded={isOpen}
+                  aria-label={item.label}
+                  title={item.label}
+                  onClick={handleGroupClick}
+                >
+                  {content}
+                </button>
                 <div className="gg-nav-sub">
-                  {item.children.map((child) => child === "Products" ? (
-                    <Link
-                      className={`gg-nav-item ${pathname.startsWith("/products") ? "is-active" : ""}`}
-                      href="/products"
-                      key={child}
-                    >
-                      <span className="gg-nav-label">{child}</span>
-                    </Link>
-                  ) : child === "Product Categories" ? (
-                    <Link
-                      className={`gg-nav-item ${pathname.startsWith("/product-categories") ? "is-active" : ""}`}
-                      href="/product-categories"
-                      key={child}
-                    >
-                      <span className="gg-nav-label">{child}</span>
-                    </Link>
-                  ) : child === "Brands" ? (
-                    <Link
-                      className={`gg-nav-item ${pathname.startsWith("/brands") ? "is-active" : ""}`}
-                      href="/brands"
-                      key={child}
-                    >
-                      <span className="gg-nav-label">{child}</span>
-                    </Link>
-                  ) : child === "Suppliers" ? (
-                    <Link
-                      className={`gg-nav-item ${pathname.startsWith("/suppliers") ? "is-active" : ""}`}
-                      href="/suppliers"
-                      key={child}
-                    >
-                      <span className="gg-nav-label">{child}</span>
-                    </Link>
-                  ) : child === "Users" ? (
-                    <Link
-                      className={`gg-nav-item ${pathname.startsWith("/users") ? "is-active" : ""}`}
-                      href="/users"
-                      key={child}
-                    >
-                      <span className="gg-nav-label">{child}</span>
-                    </Link>
-                  ) : child === "Customers" ? (
-                    <Link
-                      className={`gg-nav-item ${pathname.startsWith("/customers") ? "is-active" : ""}`}
-                      href="/customers"
-                      key={child}
-                    >
-                      <span className="gg-nav-label">{child}</span>
-                    </Link>
-                  ) : (
-                    <a className="gg-nav-item" href="#" key={child} onClick={(event) => event.preventDefault()}>
-                      <span className="gg-nav-label">{child}</span>
-                    </a>
-                  ))}
+                  {children.map((child) => {
+                    const active = child.activePrefix
+                      ? pathname.startsWith(child.activePrefix)
+                        && (!child.excludePrefix || !pathname.startsWith(child.excludePrefix))
+                      : false;
+                    const className = `gg-nav-item ${active ? "is-active" : ""}`;
+                    return child.href ? (
+                      <Link className={className} href={child.href} key={child.label}>
+                        <span className="gg-nav-label">{child.label}</span>
+                      </Link>
+                    ) : (
+                      <a className={className} href="#" key={child.label} onClick={(event) => event.preventDefault()}>
+                        <span className="gg-nav-label">{child.label}</span>
+                      </a>
+                    );
+                  })}
                 </div>
               </div>
             );
           }
+          const active = item.href === pathname
+            || (item.href && pathname.startsWith(`${item.href}/`))
+            || (item.activePrefix && pathname.startsWith(item.activePrefix));
           return (
             <Link
               key={item.label}
-              className={`gg-nav-item ${
-                item.href === pathname || (item.href === "/warehouse" && pathname.startsWith("/warehouse/"))
-                  ? "is-active"
-                  : ""
-              }`}
+              className={`gg-nav-item ${active ? "is-active" : ""}`}
               href={item.href ?? "#"}
             >
               {content}
             </Link>
           );
         })}
+        {normalizedSearch && visibleNavigation.length === 0 && (
+          <p className="gg-muted gg-nav-empty" role="status">No navigation items found.</p>
+        )}
       </nav>
     </aside>
   );

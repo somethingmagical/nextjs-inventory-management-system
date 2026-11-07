@@ -24,24 +24,41 @@ export default function DashboardCard({
 }
 
 export type KpiCardData = {
+  valueKey: keyof DashboardKpiValues;
   tone: string;
   icon: string;
   label: string;
-  value?: string;
 };
 
+export type DashboardKpiValues = Record<
+  | "sales"
+  | "purchases"
+  | "salesReturns"
+  | "purchaseReturns"
+  | "todaySales"
+  | "todayReceived"
+  | "todayPurchases"
+  | "todayExpenses",
+  string
+>;
+
 const kpis: KpiCardData[] = [
-  { tone: "gold", icon: "shoppingCart", label: "Sales" },
-  { tone: "emerald", icon: "shoppingBag", label: "Purchases" },
-  { tone: "blue", icon: "arrowRight", label: "Sales Returns" },
-  { tone: "orange", icon: "arrowLeft", label: "Purchases Returns" },
-  { tone: "violet", icon: "dollar", label: "Today Total Sales" },
-  { tone: "rose", icon: "banknote", label: "Today Total Received (Sales)" },
-  { tone: "cyan", icon: "shoppingCart", label: "Today Total Purchases" },
-  { tone: "red", icon: "minusCircle", label: "Today Total Expense" },
+  { valueKey: "sales", tone: "gold", icon: "shoppingCart", label: "Sales" },
+  { valueKey: "purchases", tone: "emerald", icon: "shoppingBag", label: "Purchases" },
+  { valueKey: "salesReturns", tone: "blue", icon: "arrowRight", label: "Sales Returns" },
+  { valueKey: "purchaseReturns", tone: "orange", icon: "arrowLeft", label: "Purchases Returns" },
+  { valueKey: "todaySales", tone: "violet", icon: "dollar", label: "Today Total Sales" },
+  { valueKey: "todayReceived", tone: "rose", icon: "banknote", label: "Today Total Received (Sales)" },
+  { valueKey: "todayPurchases", tone: "cyan", icon: "shoppingCart", label: "Today Total Purchases" },
+  { valueKey: "todayExpenses", tone: "red", icon: "minusCircle", label: "Today Total Expense" },
 ];
 
-export function KpiCard({ tone, icon, label, value = "$ 0.00" }: KpiCardData) {
+export function KpiCard({
+  tone,
+  icon,
+  label,
+  value,
+}: Omit<KpiCardData, "valueKey"> & { value: string }) {
   return (
     <article className={`gg-kpi gg-kpi--${tone}`}>
       <span className="gg-kpi-ico"><Icon name={icon} size={26} /></span>
@@ -53,41 +70,18 @@ export function KpiCard({ tone, icon, label, value = "$ 0.00" }: KpiCardData) {
   );
 }
 
-export function KpiGrid() {
+export function KpiGrid({ values }: { values: DashboardKpiValues }) {
   return (
-    <section className="gg-kpi-grid" aria-label="Dashboard summary">
-      {kpis.map((kpi) => <KpiCard key={kpi.label} {...kpi} />)}
+    <section className="gg-kpi-grid" id="kpiGrid" aria-label="Dashboard summary">
+      {kpis.map((kpi) => (
+        <KpiCard
+          key={kpi.label}
+          tone={kpi.tone}
+          icon={kpi.icon}
+          label={kpi.label}
+          value={`$ ${values[kpi.valueKey]}`}
+        />
+      ))}
     </section>
-  );
-}
-
-const salesChartDays = ["May 20", "May 21", "May 22", "May 23", "May 24", "May 25", "May 26"];
-
-export function SalesChart() {
-  return (
-    <div className="chart-box dashboard-line-wrap">
-      <svg className="dashboard-line-chart" viewBox="0 0 700 300" role="img" aria-label="Sales and purchases by day, both currently zero">
-        <text x="0" y="29">$ 1.0</text>
-        <text x="0" y="91">$ 0.7</text>
-        <text x="0" y="153">$ 0.3</text>
-        <text x="0" y="215">$ 0.0</text>
-        {[27, 89, 151, 213].map((y) => <line key={y} x1="52" x2="690" y1={y} y2={y} className="chart-grid-line" />)}
-        <line x1="52" x2="690" y1="213" y2="213" className="chart-zero-line" />
-        {salesChartDays.map((day, index) => {
-          const x = 70 + index * 100;
-          return (
-            <g key={day}>
-              <circle cx={x} cy="213" r="3.5" className="chart-dot-sales" />
-              <circle cx={x} cy="213" r="3.5" className="chart-dot-purchases" />
-              <text x={x} y="246" textAnchor="middle">{day}</text>
-            </g>
-          );
-        })}
-        <g className="chart-legend">
-          <circle cx="286" cy="278" r="4" className="chart-dot-sales" /><text x="298" y="282">Sales</text>
-          <circle cx="365" cy="278" r="4" className="chart-dot-purchases" /><text x="377" y="282">Purchases</text>
-        </g>
-      </svg>
-    </div>
   );
 }

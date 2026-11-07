@@ -1,14 +1,17 @@
 import DashboardCard from "./DashboardCard";
 
-const sales = [
-  ["SA_11149", "direct-customer", "71,800.00", "71,800.00", "0.00"],
-  ["SA_11148", "direct-customer", "31,920.00", "31,920.00", "0.00"],
-  ["SA_11147", "direct-customer", "7,980.00", "7,980.00", "0.00"],
-  ["SA_11146", "direct-customer", "11,970.00", "11,970.00", "0.00"],
-  ["SA_11145", "direct-customer", "7,980.00", "7,980.00", "0.00"],
-];
+type RecentSale = {
+  id: string;
+  reference: string;
+  customer: string;
+  status: string;
+  grandTotal: string;
+  paid: string;
+  due: string;
+  paymentStatus: string;
+};
 
-export default function RecentSalesTable() {
+export default function RecentSalesTable({ sales }: { sales: RecentSale[] }) {
   return (
     <DashboardCard title="Recent Sales" contentClassName="dashboard-table-pad">
       <div className="gg-table-wrap">
@@ -20,17 +23,28 @@ export default function RecentSalesTable() {
             </tr>
           </thead>
           <tbody>
-            {sales.map(([reference, customer, total, paid, due]) => (
-              <tr key={reference}>
-                <td><span className="gg-chip-code">{reference}</span></td>
-                <td>{customer}</td>
-                <td><span className="gg-badge gg-badge--success">Received</span></td>
-                <td className="gg-num gg-td-strong">$ {total}</td>
-                <td className="gg-num">$ {paid}</td>
-                <td className="gg-num">$ {due}</td>
-                <td><span className="gg-badge gg-badge--success">Paid</span></td>
+            {sales.map((sale) => (
+              <tr key={sale.id}>
+                <td><span className="gg-chip-code">{sale.reference}</span></td>
+                <td>{sale.customer}</td>
+                <td>
+                  <span className={`gg-badge ${sale.status === "Received" ? "gg-badge--success" : "gg-badge--warning"}`}>
+                    {sale.status}
+                  </span>
+                </td>
+                <td className="gg-num gg-td-strong">$ {sale.grandTotal}</td>
+                <td className="gg-num">$ {sale.paid}</td>
+                <td className="gg-num">$ {sale.due}</td>
+                <td>
+                  <span className={`gg-badge ${sale.paymentStatus === "Paid" ? "gg-badge--success" : "gg-badge--warning"}`}>
+                    {sale.paymentStatus}
+                  </span>
+                </td>
               </tr>
             ))}
+            {sales.length === 0 && (
+              <tr><td colSpan={7} className="gg-muted">No sales to display.</td></tr>
+            )}
           </tbody>
         </table>
       </div>

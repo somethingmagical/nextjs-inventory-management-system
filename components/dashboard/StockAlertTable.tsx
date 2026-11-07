@@ -1,11 +1,16 @@
 import DashboardCard from "./DashboardCard";
 
-const stockAlerts = [
-  ["002", "ipl laser hair removal", "Office", "0"],
-  ["001", "FACE FAT AND DOUBLE CHIN", "Office", "2"],
-];
+type StockAlert = {
+  id: string;
+  code: string;
+  product: string;
+  warehouse: string;
+  quantity: string;
+  alertQuantity: string;
+  unit: string;
+};
 
-export default function StockAlertTable() {
+export default function StockAlertTable({ stockAlerts }: { stockAlerts: StockAlert[] }) {
   return (
     <DashboardCard title="Stock Alert" contentClassName="dashboard-table-pad">
       <div className="gg-table-wrap">
@@ -17,15 +22,20 @@ export default function StockAlertTable() {
             </tr>
           </thead>
           <tbody>
-            {stockAlerts.map(([code, product, warehouse, quantity]) => (
-              <tr key={code}>
-                <td className="gg-num">{code}</td>
-                <td className="gg-td-strong">{product}</td>
-                <td>{warehouse}</td>
-                <td><span className="qty-pill gg-num">{quantity}</span> <span className="gg-chip-unit">piece</span></td>
-                <td className="dashboard-align-right"><span className="alert-pill gg-num">3</span> <span className="gg-chip-unit">piece</span></td>
+            {stockAlerts.map((stock) => (
+              <tr key={stock.id}>
+                <td className="gg-num">{stock.code}</td>
+                <td className="gg-td-strong">{stock.product}</td>
+                <td>{stock.warehouse}</td>
+                <td><span className="qty-pill gg-num">{stock.quantity}</span> <span className="gg-chip-unit">{stock.unit}</span></td>
+                <td className="dashboard-align-right">
+                  <span className="alert-pill gg-num">{stock.alertQuantity}</span> <span className="gg-chip-unit">{stock.unit}</span>
+                </td>
               </tr>
             ))}
+            {stockAlerts.length === 0 && (
+              <tr><td colSpan={5} className="gg-muted">No low-stock products.</td></tr>
+            )}
           </tbody>
         </table>
       </div>

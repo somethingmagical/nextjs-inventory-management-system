@@ -1,15 +1,19 @@
 import DashboardCard from "./DashboardCard";
+import { CustomerSalesChart } from "./DashboardCharts";
 
-export default function CustomerSourcesChart() {
+export default function CustomerSourcesChart({
+  month,
+  customers,
+}: {
+  month: string;
+  customers: { name: string; amount: string }[];
+}) {
+  const labels = customers.map(({ name }) => name);
+  const amounts = customers.map(({ amount }) => Number(amount));
+
   return (
-    <DashboardCard title="Top 5 Customers (May)">
-      <div className="chart-box customer-chart">
-        <div className="customer-chart-legend">
-          <span className="customer-chart-swatch" />
-          direct-customer
-        </div>
-        <div className="customer-pie" role="img" aria-label="All customers are direct customers" />
-      </div>
+    <DashboardCard title={`Top 5 Customers (${month})`}>
+      <CustomerSalesChart labels={labels} amounts={amounts} />
     </DashboardCard>
   );
 }

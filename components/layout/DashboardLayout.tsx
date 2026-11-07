@@ -1,39 +1,29 @@
 "use client";
 
-import { Suspense, useState, type ReactNode } from "react";
-import Footer from "./Footer";
-import Header from "./Header";
-import RouteLoadingBar from "./RouteLoadingBar";
-import Sidebar from "./Sidebar";
+import { useContext, useEffect, type ReactNode } from "react";
+import { DashboardHeaderConfigContext } from "./DashboardShell";
 
 export default function DashboardLayout({
   children,
-  user,
   pageTitle = "Dashboard",
+  pageIcon = "dashboard",
+  headerContent,
 }: {
   children: ReactNode;
   user: { name: string; image: string | null };
   pageTitle?: string;
+  pageIcon?: "dashboard" | "plus" | "chart";
+  headerContent?: ReactNode;
 }) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const updateHeaderConfig = useContext(DashboardHeaderConfigContext);
 
-  return (
-    <>
-      <Suspense fallback={null}>
-        <RouteLoadingBar />
-      </Suspense>
-      <div className={`gg-app ${isCollapsed ? "is-collapsed" : ""}`}>
-        <Sidebar />
-        <div className="gg-main">
-          <Header
-            onToggleSidebar={() => setIsCollapsed((collapsed) => !collapsed)}
-            user={user}
-            pageTitle={pageTitle}
-          />
-          {children}
-          <Footer />
-        </div>
-      </div>
-    </>
-  );
+  if (!updateHeaderConfig) {
+    throw new Error("DashboardLayout must be rendered inside the authenticated dashboard layout.");
+  }
+
+  useEffect(() => {
+    updateHeaderConfig({ pageTitle, pageIcon, headerContent });
+  }, [headerContent, pageIcon, pageTitle, updateHeaderConfig]);
+
+  return children;
 }

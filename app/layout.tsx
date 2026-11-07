@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "./customstyle.css";
 
+const appName = process.env.NEXT_PUBLIC_APP_NAME || "Inventory";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -14,7 +16,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Sign In | Inventory",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+  ),
+  title: {
+    default: `Sign In | ${appName}`,
+    template: `%s | ${appName}`,
+  },
   description: "Sign in to the Inventory workspace",
 };
 
