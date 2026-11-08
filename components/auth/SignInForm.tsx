@@ -45,8 +45,12 @@ export default function SignInForm() {
         redirectTo: "/dashboard",
       });
 
-      if (!result?.ok || result.error) {
-        setError("Invalid email or password.");
+      if (!result?.ok) {
+        setError(
+          result?.error === "CredentialsSignin"
+            ? "Invalid email or password."
+            : "Unable to connect to the sign-in service. Please try again later.",
+        );
         return;
       }
 

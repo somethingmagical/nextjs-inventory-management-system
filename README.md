@@ -25,7 +25,11 @@ Follow these steps to prepare a local development environment: install dependenc
 3. Create a `.env` file in the repository root:
 
    ```env
-   DATABASE_URL="mysql://USER:PASSWORD@HOST:3306/DATABASE"
+   DB_HOST=127.0.0.1
+   DB_PORT=3306
+   DB_USERNAME='root'
+   DB_PASSWORD=''
+   DB_DATABASE='nextinventory'
    AUTH_SECRET="replace-with-a-random-secret"
    ADMIN_EMAIL="admin@example.com"
    ADMIN_PASSWORD="choose-a-strong-password"
@@ -39,7 +43,7 @@ Follow these steps to prepare a local development environment: install dependenc
    ADMIN_IMAGE=""
    ```
 
-   The database URL must use the `mysql://` or `mariadb://` protocol and include the database name. URL-encode special characters in the username or password. Generate an authentication secret, for example with `openssl rand -base64 32`. Keep `.env` private; it is ignored by git.
+   TiDB Cloud hosts automatically use certificate-verified TLS. Generate an authentication secret, for example with `openssl rand -base64 32`. Keep `.env` private; it is ignored by git.
 
 4. Generate the Prisma client and apply the checked-in database migrations:
 
@@ -68,7 +72,11 @@ Open [http://localhost:3000](http://localhost:3000) and sign in with the configu
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | Yes | MySQL/MariaDB connection URL and database name. |
+| `DB_HOST` | Yes | MySQL/MariaDB server hostname or IP address. |
+| `DB_PORT` | Yes | MySQL/MariaDB server port. |
+| `DB_USERNAME` | Yes | Database username. |
+| `DB_PASSWORD` | Yes | Database password; may be empty for local development. |
+| `DB_DATABASE` | Yes | Database name. |
 | `AUTH_SECRET` | Yes | Secret used to sign authentication tokens. |
 | `ADMIN_EMAIL` | Yes, for seeding | Email address for the initial administrator account. |
 | `ADMIN_PASSWORD` | Yes, for seeding | Initial administrator password. |

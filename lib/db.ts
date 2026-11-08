@@ -2,28 +2,34 @@ import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaClient } from "@prisma/client";
 
 function createPrismaClient() {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
-    throw new Error("DATABASE_URL must be set to connect to MySQL.");
+  const host = process.env.DB_HOST;
+  const portValue = process.env.DB_PORT;
+  const user = process.env.DB_USERNAME;
+  const password = process.env.DB_PASSWORD;
+  const database = process.env.DB_DATABASE;
+
+  if (!host || !portValue || !user || password === undefined || !database) {
+    throw new Error(
+      "DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, and DB_DATABASE must be set to connect to MySQL.",
+    );
   }
 
-  const url = new URL(connectionString);
-  if (url.protocol !== "mysql:" && url.protocol !== "mariadb:") {
-    throw new Error("DATABASE_URL must use the mysql:// or mariadb:// protocol.");
+  const port = Number(portValue);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error("DB_PORT must be a valid TCP port.");
   }
 
-  const database = decodeURIComponent(url.pathname.slice(1));
-  if (!database) {
-    throw new Error("DATABASE_URL must include a database name.");
-  }
-
+  const isTiDBCloud =
+    host === "tidbcloud.com" || host.endsWith(".tidbcloud.com");
   const adapter = new PrismaMariaDb({
-    host: url.hostname,
-    port: Number(url.port || 3306),
-    user: decodeURIComponent(url.username),
-    password: decodeURIComponent(url.password),
+    host,
+    port,
+    user,
+    password,
     database,
     connectionLimit: 5,
+    connectTimeout: 10_000,
+    ...(isTiDBCloud ? { ssl: { rejectUnauthorized: true } } : {}),
   });
 
   return new PrismaClient({ adapter });
