@@ -100,7 +100,7 @@ jobs:
       - name: Build with Next.js
         # Highlight-start: Inject your secrets here
         env:
-          NEXT_PUBLIC_API_URL: ${{ NEXT_INVENTORY }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_INVENTORY }}
     
         # Highlight-end
         run: npx next build
