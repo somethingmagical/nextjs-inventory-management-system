@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { canManageRoleInHierarchy } from "@/lib/authorization";
 import { getUserManagementAccess } from "../../authorization";
 import { updateUserSchema, userIdSchema } from "../../user-schema";
 import { getUserImageEntry, removeUserImage, saveUserImage } from "../../user-image";
@@ -103,18 +104,48 @@ export async function updateUser(
       const [currentRole, selectedRole] = await Promise.all([
         transaction.role.findFirst({
           where: { id: current.roleId, deletedAt: null },
-          select: { name: true },
+          select: {
+            name: true,
+            permissions: { select: { permission: true } },
+          },
         }),
         transaction.role.findFirst({
           where: { id: role.id, deletedAt: null },
-          select: { id: true, name: true },
+          select: {
+            id: true,
+            name: true,
+            permissions: { select: { permission: true } },
+          },
         }),
       ]);
       if (!currentRole || !selectedRole) {
         return { status: "error" as const, message: "Select an available role." };
       }
 
-      if (currentRole.name === "admin" && selectedRole.id !== current.roleId) {
+      if (
+        !canManageRoleInHierarchy(access.user, {
+          name: currentRole.name,
+          permissions: currentRole.permissions.map(({ permission }) => permission),
+        })
+      ) {
+        return {
+          status: "error" as const,
+          message: "You cannot edit a user at or above your own level.",
+        };
+      }
+      if (
+        !canManageRoleInHierarchy(access.user, {
+          name: selectedRole.name,
+          permissions: selectedRole.permissions.map(({ permission }) => permission),
+        })
+      ) {
+        return {
+          status: "error" as const,
+          message: "You cannot assign a role at or above your own level.",
+        };
+      }
+
+      if (currentRole.name.toLowerCase() === "admin" && selectedRole.id !== current.roleId) {
         const activeAdmins = await transaction.user.count({
           where: { roleId: current.roleId, deletedAt: null },
         });

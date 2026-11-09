@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { canManageRoleInHierarchy } from "@/lib/authorization";
 import { getUserManagementAccess } from "../authorization";
 import { createUserSchema } from "../user-schema";
 import { getUserImageEntry, removeUserImage, saveUserImage } from "../user-image";
@@ -47,7 +48,14 @@ export async function createUser(
 
   const [existingUser, role] = await Promise.all([
     db.user.findUnique({ where: { email: parsed.data.email }, select: { id: true } }),
-    db.role.findFirst({ where: { id: parsed.data.role, deletedAt: null }, select: { id: true, name: true } }),
+    db.role.findFirst({
+      where: { id: parsed.data.role, deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        permissions: { select: { permission: true } },
+      },
+    }),
   ]);
   if (existingUser) {
     return {
@@ -58,6 +66,18 @@ export async function createUser(
   }
   if (!role) {
     return { status: "error", message: "Select an available role.", fieldErrors: { role: ["Select an available role."] } };
+  }
+  if (
+    !canManageRoleInHierarchy(access.user, {
+      name: role.name,
+      permissions: role.permissions.map(({ permission }) => permission),
+    })
+  ) {
+    return {
+      status: "error",
+      message: "You cannot assign a role at or above your own level.",
+      fieldErrors: { role: ["Select a role at or below your own level."] },
+    };
   }
 
   let uploadedImage: { path: string; filePath: string } | null = null;

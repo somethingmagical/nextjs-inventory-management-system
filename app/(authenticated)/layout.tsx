@@ -32,7 +32,13 @@ async function AuthenticatedDashboard({ children }: { children: ReactNode }) {
   const [user, permissions, settings] = await Promise.all([
     db.user.findUnique({
       where: { id: session.user.id },
-      select: { firstName: true, lastName: true, email: true, image: true },
+      select: {
+        firstName: true,
+        lastName: true,
+        email: true,
+        image: true,
+        roleRecord: { select: { name: true, deletedAt: true } },
+      },
     }),
     getCurrentPermissions(),
     getApplicationSettings(),
@@ -48,6 +54,7 @@ async function AuthenticatedDashboard({ children }: { children: ReactNode }) {
       pageTitle="Dashboard"
       pageIcon="dashboard"
       permissions={permissions}
+      isAdmin={user.roleRecord.name === "admin" && user.roleRecord.deletedAt === null}
       appName={settings.appName}
       faviconPath={settings.faviconPath}
     >

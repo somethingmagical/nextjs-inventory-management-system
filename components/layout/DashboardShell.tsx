@@ -23,6 +23,7 @@ export default function DashboardShell({
   pageTitle,
   pageIcon,
   permissions,
+  isAdmin,
   headerContent,
   appName,
   faviconPath,
@@ -32,6 +33,7 @@ export default function DashboardShell({
   pageTitle: string;
   pageIcon: "dashboard" | "plus" | "chart";
   permissions: Permission[];
+  isAdmin: boolean;
   headerContent?: ReactNode;
   appName: string;
   faviconPath: string;
@@ -54,6 +56,7 @@ export default function DashboardShell({
       <div className={`gg-app ${isCollapsed ? "is-collapsed" : ""}`}>
         <Sidebar
           permissions={permissions}
+          isAdmin={isAdmin}
           isCollapsed={isCollapsed}
           appName={appName}
           faviconPath={faviconPath}

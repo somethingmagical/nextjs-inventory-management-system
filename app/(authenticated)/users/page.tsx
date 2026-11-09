@@ -15,6 +15,7 @@ import {
 import { z } from "zod";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { db } from "@/lib/db";
+import { canManageRoleInHierarchy } from "@/lib/authorization";
 import { getUserManagementAccess } from "./authorization";
 import UserDeleteButton from "./UserDeleteButton";
 import WarehouseToast from "@/components/shared/WarehouseToast";
@@ -93,7 +94,12 @@ async function UserList({ searchParams }: UsersPageProps) {
       firstName: true,
       lastName: true,
       email: true,
-      roleRecord: { select: { name: true } },
+      roleRecord: {
+        select: {
+          name: true,
+          permissions: { select: { permission: true } },
+        },
+      },
       phoneNumber: true,
       image: true,
       createdAt: true,
@@ -154,6 +160,10 @@ async function UserList({ searchParams }: UsersPageProps) {
                 {users.map((user) => {
                   const name = `${user.firstName} ${user.lastName}`.trim();
                   const initials = `${user.firstName.slice(0, 1)}${user.lastName.slice(0, 1)}`.toUpperCase();
+                  const canManageUser = canManageRoleInHierarchy(access.user, {
+                    name: user.roleRecord.name,
+                    permissions: user.roleRecord.permissions.map(({ permission }) => permission),
+                  });
 
                   return (
                     <tr key={user.id}>
@@ -180,17 +190,21 @@ async function UserList({ searchParams }: UsersPageProps) {
                         </time>
                       </td>
                       <td className="user-actions-cell">
-                        <div className="row-acts">
-                          <Link
-                            className="act-edit"
-                            href={`/users/${encodeURIComponent(user.id)}/edit`}
-                            aria-label={`Edit ${name}`}
-                            title="Edit"
-                          >
-                            <Pencil aria-hidden="true" />
-                          </Link>
-                          <UserDeleteButton userId={user.id} userName={name} />
-                        </div>
+                        {canManageUser ? (
+                          <div className="row-acts">
+                            <Link
+                              className="act-edit"
+                              href={`/users/${encodeURIComponent(user.id)}/edit`}
+                              aria-label={`Edit ${name}`}
+                              title="Edit"
+                            >
+                              <Pencil aria-hidden="true" />
+                            </Link>
+                            <UserDeleteButton userId={user.id} userName={name} />
+                          </div>
+                        ) : (
+                          <span className="gg-muted">Protected</span>
+                        )}
                       </td>
                     </tr>
                   );

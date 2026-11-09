@@ -60,6 +60,7 @@ type NavigationItem = {
   href?: string;
   activePrefix?: string;
   permission?: Permission;
+  adminOnly?: boolean;
   children?: NavigationLink[];
 };
 
@@ -126,7 +127,7 @@ const navigation: NavigationItem[] = [
   //     { label: "Email Templates", permission: PERMISSION.manageEmailTemplates },
   //   ],
   // },
-  { label: "Settings", icon: "settings", href: "/settings", permission: PERMISSION.manageSetting },
+  { label: "Settings", icon: "settings", href: "/settings", permission: PERMISSION.manageSetting, adminOnly: true },
 ];
 
 export function getActiveNavigationIcon(pathname: string): string | null {
@@ -152,11 +153,13 @@ export function getActiveNavigationIcon(pathname: string): string | null {
 
 export default function Sidebar({
   permissions,
+  isAdmin,
   isCollapsed,
   appName,
   faviconPath,
 }: {
   permissions: Permission[];
+  isAdmin: boolean;
   isCollapsed: boolean;
   appName: string;
   faviconPath: string;
@@ -168,6 +171,7 @@ export default function Sidebar({
   const allowedPermissions = useMemo(() => new Set(permissions), [permissions]);
   const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
   const visibleNavigation = useMemo(() => navigation.flatMap((item) => {
+    if (item.adminOnly && !isAdmin) return [];
     if (item.permission && !allowedPermissions.has(item.permission)) return [];
 
     if (item.children) {
@@ -185,7 +189,7 @@ export default function Sidebar({
     return !normalizedSearch || item.label.toLocaleLowerCase().includes(normalizedSearch)
       ? [item]
       : [];
-  }), [allowedPermissions, normalizedSearch]);
+  }), [allowedPermissions, isAdmin, normalizedSearch]);
 
   function toggleGroup(label: string) {
     setOpenGroups((groups) => groups.includes(label) ? groups.filter((group) => group !== label) : [...groups, label]);

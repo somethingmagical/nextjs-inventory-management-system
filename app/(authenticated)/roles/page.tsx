@@ -15,6 +15,7 @@ import { z } from "zod";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import WarehouseToast from "@/components/shared/WarehouseToast";
 import { db } from "@/lib/db";
+import { canManageRoleInHierarchy, isAdminRole } from "@/lib/authorization";
 import { getRoleManagementAccess } from "./authorization";
 import RoleDeleteButton from "./RoleDeleteButton";
 import AutoSearchForm from "@/components/shared/AutoSearchForm";
@@ -67,7 +68,12 @@ async function RoleList({ searchParams }: RolesPageProps) {
     orderBy: [{ name: "asc" }, { createdAt: "desc" }],
     skip: (currentPage - 1) * pageSize,
     take: pageSize,
-    select: { id: true, name: true, createdAt: true },
+    select: {
+      id: true,
+      name: true,
+      createdAt: true,
+      permissions: { select: { permission: true } },
+    },
   });
 
   const displayName = `${access.user.firstName} ${access.user.lastName}`.trim() || access.user.email;
@@ -118,33 +124,46 @@ async function RoleList({ searchParams }: RolesPageProps) {
                 </tr>
               </thead>
               <tbody>
-                {roles.map((role) => (
-                  <tr key={role.id}>
-                    <td className="gg-td-strong">{role.name}</td>
-                    <td>
-                      <time className="gg-chip-time gg-num" dateTime={role.createdAt.toISOString()}>
-                        {role.createdAt.toLocaleDateString("en", {
-                          year: "numeric",
-                          month: "2-digit",
-                          day: "2-digit",
-                        })}
-                      </time>
-                    </td>
-                    <td className="roles-actions-cell">
-                      <div className="row-acts">
-                        <Link
-                          className="act-edit"
-                          href={`/roles/${encodeURIComponent(role.id)}/edit`}
-                          aria-label={`Edit ${role.name}`}
-                          title="Edit"
-                        >
-                          <Pencil aria-hidden="true" />
-                        </Link>
-                        <RoleDeleteButton roleId={role.id} roleName={role.name} />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {roles.map((role) => {
+                  const canManageRole =
+                    canManageRoleInHierarchy(access.user, {
+                      name: role.name,
+                      permissions: role.permissions.map(({ permission }) => permission),
+                    }) &&
+                    (isAdminRole(access.user.roleName) || role.id !== access.user.roleId);
+
+                  return (
+                    <tr key={role.id}>
+                      <td className="gg-td-strong">{role.name}</td>
+                      <td>
+                        <time className="gg-chip-time gg-num" dateTime={role.createdAt.toISOString()}>
+                          {role.createdAt.toLocaleDateString("en", {
+                            year: "numeric",
+                            month: "2-digit",
+                            day: "2-digit",
+                          })}
+                        </time>
+                      </td>
+                      <td className="roles-actions-cell">
+                        {canManageRole ? (
+                          <div className="row-acts">
+                            <Link
+                              className="act-edit"
+                              href={`/roles/${encodeURIComponent(role.id)}/edit`}
+                              aria-label={`Edit ${role.name}`}
+                              title="Edit"
+                            >
+                              <Pencil aria-hidden="true" />
+                            </Link>
+                            <RoleDeleteButton roleId={role.id} roleName={role.name} />
+                          </div>
+                        ) : (
+                          <span className="gg-muted">Protected</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
                 {roles.length === 0 && (
                   <tr>
                     <td className="supplier-empty-cell" colSpan={3}>

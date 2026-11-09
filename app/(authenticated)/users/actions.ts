@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { canManageRoleInHierarchy } from "@/lib/authorization";
 import { getUserManagementAccess } from "./authorization";
 import { userIdSchema } from "./user-schema";
 import type { UserActionState } from "./create/action-state";
@@ -28,7 +29,16 @@ export async function deleteUser(userId: string): Promise<UserActionState> {
   const result = await db.$transaction(async (transaction) => {
     const target = await transaction.user.findFirst({
       where: { id: parsed.data.userId, deletedAt: null },
-      select: { id: true, roleId: true, roleRecord: { select: { name: true } } },
+      select: {
+        id: true,
+        roleId: true,
+        roleRecord: {
+          select: {
+            name: true,
+            permissions: { select: { permission: true } },
+          },
+        },
+      },
     });
     if (!target) {
       return {
@@ -37,7 +47,19 @@ export async function deleteUser(userId: string): Promise<UserActionState> {
       };
     }
 
-    if (target.roleRecord.name === "admin") {
+    if (
+      !canManageRoleInHierarchy(access.user, {
+        name: target.roleRecord.name,
+        permissions: target.roleRecord.permissions.map(({ permission }) => permission),
+      })
+    ) {
+      return {
+        status: "error" as const,
+        message: "You cannot delete a user at or above your own level.",
+      };
+    }
+
+    if (target.roleRecord.name.toLowerCase() === "admin") {
       const activeAdmins = await transaction.user.count({
         where: { roleId: target.roleId, deletedAt: null },
       });

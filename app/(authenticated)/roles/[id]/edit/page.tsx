@@ -4,6 +4,8 @@ import { connection } from "next/server";
 import { notFound, redirect } from "next/navigation";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { db } from "@/lib/db";
+import { canManageRoleInHierarchy, isAdminRole } from "@/lib/authorization";
+import { PERMISSIONS } from "@/lib/permissions";
 import { getRoleManagementAccess } from "../../authorization";
 import { updateRole } from "../../actions";
 import { roleIdSchema } from "../../role-schema";
@@ -43,9 +45,21 @@ async function AuthorizedEditRole({ params }: EditRolePageProps) {
     },
   });
   if (!role) notFound();
+  if (
+    !canManageRoleInHierarchy(access.user, {
+      name: role.name,
+      permissions: role.permissions.map(({ permission }) => permission),
+    }) ||
+    (!isAdminRole(access.user.roleName) && role.id === access.user.roleId)
+  ) {
+    redirect("/roles");
+  }
 
   const name = `${access.user.firstName} ${access.user.lastName}`.trim() || access.user.email;
   const updateAction = updateRole.bind(null, role.id);
+  const availablePermissions = isAdminRole(access.user.roleName)
+    ? PERMISSIONS
+    : PERMISSIONS.filter((permission) => access.user.permissions.includes(permission));
   return (
     <DashboardLayout user={{ name, image: access.user.image }} pageTitle="Roles">
       <RoleForm
@@ -53,6 +67,7 @@ async function AuthorizedEditRole({ params }: EditRolePageProps) {
         action={updateAction}
         initialName={role.name}
         initialPermissions={role.permissions.map(({ permission }) => permission)}
+        availablePermissions={availablePermissions}
       />
     </DashboardLayout>
   );

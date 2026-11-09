@@ -2,15 +2,14 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 import { updateApplicationSettings as updateSettings } from "@/features/settings/update";
-import { requirePermission } from "@/lib/authorization";
-import { PERMISSION } from "@/lib/permissions";
+import { requireAdminRole } from "@/lib/authorization";
 import type { SettingsActionState } from "./action-state";
 
 export async function updateApplicationSettings(
   _previousState: SettingsActionState,
   formData: FormData,
 ): Promise<SettingsActionState> {
-  const access = await requirePermission(PERMISSION.manageSetting);
+  const access = await requireAdminRole();
   if (access.status === "unauthenticated") {
     return { status: "error", message: "Please sign in before changing application settings." };
   }

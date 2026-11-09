@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { ArrowLeft, Check, Info } from "lucide-react";
-import { PERMISSIONS } from "@/lib/permissions";
+import { PERMISSIONS, type Permission } from "@/lib/permissions";
 import { initialRoleActionState, type RoleActionState } from "./action-state";
 
 type RoleFormAction = (
@@ -16,21 +16,23 @@ export default function RoleForm({
   action,
   initialName = "",
   initialPermissions = [],
+  availablePermissions = PERMISSIONS,
 }: {
   mode: "create" | "edit";
   action: RoleFormAction;
   initialName?: string;
   initialPermissions?: string[];
+  availablePermissions?: readonly Permission[];
 }) {
   const [state, formAction, isPending] = useActionState<RoleActionState, FormData>(
     action,
     initialRoleActionState,
   );
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>(initialPermissions);
-  const allSelected = selectedPermissions.length === PERMISSIONS.length;
+  const allSelected = availablePermissions.every((permission) => selectedPermissions.includes(permission));
 
   function toggleAll(checked: boolean) {
-    setSelectedPermissions(checked ? [...PERMISSIONS] : []);
+    setSelectedPermissions(checked ? [...availablePermissions] : []);
   }
 
   function togglePermission(permission: string, checked: boolean) {
@@ -95,7 +97,7 @@ export default function RoleForm({
             className="role-permission-grid"
             aria-describedby={permissionsError ? "role-permissions-error" : undefined}
           >
-            {PERMISSIONS.map((permission) => (
+            {availablePermissions.map((permission) => (
               <label className="role-permission-item" key={permission}>
                 <input
                   className="gg-check"

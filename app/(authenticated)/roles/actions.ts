@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { PERMISSION } from "@/lib/permissions";
+import { canManageRoleInHierarchy, isAdminRole } from "@/lib/authorization";
 import { getRoleManagementAccess } from "./authorization";
 import type { RoleActionState } from "./action-state";
 import { roleFormSchema, roleIdSchema } from "./role-schema";
@@ -34,6 +35,20 @@ export async function createRole(
       status: "error",
       message: "Please correct the highlighted fields.",
       fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  if (
+    !isAdminRole(access.user.roleName) &&
+    parsed.data.permissions.some((permission) => !access.user.permissions.includes(permission))
+  ) {
+    return { status: "error", message: "A role cannot have permissions above your own." };
+  }
+  if (isAdminRole(parsed.data.name) && !isAdminRole(access.user.roleName)) {
+    return {
+      status: "error",
+      message: "Only an administrator can create the admin role.",
+      fieldErrors: { name: ["The admin role name is reserved."] },
     };
   }
 
@@ -93,35 +108,58 @@ export async function updateRole(
     const updated = await db.$transaction(async (transaction) => {
       const currentRole = await transaction.role.findFirst({
         where: { id: parsedId.data, deletedAt: null },
-        select: { id: true, name: true },
+        select: { id: true, name: true, permissions: { select: { permission: true } } },
       });
       if (!currentRole) return false;
 
-      const currentUser = await transaction.user.findFirst({
+      const currentUserExists = await transaction.user.findFirst({
         where: { id: access.user.id, deletedAt: null },
-        select: { roleId: true },
+        select: { id: true },
       });
-      if (!currentUser) {
+      if (!currentUserExists) {
         return { status: "error" as const, message: "Your user account is no longer available." };
       }
 
+      const actorIsAdmin = isAdminRole(access.user.roleName);
+      if (
+        !actorIsAdmin &&
+        (currentRole.id === access.user.roleId ||
+          !canManageRoleInHierarchy(access.user, {
+            name: currentRole.name,
+            permissions: currentRole.permissions.map(({ permission }) => permission),
+          }))
+      ) {
+        return {
+          status: "error" as const,
+          message: "You cannot edit a role at or above your own level.",
+        };
+      }
+
+      if (
+        !actorIsAdmin &&
+        parsed.data.permissions.some((permission) => !access.user.permissions.includes(permission))
+      ) {
+        return { status: "error" as const, message: "A role cannot have permissions above your own." };
+      }
+
       const keepsManageRoles = parsed.data.permissions.includes(PERMISSION.manageRoles);
-      if (currentRole.name === "admin" && !keepsManageRoles) {
+      if (isAdminRole(currentRole.name) && !keepsManageRoles) {
         return {
           status: "error" as const,
           message: "The admin role must always retain Manage Roles.",
         };
       }
-      if (currentUser.roleId === currentRole.id && !keepsManageRoles) {
-        return {
-          status: "error" as const,
-          message: "You cannot remove Manage Roles from your own role.",
-        };
-      }
-      if (currentRole.name === "admin" && parsed.data.name !== "admin") {
+      if (isAdminRole(currentRole.name) && parsed.data.name !== "admin") {
         return {
           status: "error" as const,
           message: "The admin role name cannot be changed.",
+          fieldErrors: { name: ["The admin role name is reserved."] },
+        };
+      }
+      if (isAdminRole(parsed.data.name) && !isAdminRole(access.user.roleName)) {
+        return {
+          status: "error" as const,
+          message: "Only an administrator can use the admin role name.",
           fieldErrors: { name: ["The admin role name is reserved."] },
         };
       }
@@ -177,10 +215,22 @@ export async function deleteRole(roleId: string): Promise<RoleActionState> {
   const result = await db.$transaction(async (transaction) => {
     const role = await transaction.role.findFirst({
       where: { id: parsedId.data, deletedAt: null },
-      select: { id: true, name: true },
+      select: { id: true, name: true, permissions: { select: { permission: true } } },
     });
     if (!role) {
       return { status: "error" as const, message: "This role no longer exists or has already been deleted." };
+    }
+
+    if (
+      !canManageRoleInHierarchy(access.user, {
+        name: role.name,
+        permissions: role.permissions.map(({ permission }) => permission),
+      })
+    ) {
+      return {
+        status: "error" as const,
+        message: "You cannot delete a role at or above your own level.",
+      };
     }
 
     const assignedUsers = await transaction.user.count({

@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { db } from "@/lib/db";
+import { canManageRoleInHierarchy } from "@/lib/authorization";
 import { getUserManagementAccess } from "../authorization";
 import { createUser } from "./actions";
 import UserForm from "./UserForm";
@@ -27,11 +28,23 @@ async function AuthorizedCreateUser() {
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
 
-  const roles = await db.role.findMany({
+  const allRoles = await db.role.findMany({
     where: { deletedAt: null },
     orderBy: { name: "asc" },
-    select: { id: true, name: true },
+    select: {
+      id: true,
+      name: true,
+      permissions: { select: { permission: true } },
+    },
   });
+  const roles = allRoles
+    .filter((role) =>
+      canManageRoleInHierarchy(access.user, {
+        name: role.name,
+        permissions: role.permissions.map(({ permission }) => permission),
+      }),
+    )
+    .map(({ id, name }) => ({ id, name }));
   const name = `${access.user.firstName} ${access.user.lastName}`.trim() || access.user.email;
 
   return (

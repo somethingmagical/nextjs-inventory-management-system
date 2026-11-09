@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { notFound, redirect } from "next/navigation";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { db } from "@/lib/db";
+import { canManageRoleInHierarchy } from "@/lib/authorization";
 import { getUserManagementAccess } from "../../authorization";
 import { userIdSchema } from "../../user-schema";
 import { updateUser } from "./actions";
@@ -45,15 +46,39 @@ async function AuthorizedEditUser({ params }: EditUserPageProps) {
         phoneNumber: true,
         image: true,
         roleId: true,
+        roleRecord: {
+          select: {
+            name: true,
+            permissions: { select: { permission: true } },
+          },
+        },
       },
     }),
     db.role.findMany({
       where: { deletedAt: null },
       orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      select: {
+        id: true,
+        name: true,
+        permissions: { select: { permission: true } },
+      },
     }),
   ]);
   if (!user) notFound();
+  if (
+    !canManageRoleInHierarchy(access.user, {
+      name: user.roleRecord.name,
+      permissions: user.roleRecord.permissions.map(({ permission }) => permission),
+    })
+  ) {
+    redirect("/users");
+  }
+  const assignableRoles = roles.filter((role) =>
+    canManageRoleInHierarchy(access.user, {
+      name: role.name,
+      permissions: role.permissions.map(({ permission }) => permission),
+    }),
+  );
 
   const name = `${access.user.firstName} ${access.user.lastName}`.trim() || access.user.email;
   const updateAction = updateUser.bind(null, user.id);
@@ -62,13 +87,13 @@ async function AuthorizedEditUser({ params }: EditUserPageProps) {
     lastName: user.lastName,
     email: user.email,
     phoneNumber: user.phoneNumber ?? "",
-    role: roles.some((role) => role.id === user.roleId) ? user.roleId : "",
+    role: assignableRoles.some((role) => role.id === user.roleId) ? user.roleId : "",
     image: user.image,
   };
 
   return (
     <DashboardLayout user={{ name, image: access.user.image }} pageTitle="Users">
-      <UserForm mode="edit" action={updateAction} roles={roles} initialValues={initialValues} />
+      <UserForm mode="edit" action={updateAction} roles={assignableRoles} initialValues={initialValues} />
     </DashboardLayout>
   );
 }

@@ -4,8 +4,7 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { getApplicationSettings } from "@/features/settings/application";
-import { requirePermission } from "@/lib/authorization";
-import { PERMISSION } from "@/lib/permissions";
+import { requireAdminRole } from "@/lib/authorization";
 import SettingsForm from "./SettingsForm";
 import ThemeCustomizer from "./ThemeCustomizer";
 
@@ -24,7 +23,7 @@ export default function SettingsPage() {
 
 async function AuthorizedSettingsPage() {
   await connection();
-  const access = await requirePermission(PERMISSION.manageSetting);
+  const access = await requireAdminRole();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
 
@@ -34,9 +33,6 @@ async function AuthorizedSettingsPage() {
   return (
     <DashboardLayout user={{ name: displayName, image: access.user.image }} pageTitle="Settings">
       <main className="gg-content">
-        <div className="profile-page-head">
-          <h1 className="gg-page-title profile-page-title">Website Settings</h1>
-        </div>
         <SettingsForm settings={settings} />
         <ThemeCustomizer />
       </main>
