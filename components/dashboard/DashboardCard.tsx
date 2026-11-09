@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Icon } from "@/components/layout/Sidebar";
+import { formatDashboardCurrency } from "@/lib/dashboard-formatting";
 
 export default function DashboardCard({
   title,
@@ -79,7 +80,7 @@ export function KpiGrid({ values }: { values: DashboardKpiValues }) {
           tone={kpi.tone}
           icon={kpi.icon}
           label={kpi.label}
-          value={`$ ${values[kpi.valueKey]}`}
+          value={formatDashboardCurrency(values[kpi.valueKey])}
         />
       ))}
     </section>
