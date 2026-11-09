@@ -15,13 +15,33 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+function getMetadataBase(): URL | undefined {
+  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (!configuredUrl) {
+    return new URL("http://localhost:3000");
+  }
+
+  try {
+    const url = new URL(configuredUrl);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      throw new TypeError("Expected an HTTP or HTTPS URL.");
+    }
+    return url;
+  } catch {
+    console.warn(
+      "NEXT_PUBLIC_APP_URL must be an absolute HTTP(S) URL. Omitting metadataBase.",
+    );
+    return undefined;
+  }
+}
+
+const metadataBase = getMetadataBase();
+
 export async function generateMetadata(): Promise<Metadata> {
   const { appName, faviconPath } = await getApplicationSettings();
 
   return {
-    metadataBase: new URL(
-      process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-    ),
+    metadataBase,
     title: {
       default: `Sign In | ${appName}`,
       template: `%s | ${appName}`,

@@ -85,7 +85,7 @@ Open [http://localhost:3000](http://localhost:3000) and sign in with the configu
 | `ADMIN_PHONE_NUMBER` | No | Administrator phone number. |
 | `ADMIN_IMAGE` | No | Administrator avatar URL. |
 | `NEXT_PUBLIC_APP_NAME` | No | App name shown in the interface; defaults to `Inventory`. |
-| `NEXT_PUBLIC_APP_URL` | No | Public app URL used for metadata; defaults to `http://localhost:3000`. |
+| `NEXT_PUBLIC_APP_URL` | No | Absolute HTTP(S) public app URL used for metadata; defaults to `http://localhost:3000`. Invalid values are reported and omitted from metadata. |
 
 ### Other useful commands
 
