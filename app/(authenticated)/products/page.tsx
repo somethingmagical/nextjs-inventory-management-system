@@ -31,6 +31,8 @@ export const metadata: Metadata = {
 
 const pageSizeOptions = [10, 25, 50] as const;
 const searchQuerySchema = z.string().trim().max(120);
+const filterIdSchema = z.string().trim().min(1).max(191);
+const productStockStatusSchema = z.enum(["Received", "Pending", "Ordered"]);
 const pageSchema = z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive());
 const pageSizeSchema = z.enum(["10", "25", "50"]).transform(Number);
 
@@ -62,12 +64,24 @@ async function ProductList({ searchParams }: ProductsPageProps) {
   const parsedQuery = searchQuerySchema.safeParse(rawSearchParams.q);
   const parsedPage = pageSchema.safeParse(rawSearchParams.page);
   const parsedPageSize = pageSizeSchema.safeParse(rawSearchParams.pageSize);
+  const parsedStatus = productStockStatusSchema.safeParse(rawSearchParams.status);
   const query = parsedQuery.success ? parsedQuery.data : "";
   const requestedPage = parsedPage.success ? parsedPage.data : 1;
   const pageSize = parsedPageSize.success ? parsedPageSize.data : 10;
 
-  const [productList, user] = await Promise.all([
-    getProductListData({ query, requestedPage, pageSize }),
+  const [filterOptions, user] = await Promise.all([
+    Promise.all([
+      db.warehouse.findMany({
+        where: { deletedAt: null },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+      db.supplier.findMany({
+        where: { deletedAt: null },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+    ]),
     db.user.findFirst({
       where: { id: access.userId, deletedAt: null },
       select: { firstName: true, lastName: true, email: true, image: true },
@@ -75,6 +89,27 @@ async function ProductList({ searchParams }: ProductsPageProps) {
   ]);
   if (!user) redirect("/");
 
+  const [warehouses, suppliers] = filterOptions;
+  const parsedWarehouseId = filterIdSchema.safeParse(rawSearchParams.warehouseId);
+  const parsedSupplierId = filterIdSchema.safeParse(rawSearchParams.supplierId);
+  const warehouseId = parsedWarehouseId.success &&
+    warehouses.some((warehouse) => warehouse.id === parsedWarehouseId.data)
+    ? parsedWarehouseId.data
+    : undefined;
+  const supplierId = parsedSupplierId.success &&
+    suppliers.some((supplier) => supplier.id === parsedSupplierId.data)
+    ? parsedSupplierId.data
+    : undefined;
+  const status = parsedStatus.success ? parsedStatus.data : undefined;
+
+  const productList = await getProductListData({
+    query,
+    warehouseId,
+    supplierId,
+    status,
+    requestedPage,
+    pageSize,
+  });
   const { totalCount, totalPages, currentPage, products, stockByProduct } = productList;
   const displayName = `${user.firstName} ${user.lastName}`.trim() || user.email;
   const firstRecord = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
@@ -108,7 +143,15 @@ async function ProductList({ searchParams }: ProductsPageProps) {
             value={query}
           />
           <div className="gg-spacer" />
-          <ProductListTools />
+          <ProductListTools
+            warehouses={warehouses}
+            suppliers={suppliers}
+            query={query}
+            pageSize={pageSize}
+            warehouseId={warehouseId}
+            supplierId={supplierId}
+            status={status}
+          />
           <Link className="gg-btn gg-btn--primary" href="/products/create">
             <Plus aria-hidden="true" />
             Create Product
@@ -180,12 +223,21 @@ async function ProductList({ searchParams }: ProductsPageProps) {
                   <tr>
                     <td className="product-empty-cell" colSpan={9}>
                       <p className="warehouse-empty-title">
-                        {query ? "No products match your search" : "No products yet"}
+                        {query || warehouseId || supplierId || status
+                          ? "No products match your search or filters"
+                          : "No products yet"}
                       </p>
                       <p className="gg-muted">
-                        {query ? "Try another product name, code, category, or brand." : "Create a product to start managing your inventory catalog."}
+                        {query || warehouseId || supplierId || status
+                          ? "Try changing the search, warehouse, supplier, or status."
+                          : "Create a product to start managing your inventory catalog."}
                       </p>
-                      {query ? (
+                      {warehouseId || supplierId || status ? (
+                        <Link className="gg-btn gg-btn--secondary" href={`/products?${new URLSearchParams({
+                          ...(query ? { q: query } : {}),
+                          pageSize: String(pageSize),
+                        }).toString()}`}>Clear filters</Link>
+                      ) : query ? (
                         <Link className="gg-btn gg-btn--secondary" href="/products">Clear search</Link>
                       ) : (
                         <Link className="gg-btn gg-btn--primary" href="/products/create"><Plus aria-hidden="true" />Create Product</Link>
@@ -204,22 +256,25 @@ async function ProductList({ searchParams }: ProductsPageProps) {
                 {pageSizeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
               {query && <input type="hidden" name="q" value={query} />}
+              {warehouseId && <input type="hidden" name="warehouseId" value={warehouseId} />}
+              {supplierId && <input type="hidden" name="supplierId" value={supplierId} />}
+              {status && <input type="hidden" name="status" value={status} />}
               <button className="gg-page-btn warehouse-page-size-submit" type="submit" aria-label="Apply page size">
                 <ChevronRight aria-hidden="true" />
               </button>
             </form>
             <span className="gg-muted gg-num" aria-live="polite">{firstRecord}–{lastRecord} of {totalCount}</span>
             <div className="gg-spacer" />
-            <PaginationLink page={1} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} label="First page">
+            <PaginationLink page={1} currentPage={currentPage} totalPages={totalPages} query={query} warehouseId={warehouseId} supplierId={supplierId} status={status} pageSize={pageSize} label="First page">
               <ChevronFirst aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.max(1, currentPage - 1)} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} label="Previous page">
+            <PaginationLink page={Math.max(1, currentPage - 1)} currentPage={currentPage} totalPages={totalPages} query={query} warehouseId={warehouseId} supplierId={supplierId} status={status} pageSize={pageSize} label="Previous page">
               <ChevronLeft aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.min(totalPages, currentPage + 1)} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} label="Next page">
+            <PaginationLink page={Math.min(totalPages, currentPage + 1)} currentPage={currentPage} totalPages={totalPages} query={query} warehouseId={warehouseId} supplierId={supplierId} status={status} pageSize={pageSize} label="Next page">
               <ChevronRight aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={totalPages} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} label="Last page">
+            <PaginationLink page={totalPages} currentPage={currentPage} totalPages={totalPages} query={query} warehouseId={warehouseId} supplierId={supplierId} status={status} pageSize={pageSize} label="Last page">
               <ChevronLast aria-hidden="true" />
             </PaginationLink>
           </div>
@@ -234,6 +289,9 @@ function PaginationLink({
   currentPage,
   totalPages,
   query,
+  warehouseId,
+  supplierId,
+  status,
   pageSize,
   label,
   children,
@@ -242,6 +300,9 @@ function PaginationLink({
   currentPage: number;
   totalPages: number;
   query: string;
+  warehouseId?: string;
+  supplierId?: string;
+  status?: "Received" | "Pending" | "Ordered";
   pageSize: number;
   label: string;
   children: React.ReactNode;
@@ -249,6 +310,9 @@ function PaginationLink({
   const isDisabled = totalPages === 0 || page === currentPage;
   const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
   if (query) params.set("q", query);
+  if (warehouseId) params.set("warehouseId", warehouseId);
+  if (supplierId) params.set("supplierId", supplierId);
+  if (status) params.set("status", status);
 
   if (isDisabled) {
     return <span className="gg-page-btn is-disabled" aria-disabled="true" aria-label={label}>{children}</span>;

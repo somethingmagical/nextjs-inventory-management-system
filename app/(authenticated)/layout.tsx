@@ -37,7 +37,6 @@ async function AuthenticatedDashboard({ children }: { children: ReactNode }) {
         lastName: true,
         email: true,
         image: true,
-        roleRecord: { select: { name: true, deletedAt: true } },
       },
     }),
     getCurrentPermissions(),
@@ -54,7 +53,6 @@ async function AuthenticatedDashboard({ children }: { children: ReactNode }) {
       pageTitle="Dashboard"
       pageIcon="dashboard"
       permissions={permissions}
-      isAdmin={user.roleRecord.name === "admin" && user.roleRecord.deletedAt === null}
       appName={settings.appName}
       faviconPath={settings.faviconPath}
     >

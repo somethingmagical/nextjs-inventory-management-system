@@ -4,9 +4,18 @@ import { db } from "@/lib/db";
 
 export async function getProductListData(input: {
   query: string;
+  warehouseId?: string;
+  supplierId?: string;
+  status?: "Received" | "Pending" | "Ordered";
   requestedPage: number;
   pageSize: number;
 }) {
+  const stockFilter = {
+    ...(input.warehouseId ? { warehouseId: input.warehouseId } : {}),
+    ...(input.supplierId ? { supplierId: input.supplierId } : {}),
+    ...(input.status ? { status: input.status } : {}),
+  };
+  const hasStockFilter = Object.keys(stockFilter).length > 0;
   const where = {
     deletedAt: null,
     ...(input.query
@@ -19,6 +28,7 @@ export async function getProductListData(input: {
           ],
         }
       : {}),
+    ...(hasStockFilter ? { productStocks: { some: stockFilter } } : {}),
   };
   const totalCount = await db.product.count({ where });
   const totalPages = Math.ceil(totalCount / input.pageSize);
@@ -43,7 +53,10 @@ export async function getProductListData(input: {
   const stockTotals = products.length
     ? await db.productStock.groupBy({
         by: ["productId"],
-        where: { productId: { in: products.map((product) => product.id) } },
+        where: {
+          productId: { in: products.map((product) => product.id) },
+          ...stockFilter,
+        },
         _sum: { quantity: true },
       })
     : [];

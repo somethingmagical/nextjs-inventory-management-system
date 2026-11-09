@@ -67,8 +67,9 @@ export async function createCategory(formData: FormData): Promise<MasterDataActi
     uploadedLogo = { path: saved.path, filePath: saved.filePath };
   }
 
+  let createdCategory: { id: string };
   try {
-    await db.category.create({
+    createdCategory = await db.category.create({
       data: { name: parsed.data.name, logo: uploadedLogo?.path ?? null },
       select: { id: true },
     });
@@ -78,7 +79,12 @@ export async function createCategory(formData: FormData): Promise<MasterDataActi
   }
 
   revalidateCategoryPages();
-  return { status: "success", message: "Product category created successfully." };
+  return {
+    status: "success",
+    message: "Product category created successfully.",
+    createdId: createdCategory.id,
+    createdName: parsed.data.name,
+  };
 }
 
 export async function updateCategory(formData: FormData): Promise<MasterDataActionState> {

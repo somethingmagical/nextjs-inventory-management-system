@@ -7,6 +7,7 @@ import { getProductEditData } from "@/features/catalog/products/edit-data";
 import { getProductAccess } from "../../authorization";
 import { getProductImagePaths } from "../../product-images";
 import { productIdSchema } from "../../product-schema";
+import { PERMISSION } from "@/lib/permissions";
 import ProductForm from "../../create/ProductForm";
 import { updateProduct } from "./actions";
 
@@ -70,6 +71,10 @@ async function AuthorizedEditProduct({ params }: EditProductPageProps) {
         action={updateAction}
         initialValues={initialValues}
         categories={categories}
+        canCreateCategory={access.user.permissions.includes(PERMISSION.manageProductCategories)}
+        canCreateBrand={access.user.permissions.includes(PERMISSION.manageBrands)}
+        canCreateSupplier={false}
+        canCreateWarehouse={false}
         brands={brands}
         units={unitOptions}
         images={getProductImagePaths(product.images)}

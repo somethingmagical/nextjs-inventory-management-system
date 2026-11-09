@@ -4,6 +4,8 @@ export type SupplierActionState = {
   status: "idle" | "error" | "success";
   message: string;
   fieldErrors?: Partial<Record<SupplierField, string[]>>;
+  createdId?: string;
+  createdName?: string;
 };
 
 export const initialSupplierActionState: SupplierActionState = {

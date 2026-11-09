@@ -38,11 +38,21 @@ export async function createSupplier(
     };
   }
 
-  await db.supplier.create({
+  const supplier = await db.supplier.create({
     data: parsed.data,
     select: { id: true },
   });
 
   revalidatePath("/suppliers");
+  if (formData.get("inlineCreate") === "1") {
+    revalidatePath("/products/create");
+    revalidatePath("/products/[id]/edit", "page");
+    return {
+      status: "success",
+      message: "Supplier created successfully.",
+      createdId: supplier.id,
+      createdName: parsed.data.name,
+    };
+  }
   redirect("/suppliers?created=1");
 }

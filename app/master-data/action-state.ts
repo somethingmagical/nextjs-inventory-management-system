@@ -4,6 +4,8 @@ export type MasterDataActionState = {
   status: "success" | "error";
   message: string;
   fieldErrors?: Partial<Record<MasterDataField, string[]>>;
+  createdId?: string;
+  createdName?: string;
 };
 
 export type MasterDataItem = {

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { getProductCreateData } from "@/features/catalog/products/create-data";
+import { PERMISSION } from "@/lib/permissions";
 import { getProductAccess } from "../authorization";
 import { createProduct } from "./actions";
 import ProductForm from "./ProductForm";
@@ -56,6 +57,10 @@ async function AuthorizedCreateProduct() {
         mode="create"
         action={createProduct}
         categories={categories}
+        canCreateCategory={access.user.permissions.includes(PERMISSION.manageProductCategories)}
+        canCreateBrand={access.user.permissions.includes(PERMISSION.manageBrands)}
+        canCreateSupplier={access.user.permissions.includes(PERMISSION.manageSuppliers)}
+        canCreateWarehouse={access.user.permissions.includes(PERMISSION.manageWarehouses)}
         brands={brands}
         units={unitOptions}
         warehouses={warehouses}

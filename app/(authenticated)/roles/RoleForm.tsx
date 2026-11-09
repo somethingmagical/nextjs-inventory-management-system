@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { ArrowLeft, Check, Info } from "lucide-react";
 import { PERMISSIONS, type Permission } from "@/lib/permissions";
 import { initialRoleActionState, type RoleActionState } from "./action-state";
@@ -29,7 +29,26 @@ export default function RoleForm({
     initialRoleActionState,
   );
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>(initialPermissions);
+  const [showToast, setShowToast] = useState(false);
+  const [toastVisible, setToastVisible] = useState(false);
   const allSelected = availablePermissions.every((permission) => selectedPermissions.includes(permission));
+
+  useEffect(() => {
+    if (state.status !== "error") {
+      setShowToast(false);
+      setToastVisible(false);
+      return;
+    }
+
+    setShowToast(true);
+    setToastVisible(true);
+    const hideTimeout = window.setTimeout(() => setToastVisible(false), 5000);
+    const removeTimeout = window.setTimeout(() => setShowToast(false), 5300);
+    return () => {
+      window.clearTimeout(hideTimeout);
+      window.clearTimeout(removeTimeout);
+    };
+  }, [state]);
 
   function toggleAll(checked: boolean) {
     setSelectedPermissions(checked ? [...availablePermissions] : []);
@@ -126,14 +145,17 @@ export default function RoleForm({
             Cancel
           </Link>
         </div>
-
-        {state.status === "error" && (
-          <p className="profile-alert" role="alert">
-            <Info size={18} aria-hidden="true" />
-            <span>{state.message}</span>
-          </p>
-        )}
       </form>
+      {state.status === "error" && showToast && (
+        <p
+          className={`warehouse-toast${toastVisible ? " is-visible" : ""}`}
+          role="alert"
+          aria-hidden={!toastVisible}
+        >
+          <Info size={18} aria-hidden="true" />
+          <span>{state.message}</span>
+        </p>
+      )}
     </main>
   );
 }

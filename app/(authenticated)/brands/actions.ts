@@ -67,8 +67,9 @@ export async function createBrand(formData: FormData): Promise<MasterDataActionS
     uploadedLogo = { path: saved.path, filePath: saved.filePath };
   }
 
+  let createdBrand: { id: string };
   try {
-    await db.brand.create({
+    createdBrand = await db.brand.create({
       data: { name: parsed.data.name, logo: uploadedLogo?.path ?? null },
       select: { id: true },
     });
@@ -78,7 +79,12 @@ export async function createBrand(formData: FormData): Promise<MasterDataActionS
   }
 
   revalidateBrandPages();
-  return { status: "success", message: "Brand created successfully." };
+  return {
+    status: "success",
+    message: "Brand created successfully.",
+    createdId: createdBrand.id,
+    createdName: parsed.data.name,
+  };
 }
 
 export async function updateBrand(formData: FormData): Promise<MasterDataActionState> {

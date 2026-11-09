@@ -3,8 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Check, ImagePlus, Info, X } from "lucide-react";
+import { useActionState, useEffect, useRef, useState, type RefObject } from "react";
+import { ArrowLeft, Check, ImagePlus, Info, Plus, X } from "lucide-react";
 import {
   initialProductActionState,
   type ProductActionState,
@@ -12,6 +12,7 @@ import {
 } from "./action-state";
 import type { ProductFormValues } from "../product-schema";
 import { useRetainedFormValues } from "@/components/shared/useRetainedFormValues";
+import ProductReferenceCreateDialog, { type ProductReferenceKind } from "@/components/master-data/ProductReferenceCreateDialog";
 
 type ProductFormAction = (
   state: ProductActionState,
@@ -44,6 +45,10 @@ export default function ProductForm({
   action,
   initialValues,
   categories,
+  canCreateCategory,
+  canCreateBrand,
+  canCreateSupplier,
+  canCreateWarehouse,
   brands,
   units,
   warehouses,
@@ -54,6 +59,10 @@ export default function ProductForm({
   action: ProductFormAction;
   initialValues?: Partial<ProductFormValues>;
   categories: ProductOption[];
+  canCreateCategory: boolean;
+  canCreateBrand: boolean;
+  canCreateSupplier: boolean;
+  canCreateWarehouse: boolean;
   brands: ProductOption[];
   units: ProductOption[];
   warehouses?: ProductOption[];
@@ -62,6 +71,15 @@ export default function ProductForm({
 }) {
   const router = useRouter();
   const imageInput = useRef<HTMLInputElement>(null);
+  const categoryAddButtonRef = useRef<HTMLButtonElement>(null);
+  const brandAddButtonRef = useRef<HTMLButtonElement>(null);
+  const supplierAddButtonRef = useRef<HTMLButtonElement>(null);
+  const warehouseAddButtonRef = useRef<HTMLButtonElement>(null);
+  const [activeQuickCreate, setActiveQuickCreate] = useState<ProductReferenceKind | null>(null);
+  const [categoryOptions, setCategoryOptions] = useState(categories);
+  const [brandOptions, setBrandOptions] = useState(brands);
+  const [supplierOptions, setSupplierOptions] = useState(suppliers ?? []);
+  const [warehouseOptions, setWarehouseOptions] = useState(warehouses ?? []);
   const [state, formAction, isPending] = useActionState<ProductActionState, FormData>(
     action,
     initialProductActionState,
@@ -77,6 +95,34 @@ export default function ProductForm({
 
   function updateFormValue(field: ProductField, value: string) {
     setFormValues((current) => ({ ...current, [field]: value }));
+  }
+
+  function closeQuickCreate() {
+    const trigger = {
+      category: categoryAddButtonRef,
+      brand: brandAddButtonRef,
+      supplier: supplierAddButtonRef,
+      warehouse: warehouseAddButtonRef,
+    }[activeQuickCreate ?? "category"];
+    setActiveQuickCreate(null);
+    window.setTimeout(() => trigger.current?.focus(), 0);
+  }
+
+  function handleReferenceCreated(kind: ProductReferenceKind, reference: ProductOption) {
+    if (kind === "category") {
+      setCategoryOptions((current) => [...current, reference]);
+      updateFormValue("categoryId", reference.id);
+    } else if (kind === "brand") {
+      setBrandOptions((current) => [...current, reference]);
+      updateFormValue("brandId", reference.id);
+    } else if (kind === "supplier") {
+      setSupplierOptions((current) => [...current, reference]);
+      updateFormValue("supplierId", reference.id);
+    } else {
+      setWarehouseOptions((current) => [...current, reference]);
+      updateFormValue("warehouseId", reference.id);
+    }
+    router.refresh();
   }
 
   useEffect(() => {
@@ -170,10 +216,13 @@ export default function ProductForm({
               required
               value={formValues.categoryId}
               onChange={(value) => updateFormValue("categoryId", value)}
-              options={categories}
+              options={categoryOptions}
               placeholder="Choose Product Category"
               error={fieldError("categoryId")}
               pending={isPending}
+              actionAllowed={canCreateCategory}
+              actionButtonRef={categoryAddButtonRef}
+              onAction={() => setActiveQuickCreate("category")}
             />
             <FormSelect
               name="brandId"
@@ -181,10 +230,13 @@ export default function ProductForm({
               required
               value={formValues.brandId}
               onChange={(value) => updateFormValue("brandId", value)}
-              options={brands}
+              options={brandOptions}
               placeholder="Choose Brand"
               error={fieldError("brandId")}
               pending={isPending}
+              actionAllowed={canCreateBrand}
+              actionButtonRef={brandAddButtonRef}
+              onAction={() => setActiveQuickCreate("brand")}
             />
             <FormInput
               name="price"
@@ -346,10 +398,13 @@ export default function ProductForm({
                   required
                   value={formValues.warehouseId}
                   onChange={(value) => updateFormValue("warehouseId", value)}
-                  options={warehouses ?? []}
+                  options={warehouseOptions}
                   placeholder="Choose Warehouse"
                   error={fieldError("warehouseId")}
                   pending={isPending}
+                  actionAllowed={canCreateWarehouse}
+                  actionButtonRef={warehouseAddButtonRef}
+                  onAction={() => setActiveQuickCreate("warehouse")}
                 />
                 <FormSelect
                   name="supplierId"
@@ -357,10 +412,13 @@ export default function ProductForm({
                   required
                   value={formValues.supplierId}
                   onChange={(value) => updateFormValue("supplierId", value)}
-                  options={suppliers ?? []}
+                  options={supplierOptions}
                   placeholder="Choose Supplier"
                   error={fieldError("supplierId")}
                   pending={isPending}
+                  actionAllowed={canCreateSupplier}
+                  actionButtonRef={supplierAddButtonRef}
+                  onAction={() => setActiveQuickCreate("supplier")}
                 />
                 <FormInput
                   name="quantity"
@@ -407,6 +465,13 @@ export default function ProductForm({
           <Info size={18} aria-hidden="true" />
           <span>{state.message}</span>
         </p>
+      )}
+      {activeQuickCreate && (
+        <ProductReferenceCreateDialog
+          kind={activeQuickCreate}
+          onClose={closeQuickCreate}
+          onCreated={(reference) => handleReferenceCreated(activeQuickCreate, reference)}
+        />
       )}
     </main>
   );
@@ -478,6 +543,9 @@ function FormSelect({
   placeholder,
   error,
   pending,
+  actionAllowed,
+  actionButtonRef,
+  onAction,
 }: {
   name: ProductField;
   label: string;
@@ -488,28 +556,46 @@ function FormSelect({
   placeholder?: string;
   error?: string;
   pending: boolean;
+  actionAllowed?: boolean;
+  actionButtonRef?: RefObject<HTMLButtonElement | null>;
+  onAction?: () => void;
 }) {
   return (
     <div className="gg-field">
       <label className="gg-label" htmlFor={name}>
         {label}{required && <> <span className="gg-req">*</span></>}
       </label>
-      <select
-        className="gg-select"
-        id={name}
-        name={name}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        required={required}
-        aria-invalid={Boolean(error)}
-        aria-describedby={error ? `${name}-error` : undefined}
-        disabled={pending}
-      >
-        {placeholder && <option value="">{placeholder}</option>}
-        {options.map((option) => (
-          <option key={option.id} value={option.value ?? option.id}>{option.name}</option>
-        ))}
-      </select>
+      <div className={actionAllowed && onAction ? "product-select-group" : undefined}>
+        <select
+          className="gg-select"
+          id={name}
+          name={name}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          required={required}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? `${name}-error` : undefined}
+          disabled={pending}
+        >
+          {placeholder && <option value="">{placeholder}</option>}
+          {options.map((option) => (
+            <option key={option.id} value={option.value ?? option.id}>{option.name}</option>
+          ))}
+        </select>
+        {actionAllowed && onAction && (
+          <button
+            ref={actionButtonRef}
+            className="gg-btn gg-btn--secondary"
+            type="button"
+            aria-label={`Create ${label.toLocaleLowerCase()}`}
+            title={`Create ${label.toLocaleLowerCase()}`}
+            onClick={onAction}
+            disabled={pending}
+          >
+            <Plus aria-hidden="true" />
+          </button>
+        )}
+      </div>
       {error && <span className="warehouse-field-error" id={`${name}-error`}>{error}</span>}
     </div>
   );

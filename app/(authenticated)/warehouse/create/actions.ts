@@ -38,11 +38,20 @@ export async function createWarehouse(
     };
   }
 
-  await db.warehouse.create({
+  const warehouse = await db.warehouse.create({
     data: parsed.data,
     select: { id: true },
   });
 
   revalidatePath("/warehouse");
+  if (formData.get("inlineCreate") === "1") {
+    revalidatePath("/products/create");
+    return {
+      status: "success",
+      message: "Warehouse created successfully.",
+      createdId: warehouse.id,
+      createdName: parsed.data.name,
+    };
+  }
   redirect("/warehouse?created=1");
 }
