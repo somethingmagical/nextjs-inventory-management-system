@@ -92,8 +92,7 @@ async function AuthorizedCreateSaleReturnPage({ searchParams }: CreateSaleReturn
     saleId: sale.id,
     saleReference: sale.reference,
     customerName: sale.customer.name,
-    warehouseName: sale.warehouse.name,
-    date: new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10),
+    warehouseName: sale.warehouse?.name ?? "Warehouse unavailable",
     orderTax: sale.orderTax.toString(),
     items: sale.items.map((item) => ({
       id: item.productId,

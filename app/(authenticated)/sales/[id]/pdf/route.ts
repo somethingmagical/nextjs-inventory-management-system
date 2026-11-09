@@ -82,9 +82,11 @@ export async function GET(_request: Request, { params }: SalePdfRouteContext) {
       .join(", "),
     customerEmail: sale.customer.email,
     customerPhone: sale.customer.phoneNumber,
-    warehouse: sale.warehouse.name,
-    warehouseLocation: [sale.warehouse.city, sale.warehouse.country].filter(Boolean).join(", "),
-    warehousePhone: sale.warehouse.phoneNumber,
+    warehouse: sale.warehouse?.name ?? "Warehouse unavailable",
+    warehouseLocation: sale.warehouse
+      ? [sale.warehouse.city, sale.warehouse.country].filter(Boolean).join(", ")
+      : "Warehouse unavailable",
+    warehousePhone: sale.warehouse?.phoneNumber ?? "Warehouse unavailable",
     paymentType: sale.paymentType,
     paymentStatus: sale.paymentStatus,
     paid: sale.paid.toFixed(2),

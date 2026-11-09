@@ -159,7 +159,7 @@ async function AdjustmentList({ searchParams }: AdjustmentsPageProps) {
                 {adjustments.map((adjustment) => (
                   <tr key={adjustment.id}>
                     <td><span className="gg-chip-code">{adjustment.reference}</span></td>
-                    <td className="gg-td-strong">{adjustment.warehouse.name}</td>
+                    <td className="gg-td-strong">{adjustment.warehouse?.name ?? "Warehouse unavailable"}</td>
                     <td>
                       <div className="warehouse-detail-cell">
                         <time dateTime={adjustment.date.toISOString()}>

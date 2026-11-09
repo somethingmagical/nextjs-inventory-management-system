@@ -134,7 +134,7 @@ async function WarehouseReportContent({
       id: row.id,
       reference: row.reference,
       name: row.customer.name,
-      warehouse: row.warehouse.name,
+      warehouse: row.warehouse?.name ?? "Warehouse unavailable",
       status: row.status,
       grandTotal: row.grandTotal.toFixed(2),
       paid: row.paid.toFixed(2),
@@ -169,7 +169,7 @@ async function WarehouseReportContent({
       id: row.id,
       reference: row.reference,
       name: row.customer.name,
-      warehouse: row.warehouse.name,
+      warehouse: row.warehouse?.name ?? "Warehouse unavailable",
       status: row.status,
       grandTotal: row.grandTotal.toFixed(2),
       paid: row.paid.toFixed(2),
@@ -204,7 +204,7 @@ async function WarehouseReportContent({
       id: row.id,
       reference: row.reference,
       name: row.supplier.name,
-      warehouse: row.warehouse.name,
+      warehouse: row.warehouse?.name ?? "Warehouse unavailable",
       status: row.status,
       grandTotal: row.grandTotal.toFixed(2),
       paid: row.paid.toFixed(2),
@@ -237,7 +237,7 @@ async function WarehouseReportContent({
       id: row.id,
       reference: row.reference,
       name: `${row.title} · ${row.expenseCategory.name}`,
-      warehouse: row.warehouse.name,
+      warehouse: row.warehouse?.name ?? "Warehouse unavailable",
       status: row.date.toISOString().slice(0, 10),
       grandTotal: row.amount.toFixed(2),
       paid: "",
@@ -515,7 +515,7 @@ async function fetchPage(
       },
     });
     return items.map((item) => ({
-      id: item.id, reference: item.reference, name: item.customer.name, warehouse: item.warehouse.name,
+      id: item.id, reference: item.reference, name: item.customer.name, warehouse: item.warehouse?.name ?? "Warehouse unavailable",
       status: item.status, grandTotal: item.grandTotal.toFixed(2), paid: item.paid.toFixed(2),
       due: item.due.toFixed(2), paymentType: "", paymentStatus: item.paymentStatus,
     }));
@@ -534,7 +534,7 @@ async function fetchPage(
       },
     });
     return items.map((item) => ({
-      id: item.id, reference: item.reference, name: item.customer.name, warehouse: item.warehouse.name,
+      id: item.id, reference: item.reference, name: item.customer.name, warehouse: item.warehouse?.name ?? "Warehouse unavailable",
       status: item.status, grandTotal: item.grandTotal.toFixed(2), paid: item.paid.toFixed(2),
       due: item.due.toFixed(2), paymentType: "", paymentStatus: item.paymentStatus,
     }));
@@ -553,7 +553,7 @@ async function fetchPage(
       },
     });
     return items.map((item) => ({
-      id: item.id, reference: item.reference, name: item.supplier.name, warehouse: item.warehouse.name,
+      id: item.id, reference: item.reference, name: item.supplier.name, warehouse: item.warehouse?.name ?? "Warehouse unavailable",
       status: item.status, grandTotal: item.grandTotal.toFixed(2), paid: item.paid.toFixed(2),
       due: item.due.toFixed(2), paymentType: item.paymentType, paymentStatus: "",
     }));
@@ -572,7 +572,7 @@ async function fetchPage(
   });
   return items.map((item) => ({
     id: item.id, reference: item.reference, name: `${item.title} · ${item.expenseCategory.name}`,
-    warehouse: item.warehouse.name, status: item.date.toISOString().slice(0, 10),
+    warehouse: item.warehouse?.name ?? "Warehouse unavailable", status: item.date.toISOString().slice(0, 10),
     grandTotal: item.amount.toFixed(2), paid: "", due: "", paymentType: "", paymentStatus: "",
   }));
 }

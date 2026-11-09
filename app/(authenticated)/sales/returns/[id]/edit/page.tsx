@@ -102,7 +102,7 @@ async function AuthorizedEditSaleReturnPage({ params }: EditSaleReturnPageProps)
     saleId: saleReturn.sale.id,
     saleReference: saleReturn.sale.reference,
     customerName: saleReturn.customer.name,
-    warehouseName: saleReturn.warehouse.name,
+    warehouseName: saleReturn.warehouse?.name ?? "Warehouse unavailable",
     date: saleReturn.date.toISOString().slice(0, 10),
     status: saleReturn.status,
     orderTax: saleReturn.orderTax.toString(),

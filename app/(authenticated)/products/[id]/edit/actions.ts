@@ -2,7 +2,8 @@
 
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { db } from "@/lib/db";
+import { getProductImageState } from "@/features/catalog/products/queries";
+import { updateProductDetails } from "@/features/catalog/products/update";
 import { getProductAccess } from "../../authorization";
 import {
   getProductImageEntries,
@@ -68,14 +69,7 @@ export async function updateProduct(
     return { status: "error", message: "The image selection is invalid. Refresh and try again." };
   }
 
-  const product = await db.product.findFirst({
-    where: { id: parsedId.data, deletedAt: null },
-    select: {
-      id: true,
-      images: true,
-      updatedAt: true,
-    },
-  });
+  const product = await getProductImageState(parsedId.data);
   if (!product) {
     return { status: "error", message: "This product no longer exists or has been deleted." };
   }
@@ -104,57 +98,12 @@ export async function updateProduct(
 
   const images = [...retainedImages, ...upload.images.map((image) => image.path)];
   try {
-    const updated = await db.$transaction(async (transaction) => {
-      const current = await transaction.product.findFirst({
-        where: { id: parsedId.data, deletedAt: null },
-        select: { id: true, updatedAt: true },
-      });
-      if (!current) return false;
-      if (current.updatedAt.getTime() !== product.updatedAt.getTime()) return false;
-
-      const [category, brand, unit] = await Promise.all([
-        transaction.category.findFirst({
-          where: { id: parsed.data.categoryId, deletedAt: null },
-          select: { id: true, name: true },
-        }),
-        transaction.brand.findFirst({
-          where: { id: parsed.data.brandId, deletedAt: null },
-          select: { id: true, name: true },
-        }),
-        transaction.unit.findFirst({
-          where: { name: parsed.data.productUnit, deletedAt: null },
-          select: { name: true },
-        }),
-      ]);
-      if (!category || !brand || !unit) return false;
-
-      const result = await transaction.product.updateMany({
-        where: { id: current.id, updatedAt: current.updatedAt, deletedAt: null },
-        data: {
-          code: parsed.data.code,
-          name: parsed.data.name,
-          price: parsed.data.price,
-          categoryId: category.id,
-          brandId: brand.id,
-          productUnit: unit.name,
-          stockAlert: parsed.data.stockAlert,
-          orderTax: parsed.data.orderTax,
-          taxType: parsed.data.taxType,
-          quantityLimitation: parsed.data.quantityLimitation,
-          notes: parsed.data.notes,
-          images: images.length ? images : Prisma.JsonNull,
-          category: category.name,
-          brand: brand.name,
-          unit: unit.name,
-          sellingPrice: parsed.data.price,
-          alertQuantity: parsed.data.stockAlert ?? "0",
-          image: images[0] ?? null,
-          description: parsed.data.notes,
-        },
-      });
-      // Initial stock is created with the product; edits never write ProductStock.
-      return result.count === 1;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    const updated = await updateProductDetails({
+      id: parsedId.data,
+      expectedUpdatedAt: product.updatedAt,
+      details: parsed.data,
+      images,
+    });
 
     if (!updated) {
       await removeProductImages(upload.images.map((image) => image.path));

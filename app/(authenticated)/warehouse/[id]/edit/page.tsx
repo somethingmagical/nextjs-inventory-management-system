@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { notFound, redirect } from "next/navigation";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { db } from "@/lib/db";
+import { getWarehouseEditData } from "@/features/warehouses/queries";
 import { getWarehouseAccess } from "../../authorization";
 import { warehouseIdSchema } from "../../warehouse-schema";
 import WarehouseForm from "../../create/WarehouseForm";
@@ -50,18 +50,7 @@ async function AuthorizedEditWarehouse({ params }: EditWarehousePageProps) {
     notFound();
   }
 
-  const warehouse = await db.warehouse.findFirst({
-    where: { id: parsedId.data, deletedAt: null },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phoneNumber: true,
-      country: true,
-      city: true,
-      zipCode: true,
-    },
-  });
+  const warehouse = await getWarehouseEditData(parsedId.data);
 
   if (!warehouse) {
     notFound();

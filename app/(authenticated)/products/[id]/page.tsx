@@ -8,6 +8,7 @@ import { Prisma } from "@prisma/client";
 import { ArrowLeft, Pencil } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { db } from "@/lib/db";
+import { getProductDetails } from "@/features/catalog/products/details";
 import { getProductAccess } from "../authorization";
 import { getProductImagePaths } from "../product-images";
 import { productIdSchema } from "../product-schema";
@@ -46,23 +47,7 @@ async function AuthorizedProductView({ params }: ProductViewPageProps) {
   if (!parsedId.success) notFound();
 
   const [product, user] = await Promise.all([
-    db.product.findFirst({
-      where: { id: parsedId.data, deletedAt: null },
-      include: {
-        categoryRecord: { select: { name: true } },
-        brandRecord: { select: { name: true } },
-        productStocks: {
-          orderBy: { warehouse: { name: "asc" } },
-          select: {
-            quantity: true,
-            status: true,
-            warehouse: { select: { name: true } },
-            supplier: { select: { name: true } },
-            createdAt: true,
-          },
-        },
-      },
-    }),
+    getProductDetails(parsedId.data),
     db.user.findFirst({
       where: { id: access.userId, deletedAt: null },
       select: { firstName: true, lastName: true, email: true, image: true },

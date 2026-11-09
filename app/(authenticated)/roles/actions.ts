@@ -200,7 +200,7 @@ export async function deleteRole(roleId: string): Promise<RoleActionState> {
     return deleted.count === 1
       ? { status: "success" as const }
       : { status: "error" as const, message: "This role could not be deleted. Refresh and try again." };
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
 
   if (result.status === "error") {
     return { status: "error", message: result.message };

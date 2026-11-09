@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { db } from "@/lib/db";
+import { getProductCategoryListData } from "@/features/catalog/master-data/queries";
 import { getProductCategoryAccess } from "../products/authorization";
 import MasterDataManager from "@/components/master-data/MasterDataManager";
 import MasterDataPagination from "@/components/master-data/MasterDataPagination";
@@ -52,19 +52,10 @@ async function CategoryList({ searchParams }: CategoriesPageProps) {
   const requestedPage = parsedPage.success ? parsedPage.data : 1;
   const pageSize = parsedPageSize.success ? parsedPageSize.data : 10;
 
-  const where = {
-    deletedAt: null,
-    ...(query ? { name: { contains: query } } : {}),
-  };
-  const totalCount = await db.category.count({ where });
-  const totalPages = Math.ceil(totalCount / pageSize);
-  const currentPage = totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
-  const categories = await db.category.findMany({
-    where,
-    orderBy: [{ name: "asc" }, { createdAt: "desc" }],
-    skip: (currentPage - 1) * pageSize,
-    take: pageSize,
-    select: { id: true, name: true, logo: true },
+  const { totalCount, totalPages, currentPage, items: categories } = await getProductCategoryListData({
+    query,
+    requestedPage,
+    pageSize,
   });
   const items: MasterDataItem[] = categories;
 

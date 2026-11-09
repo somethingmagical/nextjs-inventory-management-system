@@ -16,6 +16,7 @@ import {
 import { z } from "zod";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { db } from "@/lib/db";
+import { getProductListData } from "@/features/catalog/products/queries";
 import ProductDeleteButton from "./ProductDeleteButton";
 import ProductListTools from "./ProductListTools";
 import { getProductImagePaths } from "./product-images";
@@ -65,21 +66,8 @@ async function ProductList({ searchParams }: ProductsPageProps) {
   const requestedPage = parsedPage.success ? parsedPage.data : 1;
   const pageSize = parsedPageSize.success ? parsedPageSize.data : 10;
 
-  const where = {
-    deletedAt: null,
-    ...(query
-      ? {
-          OR: [
-            { code: { contains: query } },
-            { name: { contains: query } },
-            { categoryRecord: { is: { name: { contains: query } } } },
-            { brandRecord: { is: { name: { contains: query } } } },
-          ],
-        }
-      : {}),
-  };
-  const [totalCount, user] = await Promise.all([
-    db.product.count({ where }),
+  const [productList, user] = await Promise.all([
+    getProductListData({ query, requestedPage, pageSize }),
     db.user.findFirst({
       where: { id: access.userId, deletedAt: null },
       select: { firstName: true, lastName: true, email: true, image: true },
@@ -87,35 +75,7 @@ async function ProductList({ searchParams }: ProductsPageProps) {
   ]);
   if (!user) redirect("/");
 
-  const totalPages = Math.ceil(totalCount / pageSize);
-  const currentPage = totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
-  const products = await db.product.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    skip: (currentPage - 1) * pageSize,
-    take: pageSize,
-    select: {
-      id: true,
-      code: true,
-      name: true,
-      price: true,
-      productUnit: true,
-      images: true,
-      createdAt: true,
-      categoryRecord: { select: { name: true } },
-      brandRecord: { select: { name: true } },
-    },
-  });
-  const stockTotals = products.length
-    ? await db.productStock.groupBy({
-        by: ["productId"],
-        where: { productId: { in: products.map((product) => product.id) } },
-        _sum: { quantity: true },
-      })
-    : [];
-  const stockByProduct = new Map(
-    stockTotals.map((stock) => [stock.productId, stock._sum.quantity?.toString() ?? "0"]),
-  );
+  const { totalCount, totalPages, currentPage, products, stockByProduct } = productList;
   const displayName = `${user.firstName} ${user.lastName}`.trim() || user.email;
   const firstRecord = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const lastRecord = Math.min(currentPage * pageSize, totalCount);

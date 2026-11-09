@@ -43,7 +43,7 @@ export type SaleReturnFormInitialData = {
   saleReference: string;
   customerName: string;
   warehouseName: string;
-  date: string;
+  date?: string;
   status?: "Pending" | "Ordered" | "Received";
   orderTax: string;
   discount?: string;
@@ -59,7 +59,11 @@ export default function SaleReturnForm({
   units: string[];
   initialData: SaleReturnFormInitialData;
 }) {
-  const [date, setDate] = useState(initialData.date);
+  const [date, setDate] = useState(() => {
+    if (initialData.date) return initialData.date;
+    const now = new Date();
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+  });
   const [status, setStatus] = useState<"Pending" | "Ordered" | "Received">(initialData.status ?? "Received");
   const [items, setItems] = useState(initialData.items);
   const [orderTax, setOrderTax] = useState(initialData.orderTax);

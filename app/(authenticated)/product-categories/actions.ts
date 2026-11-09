@@ -130,7 +130,7 @@ export async function updateCategory(formData: FormData): Promise<MasterDataActi
         });
       }
       return { oldLogo: current.logo };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
     if (!updated) {
       if (uploadedLogo) await removeLogo(uploadedLogo.filePath);
       return { status: "error", message: "This product category no longer exists or could not be updated." };
@@ -185,7 +185,7 @@ export async function deleteCategory(formData: FormData): Promise<MasterDataActi
     return deleted.count === 1
       ? { status: "success" as const }
       : { status: "error" as const, message: "This product category could not be deleted." };
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
 
   if (result.status === "error") return result;
   revalidateCategoryPages();

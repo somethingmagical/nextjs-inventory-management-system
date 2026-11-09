@@ -1,4 +1,9 @@
-import { Prisma, type AdjustmentType } from "@prisma/client";
+import {
+  Prisma,
+  type AdjustmentType,
+  type StockMovementSourceType,
+  type StockMovementType,
+} from "@prisma/client";
 
 export class InsufficientStockError extends Error {
   constructor(productName?: string, documentLabel = "adjustment") {
@@ -18,6 +23,54 @@ export class StockQuantityLimitError extends Error {
   }
 }
 
+async function increaseStockBalance(
+  transaction: Prisma.TransactionClient,
+  input: {
+    productId: string;
+    warehouseId: string;
+    supplierId: string | null;
+    quantity: Prisma.Decimal;
+  },
+) {
+  const unique = {
+    productId_warehouseId: {
+      productId: input.productId,
+      warehouseId: input.warehouseId,
+    },
+  };
+  const maxQuantity = new Prisma.Decimal("999999999.999");
+  if (input.quantity.greaterThan(maxQuantity)) {
+    throw new StockQuantityLimitError();
+  }
+
+  const updated = await transaction.productStock.updateMany({
+    where: {
+      ...unique,
+      quantity: { lte: maxQuantity.minus(input.quantity) },
+    },
+    data: { quantity: { increment: input.quantity } },
+  });
+
+  if (updated.count === 1) return;
+
+  const existing = await transaction.productStock.findUnique({
+    where: unique,
+    select: { quantity: true },
+  });
+  if (existing) {
+    throw new StockQuantityLimitError();
+  }
+
+  await transaction.productStock.create({
+    data: {
+      productId: input.productId,
+      warehouseId: input.warehouseId,
+      supplierId: input.supplierId,
+      quantity: input.quantity,
+    },
+  });
+}
+
 export async function applyStockAdjustment(
   transaction: Prisma.TransactionClient,
   input: {
@@ -27,6 +80,12 @@ export async function applyStockAdjustment(
     quantity: string;
     type: AdjustmentType;
     documentLabel?: string;
+    movement: {
+      type: StockMovementType;
+      sourceType: StockMovementSourceType;
+      sourceId: string;
+      actorId: string | null;
+    };
   },
 ) {
   const quantity = new Prisma.Decimal(input.quantity);
@@ -38,46 +97,37 @@ export async function applyStockAdjustment(
   };
 
   if (input.type === "Subtraction") {
-    const stock = await transaction.productStock.findUnique({
-      where: unique,
-      select: { quantity: true },
+    const updated = await transaction.productStock.updateMany({
+      where: { ...unique, quantity: { gte: quantity } },
+      data: { quantity: { decrement: quantity } },
     });
-
-    if (!stock || stock.quantity.lessThan(quantity)) {
+    if (updated.count !== 1) {
       throw new InsufficientStockError(input.productName, input.documentLabel);
     }
-
-    await transaction.productStock.upsert({
-      where: unique,
-      create: {
+    await transaction.stockMovement.create({
+      data: {
         productId: input.productId,
         warehouseId: input.warehouseId,
-        supplierId: null,
-        quantity: stock.quantity.minus(quantity),
+        quantity: quantity.negated(),
+        ...input.movement,
       },
-      update: { quantity: { decrement: quantity } },
     });
     return;
   }
 
-  const stock = await transaction.productStock.findUnique({
-    where: unique,
-    select: { quantity: true },
+  await increaseStockBalance(transaction, {
+    productId: input.productId,
+    warehouseId: input.warehouseId,
+    supplierId: null,
+    quantity,
   });
-  const maxQuantity = new Prisma.Decimal("999999999.999");
-  if ((stock?.quantity ?? new Prisma.Decimal(0)).plus(quantity).greaterThan(maxQuantity)) {
-    throw new StockQuantityLimitError();
-  }
-
-  await transaction.productStock.upsert({
-    where: unique,
-    create: {
+  await transaction.stockMovement.create({
+    data: {
       productId: input.productId,
       warehouseId: input.warehouseId,
-      supplierId: null,
       quantity,
+      ...input.movement,
     },
-    update: { quantity: { increment: quantity } },
   });
 }
 
@@ -88,32 +138,27 @@ export async function receivePurchaseStock(
     warehouseId: string;
     supplierId: string;
     quantity: string;
+    movement: {
+      type: StockMovementType;
+      sourceType: StockMovementSourceType;
+      sourceId: string;
+      actorId: string | null;
+    };
   },
 ) {
   const quantity = new Prisma.Decimal(input.quantity);
-  const unique = {
-    productId_warehouseId: {
-      productId: input.productId,
-      warehouseId: input.warehouseId,
-    },
-  };
-  const stock = await transaction.productStock.findUnique({
-    where: unique,
-    select: { quantity: true },
+  await increaseStockBalance(transaction, {
+    productId: input.productId,
+    warehouseId: input.warehouseId,
+    supplierId: input.supplierId,
+    quantity,
   });
-  const maxQuantity = new Prisma.Decimal("999999999.999");
-  if ((stock?.quantity ?? new Prisma.Decimal(0)).plus(quantity).greaterThan(maxQuantity)) {
-    throw new StockQuantityLimitError();
-  }
-
-  await transaction.productStock.upsert({
-    where: unique,
-    create: {
+  await transaction.stockMovement.create({
+    data: {
       productId: input.productId,
       warehouseId: input.warehouseId,
-      supplierId: input.supplierId,
       quantity,
+      ...input.movement,
     },
-    update: { quantity: { increment: quantity } },
   });
 }

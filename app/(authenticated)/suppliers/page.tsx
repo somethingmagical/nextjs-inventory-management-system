@@ -12,13 +12,13 @@ import {
   Plus,
 } from "lucide-react";
 import { z } from "zod";
-import { auth } from "@/auth";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { db } from "@/lib/db";
+import { getSupplierListData } from "@/features/partners/suppliers/queries";
 import SupplierImportButton from "./SupplierImportButton";
 import SupplierDeleteButton from "./SupplierDeleteButton";
 import WarehouseToast from "@/components/shared/WarehouseToast";
 import AutoSearchForm from "@/components/shared/AutoSearchForm";
+import { getSupplierAccess } from "./authorization";
 
 export const metadata: Metadata = {
   title: "Suppliers",
@@ -50,11 +50,9 @@ export default function SuppliersPage({ searchParams }: SuppliersPageProps) {
 
 async function SupplierList({ searchParams }: SuppliersPageProps) {
   await connection();
-  const session = await auth();
-
-  if (!session?.user?.id) {
-    redirect("/");
-  }
+  const access = await getSupplierAccess();
+  if (access.status === "unauthenticated") redirect("/");
+  if (access.status === "forbidden") redirect("/dashboard");
 
   const rawSearchParams = await searchParams;
   const parsedQuery = searchQuerySchema.safeParse(rawSearchParams.q);
@@ -67,53 +65,17 @@ async function SupplierList({ searchParams }: SuppliersPageProps) {
   const requestedPage = parsedPage.success ? parsedPage.data : 1;
   const pageSize = parsedPageSize.success ? parsedPageSize.data : 10;
 
-  const where = {
-    deletedAt: null,
-    ...(query
-      ? {
-          OR: [
-            { name: { contains: query } },
-            { email: { contains: query } },
-            { city: { contains: query } },
-          ],
-        }
-      : {}),
-  };
+  const supplierList = await getSupplierListData({ query, requestedPage, pageSize });
 
-  const [user, totalCount] = await Promise.all([
-    db.user.findUnique({
-      where: { id: session.user.id },
-      select: { firstName: true, lastName: true, email: true, image: true },
-    }),
-    db.supplier.count({ where }),
-  ]);
+  const { totalCount, totalPages, currentPage, items: suppliers } = supplierList;
 
-  if (!user) {
-    redirect("/");
-  }
-
-  const totalPages = Math.ceil(totalCount / pageSize);
-  const currentPage = totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
-  const suppliers = await db.supplier.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    skip: (currentPage - 1) * pageSize,
-    take: pageSize,
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phoneNumber: true,
-      createdAt: true,
-    },
-  });
-
-  const displayName = `${user.firstName} ${user.lastName}`.trim() || user.email;
+  const displayName =
+    `${access.user.firstName} ${access.user.lastName}`.trim() || access.user.email;
   const firstRecord = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const lastRecord = Math.min(currentPage * pageSize, totalCount);
 
   return (
-    <DashboardLayout user={{ name: displayName, image: user.image }} pageTitle="Suppliers">
+    <DashboardLayout user={{ name: displayName, image: access.user.image }} pageTitle="Suppliers">
       <main className="gg-content">
         {(created || updated || deleted) && (
           <WarehouseToast

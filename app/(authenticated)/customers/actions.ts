@@ -77,7 +77,7 @@ export async function deleteCustomer(
 
       return { status: "success" as const };
     },
-    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
   );
 
   if (result.status === "error") {

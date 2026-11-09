@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { AlertTriangle, Info, Trash2 } from "lucide-react";
 import { deleteRole } from "./actions";
 
@@ -13,6 +14,7 @@ export default function RoleDeleteButton({
 }) {
   const dialogId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -30,7 +32,7 @@ export default function RoleDeleteButton({
         setError(result.message);
         return;
       }
-      window.location.assign("/roles?deleted=1");
+      router.push("/roles?deleted=1");
     });
   }
 

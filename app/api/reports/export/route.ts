@@ -252,7 +252,7 @@ async function exportWarehouseReport(
       sheetName: "Sales",
       columns: salesColumns,
       rows: rows.map((row) => [
-        row.reference, row.customer.name, row.warehouse.name, row.status,
+        row.reference, row.customer.name, row.warehouse?.name ?? "Warehouse unavailable", row.status,
         row.grandTotal.toNumber(), row.paid.toNumber(), row.due.toNumber(), row.paymentStatus,
       ]),
     };
@@ -278,7 +278,7 @@ async function exportWarehouseReport(
       sheetName: "Sales Returns",
       columns: salesColumns,
       rows: rows.map((row) => [
-        row.reference, row.customer.name, row.warehouse.name, row.status,
+        row.reference, row.customer.name, row.warehouse?.name ?? "Warehouse unavailable", row.status,
         row.grandTotal.toNumber(), row.paid.toNumber(), row.due.toNumber(), row.paymentStatus,
       ]),
     };
@@ -313,7 +313,7 @@ async function exportWarehouseReport(
         { header: "Payment Type", width: 18 },
       ],
       rows: rows.map((row) => [
-        row.reference, row.supplier.name, row.warehouse.name, row.status,
+        row.reference, row.supplier.name, row.warehouse?.name ?? "Warehouse unavailable", row.status,
         row.grandTotal.toNumber(), row.paid.toNumber(), row.due.toNumber(), row.paymentType,
       ]),
     };
@@ -344,7 +344,7 @@ async function exportWarehouseReport(
     rows: rows.map((row) => [
       row.reference,
       `${row.title} · ${row.expenseCategory.name}`,
-      row.warehouse.name,
+      row.warehouse?.name ?? "Warehouse unavailable",
       row.date,
       row.amount.toNumber(),
     ]),

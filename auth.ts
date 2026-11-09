@@ -24,8 +24,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         const { db } = await import("@/lib/db");
-        const user = await db.user.findUnique({
-          where: { email: parsedCredentials.data.email },
+        const user = await db.user.findFirst({
+          where: {
+            email: parsedCredentials.data.email,
+            deletedAt: null,
+            roleRecord: { deletedAt: null },
+          },
         });
 
         if (!user || !(await compare(parsedCredentials.data.password, user.password))) {

@@ -6,6 +6,7 @@ import DashboardShell from "@/components/layout/DashboardShell";
 import { getCurrentPermissions } from "@/lib/authorization";
 import { db } from "@/lib/db";
 import RouteSpinner from "@/components/layout/RouteSpinner";
+import { getApplicationSettings } from "@/features/settings/application";
 
 export default function AuthenticatedLayout({ children }: {
   children: ReactNode;
@@ -28,12 +29,13 @@ async function AuthenticatedDashboard({ children }: { children: ReactNode }) {
   const session = await auth();
   if (!session) redirect("/");
 
-  const [user, permissions] = await Promise.all([
+  const [user, permissions, settings] = await Promise.all([
     db.user.findUnique({
       where: { id: session.user.id },
       select: { firstName: true, lastName: true, email: true, image: true },
     }),
     getCurrentPermissions(),
+    getApplicationSettings(),
   ]);
   if (!user) redirect("/");
 
@@ -46,6 +48,8 @@ async function AuthenticatedDashboard({ children }: { children: ReactNode }) {
       pageTitle="Dashboard"
       pageIcon="dashboard"
       permissions={permissions}
+      appName={settings.appName}
+      faviconPath={settings.faviconPath}
     >
       {children}
     </DashboardShell>

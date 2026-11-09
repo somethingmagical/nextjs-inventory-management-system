@@ -3,7 +3,7 @@
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { db } from "@/lib/db";
+import { createProductWithInitialStock } from "@/features/catalog/products/create";
 import { getProductAccess } from "../authorization";
 import { getProductImageEntries, removeProductImages, saveProductImages } from "../product-images";
 import { productSchema } from "../product-schema";
@@ -67,69 +67,11 @@ export async function createProduct(
   }
 
   try {
-    const created = await db.$transaction(async (transaction) => {
-      const [category, brand, unit, warehouse, supplier] = await Promise.all([
-        transaction.category.findFirst({
-          where: { id: parsed.data.categoryId, deletedAt: null },
-          select: { id: true, name: true },
-        }),
-        transaction.brand.findFirst({
-          where: { id: parsed.data.brandId, deletedAt: null },
-          select: { id: true, name: true },
-        }),
-        transaction.unit.findFirst({
-          where: { name: parsed.data.productUnit, deletedAt: null },
-          select: { name: true },
-        }),
-        transaction.warehouse.findFirst({
-          where: { id: parsed.data.warehouseId, deletedAt: null },
-          select: { id: true },
-        }),
-        transaction.supplier.findFirst({
-          where: { id: parsed.data.supplierId, deletedAt: null },
-          select: { id: true },
-        }),
-      ]);
-
-      if (!category || !brand || !unit || !warehouse || !supplier) {
-        return false;
-      }
-
-      const images = upload.images.map((image) => image.path);
-      await transaction.product.create({
-        data: {
-          code: parsed.data.code,
-          name: parsed.data.name,
-          price: parsed.data.price,
-          categoryId: category.id,
-          brandId: brand.id,
-          productUnit: unit.name,
-          stockAlert: parsed.data.stockAlert,
-          orderTax: parsed.data.orderTax,
-          taxType: parsed.data.taxType,
-          quantityLimitation: parsed.data.quantityLimitation,
-          notes: parsed.data.notes,
-          images: images.length ? images : Prisma.JsonNull,
-          category: category.name,
-          brand: brand.name,
-          unit: unit.name,
-          sellingPrice: parsed.data.price,
-          alertQuantity: parsed.data.stockAlert ?? "0",
-          image: images[0] ?? null,
-          description: parsed.data.notes,
-          productStocks: {
-            create: {
-              warehouseId: warehouse.id,
-              supplierId: supplier.id,
-              quantity: parsed.data.quantity,
-              status: parsed.data.status,
-            },
-          },
-        },
-        select: { id: true },
-      });
-      return true;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    const created = await createProductWithInitialStock({
+      ...parsed.data,
+      images: upload.images.map((image) => image.path),
+      actorId: access.userId,
+    });
     if (!created) {
       await removeProductImages(upload.images.map((image) => image.path));
       return {

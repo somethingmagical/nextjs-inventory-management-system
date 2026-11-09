@@ -14,7 +14,7 @@ import {
   PointElement,
   Tooltip,
 } from "chart.js";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 Chart.register(
   ArcElement,
@@ -33,7 +33,35 @@ Chart.defaults.font.family = "'Hanken Grotesk', sans-serif";
 Chart.defaults.font.size = 12;
 Chart.defaults.color = "#7A746A";
 
-const colors = ["#6D5BD0", "#C0851A", "#109C6B", "#2C7BE0", "#DD4F88"];
+function useThemeRevision() {
+  const [revision, setRevision] = useState(0);
+
+  useEffect(() => {
+    function updateTheme() {
+      setRevision((current) => current + 1);
+    }
+
+    window.addEventListener("inventory-theme-change", updateTheme);
+    return () => window.removeEventListener("inventory-theme-change", updateTheme);
+  }, []);
+
+  return revision;
+}
+
+function getChartColors() {
+  const root = getComputedStyle(document.documentElement);
+  return Array.from({ length: 5 }, (_, index) =>
+    root.getPropertyValue(`--dashboard-chart-${index + 1}`).trim(),
+  );
+}
+
+function withOpacity(color: string, opacity: number) {
+  const channels = color.slice(1).match(/.{2}/g)?.map((channel) =>
+    Number.parseInt(channel, 16),
+  );
+  if (!channels || channels.length !== 3) return color;
+  return `rgba(${channels.join(",")},${opacity})`;
+}
 
 export function WeeklySalesChart({
   labels,
@@ -45,9 +73,11 @@ export function WeeklySalesChart({
   purchases: number[];
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const themeRevision = useThemeRevision();
 
   useEffect(() => {
     if (!canvasRef.current) return;
+    const [salesColor, purchasesColor] = getChartColors();
 
     const chart = new Chart(canvasRef.current, {
       type: "line",
@@ -57,23 +87,23 @@ export function WeeklySalesChart({
           {
             label: "Sales",
             data: sales,
-            borderColor: "#C0851A",
-            backgroundColor: "rgba(192,133,26,.12)",
+            borderColor: salesColor,
+            backgroundColor: withOpacity(salesColor, 0.12),
             tension: 0.35,
             fill: true,
             pointRadius: 3,
-            pointBackgroundColor: "#C0851A",
+            pointBackgroundColor: salesColor,
             borderWidth: 2,
           },
           {
             label: "Purchases",
             data: purchases,
-            borderColor: "#109C6B",
-            backgroundColor: "rgba(16,156,107,.10)",
+            borderColor: purchasesColor,
+            backgroundColor: withOpacity(purchasesColor, 0.1),
             tension: 0.35,
             fill: true,
             pointRadius: 3,
-            pointBackgroundColor: "#109C6B",
+            pointBackgroundColor: purchasesColor,
             borderWidth: 2,
           },
         ],
@@ -101,7 +131,7 @@ export function WeeklySalesChart({
     });
 
     return () => chart.destroy();
-  }, [labels, sales, purchases]);
+  }, [labels, sales, purchases, themeRevision]);
 
   return (
     <div className="chart-box dashboard-line-wrap">
@@ -118,11 +148,13 @@ export function ProductSalesChart({
   amounts: number[];
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const themeRevision = useThemeRevision();
   const hasData = amounts.some((amount) => amount > 0);
   const totalAmount = amounts.reduce((total, amount) => total + amount, 0);
 
   useEffect(() => {
     if (!canvasRef.current) return;
+    const colors = getChartColors();
 
     const chart = new Chart(canvasRef.current, {
       type: "doughnut",
@@ -146,7 +178,7 @@ export function ProductSalesChart({
     });
 
     return () => chart.destroy();
-  }, [amounts, hasData, labels]);
+  }, [amounts, hasData, labels, themeRevision]);
 
   return (
     <div className="dashboard-product-chart">
@@ -162,7 +194,11 @@ export function ProductSalesChart({
               : 0;
             return (
               <li className="dashboard-product-legend-item" key={`${label}-${index}`}>
-                <span className="dashboard-product-legend-swatch" style={{ backgroundColor: colors[index % colors.length] }} aria-hidden="true" />
+                <span
+                  className="dashboard-product-legend-swatch"
+                  style={{ backgroundColor: `var(--dashboard-chart-${(index % 5) + 1})` }}
+                  aria-hidden="true"
+                />
                 <span className="dashboard-product-legend-name" title={label}>{label}</span>
                 <span className="dashboard-product-legend-percent">{percentage.toFixed(1)}%</span>
               </li>
@@ -184,10 +220,12 @@ export function CustomerSalesChart({
   amounts: number[];
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const themeRevision = useThemeRevision();
   const hasData = amounts.some((amount) => amount > 0);
 
   useEffect(() => {
     if (!canvasRef.current) return;
+    const colors = getChartColors();
 
     const chart = new Chart(canvasRef.current, {
       type: "pie",
@@ -216,7 +254,7 @@ export function CustomerSalesChart({
     });
 
     return () => chart.destroy();
-  }, [amounts, hasData, labels]);
+  }, [amounts, hasData, labels, themeRevision]);
 
   return (
     <div className="chart-box customer-chart">

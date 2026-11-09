@@ -3,14 +3,14 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
-import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Pencil, Plus } from "lucide-react";
 import { z } from "zod";
-import { auth } from "@/auth";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { db } from "@/lib/db";
+import { getWarehouseListData } from "@/features/warehouses/queries";
 import WarehouseDeleteButton from "./WarehouseDeleteButton";
 import WarehouseToast from "@/components/shared/WarehouseToast";
 import AutoSearchForm from "@/components/shared/AutoSearchForm";
+import { getWarehouseAccess } from "./authorization";
 
 export const metadata: Metadata = {
   title: "Warehouses",
@@ -42,11 +42,9 @@ export default function WarehousePage({ searchParams }: WarehousePageProps) {
 
 async function WarehouseList({ searchParams }: WarehousePageProps) {
   await connection();
-  const session = await auth();
-
-  if (!session?.user?.id) {
-    redirect("/");
-  }
+  const access = await getWarehouseAccess();
+  if (access.status === "unauthenticated") redirect("/");
+  if (access.status === "forbidden") redirect("/dashboard");
 
   const rawSearchParams = await searchParams;
   const parsedQuery = searchQuerySchema.safeParse(rawSearchParams.q);
@@ -59,66 +57,17 @@ async function WarehouseList({ searchParams }: WarehousePageProps) {
   const requestedPage = parsedPage.success ? parsedPage.data : 1;
   const pageSize = parsedPageSize.success ? parsedPageSize.data : 10;
 
-  const [user, totalCount] = await Promise.all([
-    db.user.findUnique({
-      where: { id: session.user.id },
-      select: { firstName: true, lastName: true, email: true, image: true },
-    }),
-    db.warehouse.count({
-      where: {
-        deletedAt: null,
-        ...(query
-          ? {
-              OR: [
-                { name: { contains: query } },
-                { email: { contains: query } },
-                { city: { contains: query } },
-              ],
-            }
-          : {}),
-      },
-    }),
-  ]);
+  const warehouseList = await getWarehouseListData({ query, requestedPage, pageSize });
 
-  if (!user) {
-    redirect("/");
-  }
+  const { totalCount, totalPages, currentPage, items: warehouses } = warehouseList;
 
-  const totalPages = Math.ceil(totalCount / pageSize);
-  const currentPage = totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
-  const warehouses = await db.warehouse.findMany({
-    where: {
-      deletedAt: null,
-      ...(query
-        ? {
-            OR: [
-              { name: { contains: query } },
-              { email: { contains: query } },
-              { city: { contains: query } },
-            ],
-          }
-        : {}),
-    },
-    orderBy: { createdAt: "desc" },
-    skip: (currentPage - 1) * pageSize,
-    take: pageSize,
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phoneNumber: true,
-      city: true,
-      country: true,
-      createdAt: true,
-    },
-  });
-
-  const displayName = `${user.firstName} ${user.lastName}`.trim() || user.email;
+  const displayName =
+    `${access.user.firstName} ${access.user.lastName}`.trim() || access.user.email;
   const firstRecord = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const lastRecord = Math.min(currentPage * pageSize, totalCount);
 
   return (
-    <DashboardLayout user={{ name: displayName, image: user.image }} pageTitle="Warehouse">
+    <DashboardLayout user={{ name: displayName, image: access.user.image }} pageTitle="Warehouse">
       <main className="gg-content">
         {(created || updated || deleted) && (
           <WarehouseToast

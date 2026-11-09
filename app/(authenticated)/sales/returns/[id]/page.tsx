@@ -95,12 +95,11 @@ async function AuthorizedSaleReturnDetails({ params, searchParams }: SaleReturnD
               saleReturn.customer.city,
               saleReturn.customer.country,
             ].filter(Boolean).join(", ")} />
-            <Detail label="Warehouse" value={saleReturn.warehouse.name} />
-            <Detail label="Warehouse Location" value={[
-              saleReturn.warehouse.city,
-              saleReturn.warehouse.country,
-            ].filter(Boolean).join(", ")} />
-            <Detail label="Warehouse Phone" value={saleReturn.warehouse.phoneNumber} />
+            <Detail label="Warehouse" value={saleReturn.warehouse?.name ?? "Warehouse unavailable"} />
+            <Detail label="Warehouse Location" value={saleReturn.warehouse
+              ? [saleReturn.warehouse.city, saleReturn.warehouse.country].filter(Boolean).join(", ")
+              : "Warehouse unavailable"} />
+            <Detail label="Warehouse Phone" value={saleReturn.warehouse?.phoneNumber ?? "Warehouse unavailable"} />
             <div className="purchase-detail-item">
               <dt>Original Sale</dt>
               <dd>

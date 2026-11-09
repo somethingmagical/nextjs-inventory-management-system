@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 import { ArrowLeft, Check, Info } from "lucide-react";
 import {
@@ -44,6 +45,7 @@ export default function SupplierForm({
     initialSupplierActionState,
   );
   const { formRef, retainValues } = useRetainedFormValues(state, state.status === "error");
+  const router = useRouter();
   const [showToast, setShowToast] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
   const [countryCode, setCountryCode] = useState("");
@@ -54,7 +56,7 @@ export default function SupplierForm({
 
   useEffect(() => {
     if (state.status === "success" && mode === "edit") {
-      window.location.assign("/suppliers?updated=1");
+      router.push("/suppliers?updated=1");
       return;
     }
 
@@ -72,7 +74,7 @@ export default function SupplierForm({
       window.clearTimeout(hideTimeout);
       window.clearTimeout(removeTimeout);
     };
-  }, [mode, state]);
+  }, [mode, router, state]);
 
   function fieldError(field: SupplierField) {
     return state.fieldErrors?.[field]?.[0];

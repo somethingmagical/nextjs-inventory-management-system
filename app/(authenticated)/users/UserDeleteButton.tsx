@@ -2,9 +2,10 @@
 
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import type { FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { AlertTriangle, Info, Trash2 } from "lucide-react";
 import { deleteUser } from "./actions";
-import { initialUserActionState, type UserActionState } from "./create/action-state";
+import { initialUserActionState } from "./create/action-state";
 
 export default function UserDeleteButton({
   userId,
@@ -16,6 +17,7 @@ export default function UserDeleteButton({
   const dialogId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const router = useRouter();
   const [state, setState] = useState(initialUserActionState);
   const [isPending, startTransition] = useTransition();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -31,7 +33,7 @@ export default function UserDeleteButton({
     startTransition(async () => {
       const result = await deleteUser(userId);
       if (result.status === "success") {
-        window.location.assign("/users?deleted=1");
+        router.push("/users?deleted=1");
         return;
       }
       setState(result);

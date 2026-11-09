@@ -85,7 +85,7 @@ export async function addSalePayment(
         where: { id: sale.id },
         data: { paid, due, paymentStatus },
       });
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   } catch (error) {
     if (error instanceof SalePaymentError) {
       return { status: "error", message: error.message };

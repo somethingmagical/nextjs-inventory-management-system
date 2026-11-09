@@ -142,7 +142,7 @@ export async function updateUser(
       return updated.count === 1
         ? { status: "success" as const }
         : { status: "error" as const, message: "This user could not be updated. Refresh and try again." };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
 
     if (result.status === "error") {
       if (uploadedImage) await removeUserImage(uploadedImage.filePath);

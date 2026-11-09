@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { ArrowLeft, Check, Info, Pencil, UserRound } from "lucide-react";
 import {
@@ -43,6 +44,7 @@ export default function UserForm({
     initialUserActionState,
   );
   const { formRef, retainValues } = useRetainedFormValues(state, state.status === "error");
+  const router = useRouter();
   const [imagePreview, setImagePreview] = useState<string | null>(initialValues?.image ?? null);
   const [showToast, setShowToast] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
@@ -50,7 +52,7 @@ export default function UserForm({
 
   useEffect(() => {
     if (state.status === "success" && mode === "edit") {
-      window.location.assign("/users?updated=1");
+      router.push("/users?updated=1");
       return;
     }
 
@@ -68,7 +70,7 @@ export default function UserForm({
       window.clearTimeout(hideTimeout);
       window.clearTimeout(removeTimeout);
     };
-  }, [mode, state]);
+  }, [mode, router, state]);
 
   useEffect(() => () => {
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);

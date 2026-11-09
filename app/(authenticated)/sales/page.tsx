@@ -196,7 +196,7 @@ async function SaleList({ searchParams }: SalesPageProps) {
                   <tr key={sale.id}>
                     <td><span className="gg-chip-code">{sale.reference}</span></td>
                     <td className="gg-muted">{sale.customer.name}</td>
-                    <td>{sale.warehouse.name}</td>
+                    <td>{sale.warehouse?.name ?? "Warehouse unavailable"}</td>
                     <td>
                       <span className={`gg-badge ${sale.status === "Received" ? "gg-badge--success" : "gg-badge--warning"}`}>
                         {sale.status}

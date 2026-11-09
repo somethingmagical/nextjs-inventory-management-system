@@ -146,12 +146,11 @@ async function AuthorizedSaleDetails({ params, searchParams }: SaleDetailsPagePr
               sale.customer.city,
               sale.customer.country,
             ].filter(Boolean).join(", ")} />
-            <Detail label="Warehouse" value={sale.warehouse.name} />
-            <Detail label="Warehouse Location" value={[
-              sale.warehouse.city,
-              sale.warehouse.country,
-            ].filter(Boolean).join(", ")} />
-            <Detail label="Warehouse Phone" value={sale.warehouse.phoneNumber} />
+            <Detail label="Warehouse" value={sale.warehouse?.name ?? "Warehouse unavailable"} />
+            <Detail label="Warehouse Location" value={sale.warehouse
+              ? [sale.warehouse.city, sale.warehouse.country].filter(Boolean).join(", ")
+              : "Warehouse unavailable"} />
+            <Detail label="Warehouse Phone" value={sale.warehouse?.phoneNumber ?? "Warehouse unavailable"} />
             <Detail label="Payment Type" value={sale.paymentType} />
             <Detail label="Notes" value={sale.notes || "—"} full />
           </dl>

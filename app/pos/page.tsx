@@ -2,11 +2,10 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/authorization";
 import { PERMISSION } from "@/lib/permissions";
+import { getPosPageData, getPosProducts } from "@/features/pos/queries";
 import PosScreen from "./PosScreen";
-import { getPosProducts } from "./data";
 
 export const metadata: Metadata = {
   title: "POS",
@@ -33,36 +32,7 @@ async function AuthorizedPosPage() {
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
 
-  const [warehouses, customers, categories, brands, directCustomer] = await Promise.all([
-    db.warehouse.findMany({
-      where: { deletedAt: null },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    db.customer.findMany({
-      where: { deletedAt: null },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    db.category.findMany({
-      where: { deletedAt: null },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    db.brand.findMany({
-      where: { deletedAt: null },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    db.customer.findFirst({
-      where: { id: "direct-customer", deletedAt: null },
-      select: { id: true },
-    }),
-  ]);
-  if (!directCustomer) {
-    throw new Error("The protected direct-customer record is missing. Run the application seed before using POS.");
-  }
-
+  const { warehouses, customers, categories, brands, defaultCustomerId } = await getPosPageData();
   const selectedWarehouseId = warehouses[0]?.id ?? "";
   const products = selectedWarehouseId ? await getPosProducts(selectedWarehouseId) : [];
 
@@ -73,7 +43,7 @@ async function AuthorizedPosPage() {
       categories={categories}
       brands={brands}
       initialProducts={products}
-      defaultCustomerId={directCustomer.id}
+      defaultCustomerId={defaultCustomerId}
       initialWarehouseId={selectedWarehouseId}
     />
   );

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 import { connection } from "next/server";
@@ -159,7 +160,7 @@ async function UserList({ searchParams }: UsersPageProps) {
                       <td>
                         <div className="user-list-cell">
                           <span className="gg-avatar user-list-avatar" aria-hidden="true">
-                            {user.image ? <img src={user.image} alt="" /> : initials}
+                            {user.image ? <Image src={user.image} alt="" width={32} height={32} unoptimized /> : initials}
                           </span>
                           <span className="ppl-cell">
                             <span className="nm">{name}</span>

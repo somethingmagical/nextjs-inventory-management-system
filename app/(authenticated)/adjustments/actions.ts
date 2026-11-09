@@ -1,11 +1,14 @@
 "use server";
 
-import { Prisma, type AdjustmentType } from "@prisma/client";
-import { randomUUID } from "node:crypto";
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { applyStockAdjustment, InsufficientStockError } from "@/lib/product-stock";
+import { InsufficientStockError } from "@/lib/product-stock";
+import {
+  createAdjustment as createAdjustmentRecord,
+  deleteAdjustment as deleteAdjustmentRecord,
+} from "@/features/inventory/adjustments";
 import { getAdjustmentAccess } from "./authorization";
 import {
   adjustmentIdSchema,
@@ -116,58 +119,7 @@ export async function createAdjustment(
   }
 
   try {
-    await db.$transaction(async (transaction) => {
-      const warehouse = await transaction.warehouse.findFirst({
-        where: { id: parsed.data.warehouseId, deletedAt: null },
-        select: { id: true },
-      });
-      if (!warehouse) {
-        throw new Error("The selected warehouse is no longer available.");
-      }
-
-      const productIds = parsed.data.items.map((item) => item.productId);
-      const products = await transaction.product.findMany({
-        where: { id: { in: productIds }, deletedAt: null },
-        select: { id: true, name: true },
-      });
-      const productById = new Map(products.map((product) => [product.id, product]));
-      if (products.length !== productIds.length) {
-        throw new Error("One or more selected products are no longer available.");
-      }
-
-      const reference = `ADJ_${randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase()}`;
-      const adjustment = await transaction.adjustment.create({
-        data: {
-          reference,
-          warehouseId: warehouse.id,
-          date: new Date(`${parsed.data.date}T00:00:00.000Z`),
-          items: {
-            create: parsed.data.items.map((item) => ({
-              productId: item.productId,
-              quantity: new Prisma.Decimal(item.quantity),
-              type: item.type,
-            })),
-          },
-        },
-        select: { id: true },
-      });
-
-      for (const item of parsed.data.items) {
-        const product = productById.get(item.productId);
-        if (!product) {
-          throw new Error("One or more selected products are no longer available.");
-        }
-        await applyStockAdjustment(transaction, {
-          productId: product.id,
-          productName: product.name,
-          warehouseId: warehouse.id,
-          quantity: item.quantity,
-          type: item.type,
-        });
-      }
-
-      return adjustment.id;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    await createAdjustmentRecord({ ...parsed.data, actorId: access.userId });
   } catch (error) {
     if (error instanceof InsufficientStockError) {
       return { status: "error", message: error.message };
@@ -212,45 +164,7 @@ export async function deleteAdjustment(
   }
 
   try {
-    await db.$transaction(async (transaction) => {
-      const adjustment = await transaction.adjustment.findFirst({
-        where: { id: parsedId.data, deletedAt: null },
-        select: {
-          id: true,
-          warehouseId: true,
-          items: {
-            select: {
-              quantity: true,
-              type: true,
-              product: { select: { id: true, name: true } },
-            },
-          },
-        },
-      });
-
-      if (!adjustment) {
-        throw new Error("This adjustment no longer exists or has already been deleted.");
-      }
-
-      for (const item of adjustment.items) {
-        const type: AdjustmentType = item.type === "Addition" ? "Subtraction" : "Addition";
-        await applyStockAdjustment(transaction, {
-          productId: item.product.id,
-          productName: item.product.name,
-          warehouseId: adjustment.warehouseId,
-          quantity: item.quantity.toString(),
-          type,
-        });
-      }
-
-      const updated = await transaction.adjustment.updateMany({
-        where: { id: adjustment.id, deletedAt: null },
-        data: { deletedAt: new Date() },
-      });
-      if (updated.count !== 1) {
-        throw new Error("This adjustment could not be deleted. Refresh and try again.");
-      }
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    await deleteAdjustmentRecord(parsedId.data, access.userId);
   } catch (error) {
     if (error instanceof InsufficientStockError) {
       return { status: "error", message: error.message };

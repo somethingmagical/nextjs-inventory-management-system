@@ -1,13 +1,11 @@
 "use server";
 
 import { Prisma } from "@prisma/client";
-import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import {
-  applyStockAdjustment,
   InsufficientStockError,
   StockQuantityLimitError,
 } from "@/lib/product-stock";
@@ -15,12 +13,12 @@ import {
   calculatePurchaseLineTotals,
   calculatePurchaseTotals,
 } from "@/lib/purchase-pricing";
+import { getTransferStockOperations } from "@/lib/transfer-stock";
 import {
-  calculateTransferStockDeltas,
-  calculateTransferDeleteStockDeltas,
-  getTransferStockOperations,
-  type TransferStockSnapshot,
-} from "@/lib/transfer-stock";
+  createTransferRecord,
+  deleteTransferRecord,
+  updateTransferRecord,
+} from "@/features/transfers/write-use-cases";
 import { getTransferAccess } from "../authorization";
 import { transferCreateSchema, transferIdSchema } from "../transfer-create-schema";
 import type { TransferCreateActionState } from "./action-state";
@@ -138,99 +136,14 @@ export async function createTransfer(
   }
 
   try {
-    await db.$transaction(async (transaction) => {
-      const [fromWarehouse, toWarehouse, products, sourceStocks] = await Promise.all([
-        transaction.warehouse.findFirst({
-          where: { id: parsed.data.fromWarehouseId, deletedAt: null },
-          select: { id: true },
-        }),
-        transaction.warehouse.findFirst({
-          where: { id: parsed.data.toWarehouseId, deletedAt: null },
-          select: { id: true },
-        }),
-        transaction.product.findMany({
-          where: {
-            id: { in: parsed.data.items.map((item) => item.productId) },
-            deletedAt: null,
-          },
-          select: { id: true, name: true },
-        }),
-        transaction.productStock.findMany({
-          where: {
-            warehouseId: parsed.data.fromWarehouseId,
-            productId: { in: parsed.data.items.map((item) => item.productId) },
-          },
-          select: { productId: true, quantity: true },
-        }),
-      ]);
-
-      if (!fromWarehouse) throw new Error("The selected source warehouse is no longer available.");
-      if (!toWarehouse) throw new Error("The selected destination warehouse is no longer available.");
-      if (fromWarehouse.id === toWarehouse.id) {
-        throw new Error("Source and destination warehouses must be different.");
-      }
-      if (products.length !== parsed.data.items.length) {
-        throw new Error("One or more selected products are no longer available.");
-      }
-
-      const productById = new Map(products.map((product) => [product.id, product]));
-      const stockByProductId = new Map(sourceStocks.map((stock) => [stock.productId, stock.quantity]));
-      for (const item of parsed.data.items) {
-        const sourceStock = stockByProductId.get(item.productId);
-        const quantity = new Prisma.Decimal(item.quantity);
-        if (!sourceStock || sourceStock.lessThan(quantity)) {
-          throw new InsufficientStockError(
-            productById.get(item.productId)?.name,
-            "transfer",
-          );
-        }
-      }
-
-      const reference = `TR_${randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
-      await transaction.transfer.create({
-        data: {
-          reference,
-          fromWarehouseId: fromWarehouse.id,
-          toWarehouseId: toWarehouse.id,
-          date: new Date(`${parsed.data.date}T00:00:00.000Z`),
-          status: parsed.data.status,
-          orderTax: new Prisma.Decimal(parsed.data.orderTax),
-          discount: totals.discount,
-          shipping: totals.shipping,
-          grandTotal: totals.grandTotal,
-          notes: parsed.data.notes,
-          items: {
-            create: parsed.data.items.map((item, index) => ({
-              productId: item.productId,
-              netUnitCost: new Prisma.Decimal(item.netUnitCost),
-              quantity: new Prisma.Decimal(item.quantity),
-              discountType: item.discountType,
-              discount: new Prisma.Decimal(item.discount),
-              taxType: item.taxType,
-              orderTax: new Prisma.Decimal(item.orderTax),
-              subtotal: lineTotals[index].subtotal,
-            })),
-          },
-        },
-        select: { id: true },
-      });
-
-      for (const item of parsed.data.items) {
-        for (const operation of getTransferStockOperations(parsed.data.status)) {
-          const product = productById.get(item.productId);
-          if (!product) throw new Error("One or more selected products are no longer available.");
-
-          await applyStockAdjustment(transaction, {
-            productId: item.productId,
-            productName: product.name,
-            warehouseId: operation.warehouse === "from" ? fromWarehouse.id : toWarehouse.id,
-            quantity: item.quantity,
-            type: operation.type,
-            documentLabel: "transfer",
-          });
-        }
-      }
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    await createTransferRecord({
+      transfer: parsed.data,
+      lineSubtotals: lineTotals.map((line) => line.subtotal),
+      discount: totals.discount,
+      shipping: totals.shipping,
+      grandTotal: totals.grandTotal,
+      actorId: access.userId,
+    });
   } catch (error) {
     if (error instanceof InsufficientStockError || error instanceof StockQuantityLimitError) {
       return { status: "error", message: error.message };
@@ -328,125 +241,15 @@ export async function updateTransfer(
   }
 
   try {
-    await db.$transaction(async (transaction) => {
-      const original = await transaction.transfer.findFirst({
-        where: { id: parsedId.data, deletedAt: null },
-        select: {
-          id: true,
-          fromWarehouseId: true,
-          toWarehouseId: true,
-          status: true,
-          items: { select: { productId: true, quantity: true } },
-        },
-      });
-      if (!original) throw new Error("This transfer is invalid or no longer available.");
-
-      const [fromWarehouse, toWarehouse, products] = await Promise.all([
-        transaction.warehouse.findFirst({
-          where: { id: parsedForm.data.fromWarehouseId, deletedAt: null },
-          select: { id: true },
-        }),
-        transaction.warehouse.findFirst({
-          where: { id: parsedForm.data.toWarehouseId, deletedAt: null },
-          select: { id: true },
-        }),
-        transaction.product.findMany({
-          where: {
-            id: { in: parsedForm.data.items.map((item) => item.productId) },
-            deletedAt: null,
-          },
-          select: { id: true, name: true },
-        }),
-      ]);
-
-      if (!fromWarehouse) throw new Error("The selected source warehouse is no longer available.");
-      if (!toWarehouse) throw new Error("The selected destination warehouse is no longer available.");
-      if (fromWarehouse.id === toWarehouse.id) {
-        throw new Error("Source and destination warehouses must be different.");
-      }
-      if (products.length !== parsedForm.data.items.length) {
-        throw new Error("One or more selected products are no longer available.");
-      }
-
-      const originalSnapshot: TransferStockSnapshot = {
-        fromWarehouseId: original.fromWarehouseId,
-        toWarehouseId: original.toWarehouseId,
-        status: original.status,
-        items: original.items.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity.toString(),
-        })),
-      };
-      const updatedSnapshot: TransferStockSnapshot = {
-        fromWarehouseId: fromWarehouse.id,
-        toWarehouseId: toWarehouse.id,
-        status: parsedForm.data.status,
-        items: parsedForm.data.items.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-        })),
-      };
-      const stockDeltas = calculateTransferStockDeltas(originalSnapshot, updatedSnapshot);
-      const productById = new Map(products.map((product) => [product.id, product]));
-
-      for (const delta of stockDeltas) {
-        if (delta.type !== "Subtraction") continue;
-        const product = productById.get(delta.productId);
-        if (!product) throw new Error("One or more selected products are no longer available.");
-
-        await applyStockAdjustment(transaction, {
-          productId: delta.productId,
-          productName: product.name,
-          warehouseId: delta.warehouseId,
-          quantity: delta.quantity,
-          type: delta.type,
-          documentLabel: "transfer edit",
-        });
-      }
-      for (const delta of stockDeltas) {
-        if (delta.type !== "Addition") continue;
-        const product = productById.get(delta.productId);
-        if (!product) throw new Error("One or more selected products are no longer available.");
-
-        await applyStockAdjustment(transaction, {
-          productId: delta.productId,
-          productName: product.name,
-          warehouseId: delta.warehouseId,
-          quantity: delta.quantity,
-          type: delta.type,
-          documentLabel: "transfer edit",
-        });
-      }
-
-      // Reconcile stock deltas from the original move to the edited move; do not apply a second full transfer.
-      await transaction.transfer.update({
-        where: { id: original.id },
-        data: {
-          fromWarehouseId: fromWarehouse.id,
-          toWarehouseId: toWarehouse.id,
-          date: new Date(`${parsedForm.data.date}T00:00:00.000Z`),
-          status: parsedForm.data.status,
-          orderTax: new Prisma.Decimal(parsedForm.data.orderTax),
-          discount: totals.discount,
-          shipping: totals.shipping,
-          grandTotal: totals.grandTotal,
-          notes: parsedForm.data.notes,
-          items: {
-            deleteMany: {},
-            create: parsedForm.data.items.map((item, index) => ({
-              productId: item.productId,
-              netUnitCost: new Prisma.Decimal(item.netUnitCost),
-              quantity: new Prisma.Decimal(item.quantity),
-              discountType: item.discountType,
-              discount: new Prisma.Decimal(item.discount),
-              taxType: item.taxType,
-              orderTax: new Prisma.Decimal(item.orderTax),
-              subtotal: lineTotals[index].subtotal,
-            })),
-          },
-        },
-      });
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    await updateTransferRecord({
+      id: parsedId.data,
+      transfer: parsedForm.data,
+      lineSubtotals: lineTotals.map((line) => line.subtotal),
+      discount: totals.discount,
+      shipping: totals.shipping,
+      grandTotal: totals.grandTotal,
+      actorId: access.userId,
+    });
   } catch (error) {
     if (error instanceof InsufficientStockError || error instanceof StockQuantityLimitError) {
       return { status: "error", message: error.message };
@@ -493,60 +296,7 @@ export async function deleteTransfer(
   }
 
   try {
-    await db.$transaction(async (transaction) => {
-      const transfer = await transaction.transfer.findFirst({
-        where: { id: parsedId.data, deletedAt: null },
-        select: {
-          id: true,
-          fromWarehouseId: true,
-          toWarehouseId: true,
-          status: true,
-          items: {
-            select: {
-              productId: true,
-              quantity: true,
-              product: { select: { name: true } },
-            },
-          },
-        },
-      });
-      if (!transfer) {
-        throw new Error("This transfer no longer exists or has already been deleted.");
-      }
-
-      const stockDeltas = calculateTransferDeleteStockDeltas({
-        fromWarehouseId: transfer.fromWarehouseId,
-        toWarehouseId: transfer.toWarehouseId,
-        status: transfer.status,
-        items: transfer.items.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity.toString(),
-        })),
-      });
-      const productNameById = new Map(
-        transfer.items.map((item) => [item.productId, item.product.name]),
-      );
-
-      // Deletion reverses the original transfer: completed quantities return to the source and leave the destination.
-      for (const delta of stockDeltas) {
-        await applyStockAdjustment(transaction, {
-          productId: delta.productId,
-          productName: productNameById.get(delta.productId) ?? "product",
-          warehouseId: delta.warehouseId,
-          quantity: delta.quantity,
-          type: delta.type,
-          documentLabel: "transfer deletion",
-        });
-      }
-
-      const deleted = await transaction.transfer.updateMany({
-        where: { id: transfer.id, deletedAt: null },
-        data: { deletedAt: new Date() },
-      });
-      if (deleted.count !== 1) {
-        throw new Error("This transfer could not be deleted. Refresh and try again.");
-      }
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    await deleteTransferRecord(parsedId.data, access.userId);
   } catch (error) {
     if (error instanceof InsufficientStockError || error instanceof StockQuantityLimitError) {
       return { status: "error", message: error.message };

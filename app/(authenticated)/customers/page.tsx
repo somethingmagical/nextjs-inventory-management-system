@@ -15,6 +15,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { db } from "@/lib/db";
+import { getCustomerListData } from "@/features/partners/customers/queries";
 import { can } from "@/lib/authorization";
 import { PERMISSION } from "@/lib/permissions";
 import CustomerImportButton from "./CustomerImportButton";
@@ -69,25 +70,12 @@ async function CustomerList({ searchParams }: CustomersPageProps) {
   const requestedPage = parsedPage.success ? parsedPage.data : 1;
   const pageSize = parsedPageSize.success ? parsedPageSize.data : 10;
 
-  const where = {
-    deletedAt: null,
-    ...(query
-      ? {
-          OR: [
-            { name: { contains: query } },
-            { email: { contains: query } },
-            { city: { contains: query } },
-          ],
-        }
-      : {}),
-  };
-
-  const [user, totalCount, canManageCustomers] = await Promise.all([
+  const [user, customerList, canManageCustomers] = await Promise.all([
     db.user.findUnique({
       where: { id: session.user.id },
       select: { firstName: true, lastName: true, email: true, image: true },
     }),
-    db.customer.count({ where }),
+    getCustomerListData({ query, requestedPage, pageSize }),
     can(PERMISSION.manageCustomers),
   ]);
 
@@ -95,21 +83,7 @@ async function CustomerList({ searchParams }: CustomersPageProps) {
     redirect("/");
   }
 
-  const totalPages = Math.ceil(totalCount / pageSize);
-  const currentPage = totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
-  const customers = await db.customer.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    skip: (currentPage - 1) * pageSize,
-    take: pageSize,
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phoneNumber: true,
-      createdAt: true,
-    },
-  });
+  const { totalCount, totalPages, currentPage, items: customers } = customerList;
 
   const displayName = `${user.firstName} ${user.lastName}`.trim() || user.email;
   const firstRecord = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;

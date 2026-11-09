@@ -3,6 +3,46 @@ import "server-only";
 import { db } from "@/lib/db";
 import type { PosProduct } from "./types";
 
+export async function getPosPageData() {
+  const [warehouses, customers, categories, brands, directCustomer] = await Promise.all([
+    db.warehouse.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+    db.customer.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+    db.category.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+    db.brand.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+    db.customer.findFirst({
+      where: { id: "direct-customer", deletedAt: null },
+      select: { id: true },
+    }),
+  ]);
+  if (!directCustomer) {
+    throw new Error("The protected direct-customer record is missing. Run the application seed before using POS.");
+  }
+
+  return {
+    warehouses,
+    customers,
+    categories,
+    brands,
+    defaultCustomerId: directCustomer.id,
+  };
+}
+
 export async function getPosProducts(warehouseId: string): Promise<PosProduct[]> {
   const products = await db.product.findMany({
     where: {

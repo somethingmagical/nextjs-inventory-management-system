@@ -4,7 +4,7 @@ import { z } from "zod";
 import { requirePermission } from "@/lib/authorization";
 import { db } from "@/lib/db";
 import { PERMISSION } from "@/lib/permissions";
-import { getPosProducts } from "./data";
+import { getPosProducts } from "@/features/pos/queries";
 
 const warehouseIdSchema = z.string().trim().min(1).max(191);
 

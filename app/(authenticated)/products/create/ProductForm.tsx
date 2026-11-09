@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
@@ -307,7 +308,7 @@ export default function ProductForm({
               <div className="product-image-grid">
                 {currentImages.map((image) => (
                   <div className="product-image-preview" key={image}>
-                    <img src={image} alt="Product image" />
+                    <Image src={image} alt="Product image" width={120} height={120} unoptimized />
                     {mode === "edit" && (
                       <button
                         type="button"
@@ -322,7 +323,7 @@ export default function ProductForm({
                 ))}
                 {newImages.map((image, index) => (
                   <div className="product-image-preview" key={`${image.name}-${index}`}>
-                    <img src={image.src} alt={image.name} />
+                    <Image src={image.src} alt={image.name} width={120} height={120} unoptimized />
                     <button
                       type="button"
                       aria-label={`Remove ${image.name}`}

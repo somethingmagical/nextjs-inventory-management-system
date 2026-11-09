@@ -18,10 +18,10 @@ export default function SalePaymentForm({ saleId }: { saleId: string }) {
   );
   const [amount, setAmount] = useState("");
   const [paymentType, setPaymentType] = useState("Cash");
-  const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000)
-    .toISOString()
-    .slice(0, 10);
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState(() => {
+    const now = new Date();
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+  });
   const [notes, setNotes] = useState("");
 
   return (

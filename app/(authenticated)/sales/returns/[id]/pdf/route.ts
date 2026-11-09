@@ -44,9 +44,11 @@ export async function GET(_request: Request, { params }: SaleReturnPdfRouteConte
     ].filter(Boolean).join(", "),
     customerEmail: saleReturn.customer.email,
     customerPhone: saleReturn.customer.phoneNumber,
-    warehouse: saleReturn.warehouse.name,
-    warehouseLocation: [saleReturn.warehouse.city, saleReturn.warehouse.country].filter(Boolean).join(", "),
-    warehousePhone: saleReturn.warehouse.phoneNumber,
+    warehouse: saleReturn.warehouse?.name ?? "Warehouse unavailable",
+    warehouseLocation: saleReturn.warehouse
+      ? [saleReturn.warehouse.city, saleReturn.warehouse.country].filter(Boolean).join(", ")
+      : "Warehouse unavailable",
+    warehousePhone: saleReturn.warehouse?.phoneNumber ?? "Warehouse unavailable",
     paymentType: "",
     paymentStatus: saleReturn.paymentStatus,
     paid: saleReturn.paid.toFixed(2),

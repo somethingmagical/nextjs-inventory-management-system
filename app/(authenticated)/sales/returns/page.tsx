@@ -102,7 +102,7 @@ async function SaleReturnList({ searchParams }: SaleReturnsPageProps) {
       warehouse: { select: { name: true } },
     },
   });
-  const [totalCount, totals, requestedReturns] = await Promise.all([
+  const [totalCount, _totals, requestedReturns] = await Promise.all([
     db.saleReturn.count({ where }),
     db.saleReturn.aggregate({ where, _sum: { grandTotal: true, paid: true } }),
     fetchPage(requestedPage),
@@ -176,7 +176,7 @@ async function SaleReturnList({ searchParams }: SaleReturnsPageProps) {
                   <tr key={saleReturn.id}>
                     <td><span className="gg-chip-code">{saleReturn.reference}</span></td>
                     <td className="gg-muted">{saleReturn.customer.name}</td>
-                    <td>{saleReturn.warehouse.name}</td>
+                    <td>{saleReturn.warehouse?.name ?? "Warehouse unavailable"}</td>
                     <td className="gg-muted">{saleReturn.status}</td>
                     <td className="gg-num gg-td-strong">$ {saleReturn.grandTotal.toFixed(2)}</td>
                     <td className="gg-num">$ {saleReturn.paid.toFixed(2)}</td>

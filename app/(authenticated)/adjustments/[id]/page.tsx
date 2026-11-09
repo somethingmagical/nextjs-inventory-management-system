@@ -90,7 +90,7 @@ async function AuthorizedAdjustmentDetails({ params }: AdjustmentDetailsPageProp
             </div>
             <div>
               <dt>Warehouse</dt>
-              <dd>{adjustment.warehouse.name}</dd>
+              <dd>{adjustment.warehouse?.name ?? "Warehouse unavailable"}</dd>
             </div>
             <div>
               <dt>Date</dt>

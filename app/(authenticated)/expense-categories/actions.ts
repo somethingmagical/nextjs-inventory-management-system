@@ -80,7 +80,7 @@ export async function updateExpenseCategory(formData: FormData): Promise<MasterD
       data: { name: parsed.data.name },
     });
     return result.count === 1;
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
 
   if (!updated) {
     return { status: "error", message: "This expense category no longer exists or could not be updated." };
@@ -125,7 +125,7 @@ export async function deleteExpenseCategory(formData: FormData): Promise<MasterD
     return deleted.count === 1
       ? { status: "success" as const }
       : { status: "error" as const, message: "This expense category could not be deleted." };
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
 
   if (result.status === "error") return result;
 

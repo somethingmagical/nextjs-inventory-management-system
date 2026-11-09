@@ -2,11 +2,10 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import {
   AlertTriangle,
   Check,
-  ChevronRight,
   Image as ImageIcon,
   Info,
   Pencil,
@@ -39,7 +38,6 @@ export default function MasterDataManager({
   entity,
   listPath,
   query,
-  pageSize,
   items,
   pagination,
   createAction,
@@ -60,6 +58,17 @@ export default function MasterDataManager({
   const objectUrlRef = useRef<string | null>(null);
   const deleteDialogRef = useRef<HTMLDialogElement>(null);
 
+  const closeEditor = useCallback((force = false) => {
+    if (isPending && !force) return;
+    setEditor(null);
+    setFieldErrors(undefined);
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
+    }
+    window.setTimeout(() => restoreFocusRef.current?.focus(), 0);
+  }, [isPending]);
+
   useEffect(() => {
     if (!editor) return;
     setPreview(editor.mode === "edit" ? editor.item.logo : null);
@@ -73,7 +82,7 @@ export default function MasterDataManager({
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [editor, isPending]);
+  }, [closeEditor, editor, isPending]);
 
   useEffect(() => {
     const dialog = deleteDialogRef.current;
@@ -89,17 +98,6 @@ export default function MasterDataManager({
   useEffect(() => () => {
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
   }, []);
-
-  function closeEditor(force = false) {
-    if (isPending && !force) return;
-    setEditor(null);
-    setFieldErrors(undefined);
-    if (objectUrlRef.current) {
-      URL.revokeObjectURL(objectUrlRef.current);
-      objectUrlRef.current = null;
-    }
-    window.setTimeout(() => restoreFocusRef.current?.focus(), 0);
-  }
 
   function openEditor(nextEditor: EditorState, trigger: HTMLElement) {
     restoreFocusRef.current = trigger;

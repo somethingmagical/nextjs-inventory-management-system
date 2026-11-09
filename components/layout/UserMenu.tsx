@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { signOut } from "next-auth/react";
 import { ChevronDown, KeyRound, LogOut, UserRound } from "lucide-react";
 import Link from "next/link";
@@ -58,7 +59,7 @@ export default function UserMenu({
         onClick={() => setIsOpen((open) => !open)}
       >
         <span className="gg-avatar">
-          {image ? <img src={image} alt="" /> : initial}
+          {image ? <Image src={image} alt="" width={32} height={32} unoptimized /> : initial}
         </span>
         <span className="gg-user-name">{name}</span>
         <ChevronDown className="gg-user-chevron" aria-hidden="true" size={16} />

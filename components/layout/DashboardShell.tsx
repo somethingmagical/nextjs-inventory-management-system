@@ -24,6 +24,8 @@ export default function DashboardShell({
   pageIcon,
   permissions,
   headerContent,
+  appName,
+  faviconPath,
 }: {
   children: ReactNode;
   user: { name: string; image: string | null };
@@ -31,6 +33,8 @@ export default function DashboardShell({
   pageIcon: "dashboard" | "plus" | "chart";
   permissions: Permission[];
   headerContent?: ReactNode;
+  appName: string;
+  faviconPath: string;
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [headerConfig, setHeaderConfig] = useState<DashboardHeaderConfig>({
@@ -48,7 +52,12 @@ export default function DashboardShell({
         <RouteLoadingBar />
       </Suspense>
       <div className={`gg-app ${isCollapsed ? "is-collapsed" : ""}`}>
-        <Sidebar permissions={permissions} isCollapsed={isCollapsed} />
+        <Sidebar
+          permissions={permissions}
+          isCollapsed={isCollapsed}
+          appName={appName}
+          faviconPath={faviconPath}
+        />
         <div className="gg-main">
           <Header
             onToggleSidebar={() => setIsCollapsed((collapsed) => !collapsed)}
@@ -59,7 +68,7 @@ export default function DashboardShell({
             headerContent={headerConfig.headerContent}
           />
           {children}
-          <Footer />
+          <Footer appName={appName} />
         </div>
       </div>
     </DashboardHeaderConfigContext.Provider>

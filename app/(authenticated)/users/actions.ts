@@ -61,7 +61,7 @@ export async function deleteUser(userId: string): Promise<UserActionState> {
     }
 
     return { status: "success" as const };
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
 
   if (result.status === "error") return result;
 

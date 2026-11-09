@@ -45,32 +45,55 @@ enum SalePaymentStatus {
   Partial
 }
 
+enum StockMovementType {
+  OpeningBalance
+  ProductInitialization
+  PurchaseReceipt
+  PurchaseReturn
+  Sale
+  SaleReturn
+  Adjustment
+  Transfer
+  Reconciliation
+}
+
+enum StockMovementSourceType {
+  Product
+  Purchase
+  PurchaseReturn
+  Sale
+  SaleReturn
+  Adjustment
+  Transfer
+}
+
 model User {
-  id          String    @id @default(cuid())
-  firstName   String
-  lastName    String
-  email       String    @unique
-  password    String
-  phoneNumber String?
-  image       String?
-  role        String    @default("user")
-  roleId      String
-  roleRecord  Role      @relation(fields: [roleId], references: [id], onDelete: Restrict)
-  deletedAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id             String          @id @default(cuid())
+  firstName      String
+  lastName       String
+  email          String          @unique
+  password       String
+  phoneNumber    String?
+  image          String?
+  role           String          @default("user")
+  roleId         String
+  roleRecord     Role            @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  stockMovements StockMovement[]
+  deletedAt      DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
   @@index([roleId])
   @@index([deletedAt])
 }
 
 model Role {
-  id        String    @id @default(cuid())
-  name      String    @unique
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  users     User[]
+  id          String           @id @default(cuid())
+  name        String           @unique
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  deletedAt   DateTime?
+  users       User[]
   permissions RolePermission[]
 
   @@index([deletedAt])
@@ -83,6 +106,13 @@ model RolePermission {
 
   @@id([roleId, permission])
   @@index([permission])
+}
+
+model ApplicationSetting {
+  id          String   @id
+  appName     String   @db.VarChar(100)
+  faviconPath String?  @db.VarChar(255)
+  updatedAt   DateTime @updatedAt
 }
 
 model Warehouse {
@@ -98,12 +128,13 @@ model Warehouse {
   updatedAt       DateTime         @updatedAt
   saleReturns     SaleReturn[]
   productStocks   ProductStock[]
+  stockMovements  StockMovement[]
   adjustments     Adjustment[]
   purchases       Purchase[]
   purchaseReturns PurchaseReturn[]
   sales           Sale[]
-  transfersFrom   Transfer[]        @relation("TransferFromWarehouse")
-  transfersTo     Transfer[]        @relation("TransferToWarehouse")
+  transfersFrom   Transfer[]       @relation("TransferFromWarehouse")
+  transfersTo     Transfer[]       @relation("TransferToWarehouse")
   expenses        Expense[]
 
   @@index([deletedAt])
@@ -128,7 +159,7 @@ model Supplier {
 }
 
 model Customer {
-  id          String    @id @default(cuid())
+  id          String       @id @default(cuid())
   name        String
   email       String
   phoneNumber String
@@ -137,8 +168,8 @@ model Customer {
   city        String
   address     String
   deletedAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
   sales       Sale[]
   saleReturns SaleReturn[]
 
@@ -162,6 +193,7 @@ model Product {
   categoryRecord      Category             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   brandRecord         Brand                @relation(fields: [brandId], references: [id], onDelete: Restrict)
   productStocks       ProductStock[]
+  stockMovements      StockMovement[]
   adjustmentItems     AdjustmentItem[]
   purchaseItems       PurchaseItem[]
   purchaseReturnItems PurchaseReturnItem[]
@@ -273,6 +305,25 @@ model ProductStock {
   @@unique([productId, warehouseId])
   @@index([warehouseId])
   @@index([supplierId])
+}
+
+model StockMovement {
+  id          String                   @id @default(cuid())
+  productId   String
+  warehouseId String
+  quantity    Decimal                  @db.Decimal(12, 3)
+  type        StockMovementType
+  sourceType  StockMovementSourceType?
+  sourceId    String?
+  actorId     String?
+  product     Product                  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  warehouse   Warehouse                @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  actor       User?                    @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  createdAt   DateTime                 @default(now())
+
+  @@index([productId, warehouseId, createdAt])
+  @@index([sourceType, sourceId])
+  @@index([actorId])
 }
 
 model Adjustment {

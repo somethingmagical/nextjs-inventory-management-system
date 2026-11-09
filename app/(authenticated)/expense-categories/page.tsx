@@ -7,7 +7,7 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import MasterDataManager from "@/components/master-data/MasterDataManager";
 import MasterDataPagination from "@/components/master-data/MasterDataPagination";
 import type { MasterDataItem } from "@/app/master-data/action-state";
-import { db } from "@/lib/db";
+import { getExpenseCategoryListData } from "@/features/expenses/categories/queries";
 import { getExpenseCategoryAccess } from "./authorization";
 import { createExpenseCategory, deleteExpenseCategory, updateExpenseCategory } from "./actions";
 
@@ -52,19 +52,10 @@ async function ExpenseCategoryList({ searchParams }: ExpenseCategoriesPageProps)
   const requestedPage = parsedPage.success ? parsedPage.data : 1;
   const pageSize = parsedPageSize.success ? parsedPageSize.data : 10;
 
-  const where = {
-    deletedAt: null,
-    ...(query ? { name: { contains: query } } : {}),
-  };
-  const totalCount = await db.expenseCategory.count({ where });
-  const totalPages = Math.ceil(totalCount / pageSize);
-  const currentPage = totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
-  const categories = await db.expenseCategory.findMany({
-    where,
-    orderBy: [{ name: "asc" }, { createdAt: "desc" }],
-    skip: (currentPage - 1) * pageSize,
-    take: pageSize,
-    select: { id: true, name: true },
+  const { totalCount, totalPages, currentPage, items: categories } = await getExpenseCategoryListData({
+    query,
+    requestedPage,
+    pageSize,
   });
   const items: MasterDataItem[] = categories.map((category) => ({
     ...category,

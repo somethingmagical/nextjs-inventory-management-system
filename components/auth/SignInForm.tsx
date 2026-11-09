@@ -45,7 +45,7 @@ export default function SignInForm() {
         redirectTo: "/dashboard",
       });
 
-      if (!result?.ok) {
+      if (!result || !result.ok || result.error) {
         setError(
           result?.error === "CredentialsSignin"
             ? "Invalid email or password."
@@ -87,7 +87,6 @@ export default function SignInForm() {
             <div className="auth-field">
               <div className="auth-label-row">
                 <label className="auth-label" htmlFor="password">Password: <span className="req">*</span></label>
-                <a href="#" className="auth-forgot" onClick={(event) => event.preventDefault()}>Forgot Password ?</a>
               </div>
               <input className="auth-input" id="password" name="password" type="password" autoComplete="current-password" placeholder="Enter Password" required />
             </div>

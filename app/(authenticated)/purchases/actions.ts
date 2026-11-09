@@ -1,11 +1,11 @@
 "use server";
 
 import { Prisma } from "@prisma/client";
-import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { receivePurchaseStock, StockQuantityLimitError } from "@/lib/product-stock";
+import { StockQuantityLimitError } from "@/lib/product-stock";
+import { createPurchase as createPurchaseRecord } from "@/features/procurement/purchases";
 import { getPurchaseAccess } from "./authorization";
 import { purchaseCreateSchema } from "./purchase-create-schema";
 import { purchaseProductSearchSchema } from "./purchase-schema";
@@ -111,87 +111,14 @@ export async function createPurchase(
   }
 
   try {
-    await db.$transaction(async (transaction) => {
-      const [warehouse, supplier, products] = await Promise.all([
-        transaction.warehouse.findFirst({
-          where: { id: parsed.data.warehouseId, deletedAt: null },
-          select: { id: true },
-        }),
-        transaction.supplier.findFirst({
-          where: { id: parsed.data.supplierId, deletedAt: null },
-          select: { id: true },
-        }),
-        transaction.product.findMany({
-          where: {
-            id: { in: parsed.data.items.map((item) => item.productId) },
-            deletedAt: null,
-          },
-          select: { id: true, productUnit: true },
-        }),
-      ]);
-
-      if (!warehouse) throw new Error("The selected warehouse is no longer available.");
-      if (!supplier) throw new Error("The selected supplier is no longer available.");
-      if (products.length !== parsed.data.items.length) {
-        throw new Error("One or more selected products are no longer available.");
-      }
-
-      const productById = new Map(products.map((product) => [product.id, product]));
-      const customUnits = [...new Set(parsed.data.items
-        .filter((item) => productById.get(item.productId)?.productUnit !== item.unit)
-        .map((item) => item.unit))];
-      if (customUnits.length > 0) {
-        const activeUnits = await transaction.unit.findMany({
-          where: { name: { in: customUnits }, deletedAt: null },
-          select: { name: true },
-        });
-        const activeUnitNames = new Set(activeUnits.map((unit) => unit.name));
-        if (customUnits.some((unit) => !activeUnitNames.has(unit))) {
-          throw new Error("One or more selected purchase units are no longer available.");
-        }
-      }
-
-      const reference = `PU_${randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
-      await transaction.purchase.create({
-        data: {
-          reference,
-          warehouseId: warehouse.id,
-          supplierId: supplier.id,
-          date: new Date(`${parsed.data.date}T00:00:00.000Z`),
-          status: parsed.data.status,
-          orderTax: new Prisma.Decimal(parsed.data.orderTax),
-          discount: totals.discount,
-          shipping: totals.shipping,
-          grandTotal: totals.grandTotal,
-          notes: parsed.data.notes,
-          items: {
-            create: parsed.data.items.map((item, index) => ({
-              productId: item.productId,
-              netUnitCost: new Prisma.Decimal(item.netUnitCost),
-              quantity: new Prisma.Decimal(item.quantity),
-              unit: item.unit,
-              discountType: item.discountType,
-              discount: new Prisma.Decimal(item.discount),
-              taxType: item.taxType,
-              orderTax: new Prisma.Decimal(item.orderTax),
-              subtotal: lineTotals[index].subtotal,
-            })),
-          },
-        },
-        select: { id: true },
-      });
-
-      if (parsed.data.status === "Received") {
-        for (const item of parsed.data.items) {
-          await receivePurchaseStock(transaction, {
-            productId: item.productId,
-            warehouseId: warehouse.id,
-            supplierId: supplier.id,
-            quantity: item.quantity,
-          });
-        }
-      }
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    await createPurchaseRecord({
+      ...parsed.data,
+      lineSubtotals: lineTotals.map((line) => line.subtotal),
+      discount: totals.discount,
+      shipping: totals.shipping,
+      grandTotal: totals.grandTotal,
+      actorId: access.userId,
+    });
   } catch (error) {
     if (error instanceof StockQuantityLimitError) {
       return { status: "error", message: error.message };

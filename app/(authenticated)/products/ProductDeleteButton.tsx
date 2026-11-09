@@ -5,10 +5,7 @@ import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Info, Trash2 } from "lucide-react";
 import { deleteProduct } from "./actions";
-import {
-  initialProductActionState,
-  type ProductActionState,
-} from "./create/action-state";
+import { initialProductActionState } from "./create/action-state";
 
 export default function ProductDeleteButton({
   productId,

@@ -1,12 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { PERMISSION, type Permission } from "@/lib/permissions";
-
-const appName = process.env.NEXT_PUBLIC_APP_NAME || "Inventory";
 
 const iconPaths: Record<string, ReactNode> = {
   dashboard: <><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="4" rx="1.5" /><rect x="14" y="11" width="7" height="10" rx="2" /><rect x="3" y="12" width="7" height="9" rx="2" /></>,
@@ -127,7 +126,7 @@ const navigation: NavigationItem[] = [
   //     { label: "Email Templates", permission: PERMISSION.manageEmailTemplates },
   //   ],
   // },
-  // { label: "Settings", icon: "settings", permission: PERMISSION.manageSetting },
+  { label: "Settings", icon: "settings", href: "/settings", permission: PERMISSION.manageSetting },
 ];
 
 export function getActiveNavigationIcon(pathname: string): string | null {
@@ -154,9 +153,13 @@ export function getActiveNavigationIcon(pathname: string): string | null {
 export default function Sidebar({
   permissions,
   isCollapsed,
+  appName,
+  faviconPath,
 }: {
   permissions: Permission[];
   isCollapsed: boolean;
+  appName: string;
+  faviconPath: string;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -191,7 +194,7 @@ export default function Sidebar({
   return (
     <aside className="gg-sidebar">
       <Link className="gg-brand" href="/dashboard" aria-label={`${appName} dashboard`} title="Dashboard">
-        <img className="gg-brand-favicon" src="/favicon.ico" alt="" width={30} height={30} aria-hidden="true" />
+        <Image className="gg-brand-favicon" src={faviconPath} alt="" width={30} height={30} aria-hidden="true" unoptimized />
         {/* <span className="gg-brand-mark">I</span> */}
         <span className="gg-brand-name">{appName}</span>
       </Link>

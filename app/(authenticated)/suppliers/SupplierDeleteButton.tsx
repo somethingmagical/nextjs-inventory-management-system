@@ -2,12 +2,10 @@
 
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import type { FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { AlertTriangle, Info, Trash2 } from "lucide-react";
 import { deleteSupplier } from "./actions";
-import {
-  initialSupplierActionState,
-  type SupplierActionState,
-} from "./create/action-state";
+import { initialSupplierActionState } from "./create/action-state";
 
 export default function SupplierDeleteButton({
   supplierId,
@@ -19,6 +17,7 @@ export default function SupplierDeleteButton({
   const dialogId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const router = useRouter();
   const [state, setState] = useState(initialSupplierActionState);
   const [isPending, startTransition] = useTransition();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -34,7 +33,7 @@ export default function SupplierDeleteButton({
     startTransition(async () => {
       const result = await deleteSupplier(supplierId);
       if (result.status === "success") {
-        window.location.assign("/suppliers?deleted=1");
+        router.push("/suppliers?deleted=1");
         return;
       }
 
@@ -51,7 +50,7 @@ export default function SupplierDeleteButton({
 
   useEffect(() => {
     if (state.status === "success") {
-      window.location.assign("/suppliers?deleted=1");
+      router.push("/suppliers?deleted=1");
       return;
     }
 
@@ -69,7 +68,7 @@ export default function SupplierDeleteButton({
       window.clearTimeout(hideTimeout);
       window.clearTimeout(removeTimeout);
     };
-  }, [state]);
+  }, [router, state]);
 
   return (
     <>

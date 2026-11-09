@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { notFound, redirect } from "next/navigation";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { db } from "@/lib/db";
+import { getProductEditData } from "@/features/catalog/products/edit-data";
 import { getProductAccess } from "../../authorization";
 import { getProductImagePaths } from "../../product-images";
 import { productIdSchema } from "../../product-schema";
@@ -43,41 +43,7 @@ async function AuthorizedEditProduct({ params }: EditProductPageProps) {
   const parsedId = productIdSchema.safeParse(id);
   if (!parsedId.success) notFound();
 
-  const [product, categories, brands, units] = await Promise.all([
-    db.product.findFirst({
-      where: { id: parsedId.data, deletedAt: null },
-      select: {
-        id: true,
-        code: true,
-        name: true,
-        categoryId: true,
-        brandId: true,
-        productUnit: true,
-        price: true,
-        stockAlert: true,
-        orderTax: true,
-        taxType: true,
-        quantityLimitation: true,
-        notes: true,
-        images: true,
-      },
-    }),
-    db.category.findMany({
-      where: { deletedAt: null },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    db.brand.findMany({
-      where: { deletedAt: null },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    db.unit.findMany({
-      where: { deletedAt: null },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-  ]);
+  const { product, categories, brands, units } = await getProductEditData(parsedId.data);
   if (!product) notFound();
   const unitOptions = units.map((unit) => ({ ...unit, value: unit.name }));
 

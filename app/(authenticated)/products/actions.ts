@@ -1,8 +1,7 @@
 "use server";
 
-import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { db } from "@/lib/db";
+import { softDeleteProduct } from "@/features/catalog/products/delete";
 import { getProductAccess } from "./authorization";
 import { productIdSchema } from "./product-schema";
 import type { ProductActionState } from "./create/action-state";
@@ -23,36 +22,7 @@ export async function deleteProduct(productId: string): Promise<ProductActionSta
     return { status: "error", message: "This product could not be found." };
   }
 
-  const result = await db.$transaction(
-    async (transaction) => {
-      const product = await transaction.product.findFirst({
-        where: { id: parsedId.data, deletedAt: null },
-        select: { id: true, name: true },
-      });
-
-      if (!product) {
-        return {
-          status: "error" as const,
-          message: "This product no longer exists or has already been deleted.",
-        };
-      }
-
-      const update = await transaction.product.updateMany({
-        where: { id: product.id, deletedAt: null },
-        data: { deletedAt: new Date() },
-      });
-
-      if (update.count !== 1) {
-        return {
-          status: "error" as const,
-          message: "This product could not be deleted. Refresh and try again.",
-        };
-      }
-
-      return { status: "success" as const };
-    },
-    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-  );
+  const result = await softDeleteProduct(parsedId.data);
 
   if (result.status === "error") {
     return { status: "error", message: result.message };

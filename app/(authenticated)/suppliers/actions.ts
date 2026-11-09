@@ -66,7 +66,7 @@ export async function deleteSupplier(
 
       return { status: "success" as const };
     },
-    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
   );
 
   if (result.status === "error") {

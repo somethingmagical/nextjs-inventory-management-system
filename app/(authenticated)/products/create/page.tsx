@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { db } from "@/lib/db";
+import { getProductCreateData } from "@/features/catalog/products/create-data";
 import { getProductAccess } from "../authorization";
 import { createProduct } from "./actions";
 import ProductForm from "./ProductForm";
@@ -34,33 +34,7 @@ async function AuthorizedCreateProduct() {
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
 
-  const [categories, brands, units, warehouses, suppliers] = await Promise.all([
-    db.category.findMany({
-      where: { deletedAt: null },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    db.brand.findMany({
-      where: { deletedAt: null },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    db.unit.findMany({
-      where: { deletedAt: null },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    db.warehouse.findMany({
-      where: { deletedAt: null },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    db.supplier.findMany({
-      where: { deletedAt: null },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-  ]);
+  const { categories, brands, units, warehouses, suppliers } = await getProductCreateData();
   const unitOptions = units.map((unit) => ({ ...unit, value: unit.name }));
   const name = `${access.user.firstName} ${access.user.lastName}`.trim() || access.user.email;
 

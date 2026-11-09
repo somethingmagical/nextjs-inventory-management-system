@@ -1,13 +1,11 @@
 "use server";
 
 import { Prisma } from "@prisma/client";
-import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import {
-  applyStockAdjustment,
   InsufficientStockError,
   StockQuantityLimitError,
 } from "@/lib/product-stock";
@@ -16,9 +14,9 @@ import {
   calculatePurchaseTotals,
 } from "@/lib/purchase-pricing";
 import {
-  calculatePurchaseReturnDeleteStockDeltas,
-  calculatePurchaseReturnStockDeltas,
-} from "@/lib/purchase-return-stock";
+  deletePurchaseReturn as deletePurchaseReturnTransaction,
+  savePurchaseReturn as savePurchaseReturnTransaction,
+} from "@/features/procurement/purchase-returns";
 import { getPurchaseReturnAccess } from "./authorization";
 import {
   purchaseReturnCreateSchema,
@@ -141,177 +139,13 @@ export async function savePurchaseReturn(
   }
 
   try {
-    await db.$transaction(async (transaction) => {
-      const [warehouse, supplier, products, existingReturn] = await Promise.all([
-        transaction.warehouse.findFirst({
-          where: { id: parsed.data.warehouseId, deletedAt: null },
-          select: { id: true },
-        }),
-        transaction.supplier.findFirst({
-          where: { id: parsed.data.supplierId, deletedAt: null },
-          select: { id: true },
-        }),
-        transaction.product.findMany({
-          where: {
-            id: { in: parsed.data.items.map((item) => item.productId) },
-            deletedAt: null,
-          },
-          select: { id: true, name: true, productUnit: true },
-        }),
-        returnId
-          ? transaction.purchaseReturn.findFirst({
-              where: { id: returnId, deletedAt: null },
-              select: {
-                id: true,
-                warehouseId: true,
-                status: true,
-                paid: true,
-                items: {
-                  select: {
-                    productId: true,
-                    quantity: true,
-                    product: { select: { name: true } },
-                  },
-                },
-              },
-            })
-          : Promise.resolve(null),
-      ]);
-
-      if (!warehouse) throw new Error("The selected warehouse is no longer available.");
-      if (!supplier) throw new Error("The selected supplier is no longer available.");
-      if (returnId && !existingReturn) {
-        throw new Error("This purchase return no longer exists or has already been deleted.");
-      }
-      if (products.length !== parsed.data.items.length) {
-        throw new Error("One or more selected products are no longer available.");
-      }
-
-      const productById = new Map(products.map((product) => [product.id, product]));
-      const customUnits = [...new Set(parsed.data.items
-        .filter((item) => productById.get(item.productId)?.productUnit !== item.unit)
-        .map((item) => item.unit))];
-      if (customUnits.length > 0) {
-        const activeUnits = await transaction.unit.findMany({
-          where: { name: { in: customUnits }, deletedAt: null },
-          select: { name: true },
-        });
-        const activeUnitNames = new Set(activeUnits.map((unit) => unit.name));
-        if (customUnits.some((unit) => !activeUnitNames.has(unit))) {
-          throw new Error("One or more selected purchase return units are no longer available.");
-        }
-      }
-
-      const itemData = parsed.data.items.map((item, index) => ({
-        productId: item.productId,
-        netUnitCost: new Prisma.Decimal(item.netUnitCost),
-        quantity: new Prisma.Decimal(item.quantity),
-        unit: item.unit,
-        discountType: item.discountType,
-        discount: new Prisma.Decimal(item.discount),
-        taxType: item.taxType,
-        orderTax: new Prisma.Decimal(item.orderTax),
-        subtotal: lineTotals[index].subtotal,
-      }));
-
-      if (existingReturn) {
-        if (existingReturn.paid.greaterThan(totals.grandTotal)) {
-          throw new Error("The new grand total cannot be less than the amount already paid.");
-        }
-
-        const stockDeltas = calculatePurchaseReturnStockDeltas(
-          {
-            warehouseId: existingReturn.warehouseId,
-            status: existingReturn.status,
-            items: existingReturn.items.map((item) => ({
-              productId: item.productId,
-              quantity: item.quantity,
-            })),
-          },
-          {
-            warehouseId: warehouse.id,
-            status: parsed.data.status,
-            items: parsed.data.items.map((item) => ({
-              productId: item.productId,
-              quantity: item.quantity,
-            })),
-          },
-        );
-        const previousProductNames = new Map(
-          existingReturn.items.map((item) => [item.productId, item.product.name]),
-        );
-
-        // Net the old and new received quantities so edits apply only the stock difference.
-        for (const delta of stockDeltas) {
-          const product = productById.get(delta.productId);
-          await applyStockAdjustment(transaction, {
-            productId: delta.productId,
-            productName: product?.name ?? previousProductNames.get(delta.productId) ?? "product",
-            warehouseId: delta.warehouseId,
-            quantity: delta.quantity.toString(),
-            type: delta.type,
-            documentLabel: "purchase return edit",
-          });
-        }
-
-        await transaction.purchaseReturn.update({
-          where: { id: existingReturn.id },
-          data: {
-            warehouseId: warehouse.id,
-            supplierId: supplier.id,
-            date: new Date(`${parsed.data.date}T00:00:00.000Z`),
-            status: parsed.data.status,
-            orderTax: new Prisma.Decimal(parsed.data.orderTax),
-            discount: totals.discount,
-            shipping: totals.shipping,
-            grandTotal: totals.grandTotal,
-            due: totals.grandTotal.minus(existingReturn.paid),
-            notes: parsed.data.notes,
-            items: {
-              deleteMany: {},
-              create: itemData,
-            },
-          },
-        });
-        return;
-      }
-
-      const reference = `PR_${randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
-      await transaction.purchaseReturn.create({
-        data: {
-          reference,
-          warehouseId: warehouse.id,
-          supplierId: supplier.id,
-          date: new Date(`${parsed.data.date}T00:00:00.000Z`),
-          status: parsed.data.status,
-          orderTax: new Prisma.Decimal(parsed.data.orderTax),
-          discount: totals.discount,
-          shipping: totals.shipping,
-          grandTotal: totals.grandTotal,
-          paid: new Prisma.Decimal(0),
-          due: totals.grandTotal,
-          paymentType: "Cash",
-          notes: parsed.data.notes,
-          items: { create: itemData },
-        },
-        select: { id: true },
-      });
-
-      if (parsed.data.status === "Received") {
-        for (const item of parsed.data.items) {
-          const product = productById.get(item.productId);
-          if (!product) throw new Error("One or more selected products are no longer available.");
-          await applyStockAdjustment(transaction, {
-            productId: product.id,
-            productName: product.name,
-            warehouseId: warehouse.id,
-            quantity: item.quantity,
-            type: "Subtraction",
-            documentLabel: "purchase return",
-          });
-        }
-      }
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    await savePurchaseReturnTransaction({
+      ...parsed.data,
+      returnId,
+      lineSubtotals: lineTotals.map((line) => line.subtotal),
+      totals,
+      actorId: access.userId,
+    });
   } catch (error) {
     if (error instanceof InsufficientStockError) {
       return { status: "error", message: error.message };
@@ -418,74 +252,7 @@ export async function deletePurchaseReturn(
   }
 
   try {
-    await db.$transaction(async (transaction) => {
-      const purchaseReturn = await transaction.purchaseReturn.findFirst({
-        where: { id: parsedId.data, deletedAt: null },
-        select: {
-          id: true,
-          warehouseId: true,
-          status: true,
-          items: {
-            select: {
-              quantity: true,
-              product: { select: { id: true, name: true } },
-            },
-          },
-        },
-      });
-
-      if (!purchaseReturn) {
-        throw new Error("This purchase return no longer exists or has already been deleted.");
-      }
-
-      if (purchaseReturn.status === "Received") {
-        const productNameById = new Map(
-          purchaseReturn.items.map((item) => [item.product.id, item.product.name]),
-        );
-        const stockDeltas = calculatePurchaseReturnDeleteStockDeltas({
-          warehouseId: purchaseReturn.warehouseId,
-          status: purchaseReturn.status,
-          items: purchaseReturn.items.map((item) => ({
-            productId: item.product.id,
-            quantity: item.quantity,
-          })),
-        });
-        for (const delta of stockDeltas) {
-          const currentStock = await transaction.productStock.findUnique({
-            where: {
-              productId_warehouseId: {
-                productId: delta.productId,
-                warehouseId: purchaseReturn.warehouseId,
-              },
-            },
-            select: { quantity: true },
-          });
-          const restoredQuantity = (currentStock?.quantity ?? new Prisma.Decimal(0))
-            .plus(delta.quantity);
-          if (restoredQuantity.greaterThan(new Prisma.Decimal("999999999.999"))) {
-            throw new StockQuantityLimitError();
-          }
-
-          // Deleting a received return undoes its outbound movement, so restore the stock.
-          await applyStockAdjustment(transaction, {
-            productId: delta.productId,
-            productName: productNameById.get(delta.productId) ?? "product",
-            warehouseId: purchaseReturn.warehouseId,
-            quantity: delta.quantity.toString(),
-            type: delta.type,
-            documentLabel: "purchase return deletion",
-          });
-        }
-      }
-
-      const deleted = await transaction.purchaseReturn.updateMany({
-        where: { id: purchaseReturn.id, deletedAt: null },
-        data: { deletedAt: new Date() },
-      });
-      if (deleted.count !== 1) {
-        throw new Error("This purchase return no longer exists or has already been deleted.");
-      }
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    await deletePurchaseReturnTransaction(parsedId.data, access.userId);
   } catch (error) {
     if (error instanceof StockQuantityLimitError) {
       return {

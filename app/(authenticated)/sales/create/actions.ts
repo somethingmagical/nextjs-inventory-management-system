@@ -1,7 +1,6 @@
 "use server";
 
 import { Prisma } from "@prisma/client";
-import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -9,11 +8,12 @@ import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/authorization";
 import { PERMISSION } from "@/lib/permissions";
 import {
-  applyStockAdjustment,
+  createSale as createSaleUseCase,
+  deleteSale as deleteSaleUseCase,
   InsufficientStockError,
   StockQuantityLimitError,
-} from "@/lib/product-stock";
-import { calculateSaleStockDeltas } from "@/lib/sale-stock";
+  updateSale as updateSaleUseCase,
+} from "@/features/sales/mutations";
 import { getSaleAccess } from "../authorization";
 import { saleCreateSchema } from "../sale-create-schema";
 import { saleIdSchema } from "../[id]/payments/payment-schema";
@@ -149,105 +149,18 @@ export async function createSale(
 
   let createdSale: { id: string; reference: string } | null = null;
   try {
-    createdSale = await db.$transaction(async (transaction) => {
-      const [warehouse, customer, products] = await Promise.all([
-        transaction.warehouse.findFirst({
-          where: { id: parsed.data.warehouseId, deletedAt: null },
-          select: { id: true },
-        }),
-        transaction.customer.findFirst({
-          where: { id: parsed.data.customerId, deletedAt: null },
-          select: { id: true },
-        }),
-        transaction.product.findMany({
-          where: {
-            id: { in: parsed.data.items.map((item) => item.productId) },
-            deletedAt: null,
-          },
-          select: { id: true, name: true, productUnit: true },
-        }),
-      ]);
-
-      if (!warehouse) throw new Error("The selected warehouse is no longer available.");
-      if (!customer) throw new Error("The selected customer is no longer available.");
-      if (products.length !== parsed.data.items.length) {
-        throw new Error("One or more selected products are no longer available.");
-      }
-
-      const productById = new Map(products.map((product) => [product.id, product]));
-      const customUnits = [...new Set(parsed.data.items
-        .filter((item) => productById.get(item.productId)?.productUnit !== item.unit)
-        .map((item) => item.unit))];
-      if (customUnits.length > 0) {
-        const activeUnits = await transaction.unit.findMany({
-          where: { name: { in: customUnits }, deletedAt: null },
-          select: { name: true },
-        });
-        const activeUnitNames = new Set(activeUnits.map((unit) => unit.name));
-        if (customUnits.some((unit) => !activeUnitNames.has(unit))) {
-          throw new Error("One or more selected sale units are no longer available.");
-        }
-      }
-
-      const reference = `SA_${randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
-      const sale = await transaction.sale.create({
-        data: {
-          reference,
-          warehouseId: warehouse.id,
-          customerId: customer.id,
-          date: new Date(`${parsed.data.date}T00:00:00.000Z`),
-          status: parsed.data.status,
-          orderTax: new Prisma.Decimal(parsed.data.orderTax),
-          discount: totals.discount,
-          shipping: totals.shipping,
-          grandTotal: totals.grandTotal,
-          paid,
-          due,
-          paymentStatus,
-          paymentType: parsed.data.paymentType,
-          notes: parsed.data.notes,
-          items: {
-            create: parsed.data.items.map((item, index) => ({
-              productId: item.productId,
-              netUnitPrice: new Prisma.Decimal(item.price),
-              quantity: new Prisma.Decimal(item.quantity),
-              unit: item.unit,
-              discountType: item.discountType,
-              discount: new Prisma.Decimal(item.discount),
-              taxType: item.taxType,
-              orderTax: new Prisma.Decimal(item.orderTax),
-              subtotal: lineTotals[index].subtotal,
-            })),
-          },
-        },
-        select: { id: true, reference: true },
-      });
-
-      if (!paid.isZero()) {
-        await transaction.salePayment.create({
-          data: {
-            saleId: sale.id,
-            amount: paid,
-            paymentType: parsed.data.paymentType,
-            date: new Date(`${parsed.data.date}T00:00:00.000Z`),
-          },
-        });
-      }
-
-      for (const item of parsed.data.items) {
-        const product = productById.get(item.productId);
-        if (!product) throw new Error("One or more selected products are no longer available.");
-        await applyStockAdjustment(transaction, {
-          productId: product.id,
-          productName: product.name,
-          warehouseId: warehouse.id,
-          quantity: item.quantity,
-          type: "Subtraction",
-          documentLabel: "sale",
-        });
-      }
-      return sale;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    createdSale = await createSaleUseCase({
+      ...parsed.data,
+      discount: totals.discount,
+      shipping: totals.shipping,
+      grandTotal: totals.grandTotal,
+      items: parsed.data.items,
+      lineSubtotals: lineTotals.map((line) => line.subtotal),
+      paid,
+      due,
+      paymentStatus,
+      actorId: access.userId,
+    });
   } catch (error) {
     if (error instanceof InsufficientStockError) {
       return { status: "error", message: error.message };
@@ -368,143 +281,16 @@ export async function updateSale(
   }
 
   try {
-    await db.$transaction(async (transaction) => {
-      const [warehouse, customer, products, existingSale] = await Promise.all([
-        transaction.warehouse.findFirst({
-          where: { id: parsed.data.warehouseId, deletedAt: null },
-          select: { id: true },
-        }),
-        transaction.customer.findFirst({
-          where: { id: parsed.data.customerId, deletedAt: null },
-          select: { id: true },
-        }),
-        transaction.product.findMany({
-          where: {
-            id: { in: parsed.data.items.map((item) => item.productId) },
-            deletedAt: null,
-          },
-          select: { id: true, name: true, productUnit: true },
-        }),
-        transaction.sale.findFirst({
-          where: { id: parsedId.data, deletedAt: null },
-          select: {
-            id: true,
-            warehouseId: true,
-            grandTotal: true,
-            items: {
-              select: {
-                productId: true,
-                quantity: true,
-                product: { select: { name: true } },
-              },
-            },
-          },
-        }),
-      ]);
-
-      if (!warehouse) throw new Error("The selected warehouse is no longer available.");
-      if (!customer) throw new Error("The selected customer is no longer available.");
-      if (!existingSale) throw new Error("This sale no longer exists or has already been deleted.");
-      if (products.length !== parsed.data.items.length) {
-        throw new Error("One or more selected products are no longer available.");
-      }
-
-      const productById = new Map(products.map((product) => [product.id, product]));
-      const customUnits = [...new Set(parsed.data.items
-        .filter((item) => productById.get(item.productId)?.productUnit !== item.unit)
-        .map((item) => item.unit))];
-      if (customUnits.length > 0) {
-        const activeUnits = await transaction.unit.findMany({
-          where: { name: { in: customUnits }, deletedAt: null },
-          select: { name: true },
-        });
-        const activeUnitNames = new Set(activeUnits.map((unit) => unit.name));
-        if (customUnits.some((unit) => !activeUnitNames.has(unit))) {
-          throw new Error("One or more selected sale units are no longer available.");
-        }
-      }
-
-      const stockDeltas = calculateSaleStockDeltas(
-        {
-          warehouseId: existingSale.warehouseId,
-          items: existingSale.items.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-          })),
-        },
-        {
-          warehouseId: warehouse.id,
-          items: parsed.data.items.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-          })),
-        },
-      );
-      const previousProductNames = new Map(
-        existingSale.items.map((item) => [item.productId, item.product.name]),
-      );
-
-      // Reconcile only the old/new quantity difference, preserving prior sale payments.
-      for (const delta of stockDeltas) {
-        const product = productById.get(delta.productId);
-        await applyStockAdjustment(transaction, {
-          productId: delta.productId,
-          productName: product?.name ?? previousProductNames.get(delta.productId) ?? "product",
-          warehouseId: delta.warehouseId,
-          quantity: delta.quantity.toString(),
-          type: delta.type,
-          documentLabel: "sale edit",
-        });
-      }
-
-      const payments = await transaction.salePayment.aggregate({
-        where: { saleId: existingSale.id },
-        _sum: { amount: true },
-      });
-      const paid = payments._sum.amount ?? new Prisma.Decimal(0);
-      if (paid.greaterThan(maxStoredMoney)) {
-        throw new Error("Total payments exceed the supported amount.");
-      }
-      const due = Prisma.Decimal.max(totals.grandTotal.minus(paid), new Prisma.Decimal(0));
-      const paymentStatus = paid.isZero()
-        ? "Unpaid"
-        : paid.greaterThanOrEqualTo(totals.grandTotal)
-          ? "Paid"
-          : "Partial";
-
-      await transaction.sale.update({
-        where: { id: existingSale.id },
-        data: {
-          warehouseId: warehouse.id,
-          customerId: customer.id,
-          date: new Date(`${parsed.data.date}T00:00:00.000Z`),
-          status: parsed.data.status,
-          orderTax: new Prisma.Decimal(parsed.data.orderTax),
-          discount: totals.discount,
-          shipping: totals.shipping,
-          grandTotal: totals.grandTotal,
-          paid,
-          due,
-          paymentStatus,
-          paymentType: parsed.data.paymentType,
-          notes: parsed.data.notes,
-          items: {
-            deleteMany: {},
-            create: parsed.data.items.map((item, index) => ({
-              productId: item.productId,
-              netUnitPrice: new Prisma.Decimal(item.price),
-              quantity: new Prisma.Decimal(item.quantity),
-              unit: item.unit,
-              discountType: item.discountType,
-              discount: new Prisma.Decimal(item.discount),
-              taxType: item.taxType,
-              orderTax: new Prisma.Decimal(item.orderTax),
-              subtotal: lineTotals[index].subtotal,
-            })),
-          },
-        },
-      });
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    await updateSaleUseCase({
+      ...parsed.data,
+      id: parsedId.data,
+      discount: totals.discount,
+      shipping: totals.shipping,
+      grandTotal: totals.grandTotal,
+      items: parsed.data.items,
+      lineSubtotals: lineTotals.map((line) => line.subtotal),
+      actorId: access.userId,
+    });
   } catch (error) {
     if (error instanceof InsufficientStockError) {
       return { status: "error", message: error.message };
@@ -552,46 +338,7 @@ export async function deleteSale(saleId: string): Promise<SaleCreateActionState>
   }
 
   try {
-    await db.$transaction(async (transaction) => {
-      const sale = await transaction.sale.findFirst({
-        where: { id: parsedId.data, deletedAt: null },
-        select: {
-          id: true,
-          warehouseId: true,
-          items: {
-            select: {
-              productId: true,
-              quantity: true,
-              product: { select: { name: true } },
-            },
-          },
-        },
-      });
-
-      if (!sale) {
-        throw new Error("This sale no longer exists or has already been deleted.");
-      }
-
-      // Deleting a sale returns the sold goods to the warehouse inventory.
-      for (const item of sale.items) {
-        await applyStockAdjustment(transaction, {
-          productId: item.productId,
-          productName: item.product.name,
-          warehouseId: sale.warehouseId,
-          quantity: item.quantity.toString(),
-          type: "Addition",
-          documentLabel: "sale deletion",
-        });
-      }
-
-      const updated = await transaction.sale.updateMany({
-        where: { id: sale.id, deletedAt: null },
-        data: { deletedAt: new Date() },
-      });
-      if (updated.count !== 1) {
-        throw new Error("This sale could not be deleted. Refresh and try again.");
-      }
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    await deleteSaleUseCase(parsedId.data, access.userId);
   } catch (error) {
     if (error instanceof StockQuantityLimitError) {
       return { status: "error", message: error.message };
