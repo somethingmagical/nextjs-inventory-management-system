@@ -14,6 +14,9 @@ import ExcelExportLink from "../ExcelExportLink";
 import ReportPageSuspense from "../ReportPageSuspense";
 import { buildSaleReportWhere } from "@/lib/reports/filters";
 import SaleReportFilters, { SaleReportPageSize } from "./SaleReportFilters";
+import SortableTableHeader from "@/components/shared/SortableTableHeader";
+import TableSortFilter from "@/components/shared/TableSortFilter";
+import { parseSortBy, parseSortOrder } from "@/lib/table-sorting";
 
 export const metadata: Metadata = {
   title: "Sale Reports",
@@ -28,6 +31,16 @@ const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
   const date = new Date(`${value}T00:00:00.000Z`);
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 });
+const sortFields = ["reference", "customer", "status", "grandTotal", "paid", "paymentStatus", "date"] as const;
+const sortOptions = [
+  { value: "reference", label: "Reference" },
+  { value: "customer", label: "Customer" },
+  { value: "status", label: "Status" },
+  { value: "grandTotal", label: "Grand Total" },
+  { value: "paid", label: "Paid" },
+  { value: "paymentStatus", label: "Payment Status" },
+  { value: "date", label: "Date" },
+] as const;
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -50,28 +63,39 @@ async function SaleReportContent({ searchParams }: { searchParams: SearchParams 
   const date = parsedDate.success ? parsedDate.data : "";
   const requestedPage = parsedPage.success ? parsedPage.data : 1;
   const pageSize = parsedPageSize.success ? parsedPageSize.data : 10;
+  const sortBy = parseSortBy(params.sortBy, sortFields, "date");
+  const sortOrder = parseSortOrder(params.sortOrder);
 
   const where = buildSaleReportWhere(query, date);
   const [totalCount, requestedSales] = await Promise.all([
     db.sale.count({ where }),
-    fetchSales(where, requestedPage, pageSize),
+    fetchSales(where, requestedPage, pageSize, sortBy, sortOrder),
   ]);
   const totalPages = Math.ceil(totalCount / pageSize);
   const currentPage = totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
   const sales = currentPage === requestedPage
     ? requestedSales
-    : await fetchSales(where, currentPage, pageSize);
+    : await fetchSales(where, currentPage, pageSize, sortBy, sortOrder);
   const firstRecord = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const lastRecord = Math.min(currentPage * pageSize, totalCount);
-  const paginationParams = { query, date, pageSize };
+  const paginationParams = { query, date, pageSize, sortBy, sortOrder };
 
   return (
     <main className="gg-content reports-content">
       <div className="rpt-toolbar sale-report-toolbar">
-        <SaleReportFilters query={query} date={date} pageSize={pageSize}>
-          <div className="report-toolbar-export">
+        <SaleReportFilters
+          query={query}
+          date={date}
+          pageSize={pageSize}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          actions={
+            <div className="report-toolbar-export">
             <ExcelExportLink report="sale" query={query} date={date} />
-          </div>
+            </div>
+          }
+        >
+          <TableSortFilter sortBy={sortBy} sortOrder={sortOrder} options={sortOptions} popover={false} />
         </SaleReportFilters>
       </div>
 
@@ -79,12 +103,12 @@ async function SaleReportContent({ searchParams }: { searchParams: SearchParams 
         <table className="gg-table gg-table--spaced sale-report-table">
           <thead>
             <tr>
-              <th scope="col">Reference</th>
-              <th scope="col">Customer</th>
-              <th scope="col">Status</th>
-              <th scope="col" className="gg-num">Grand Total</th>
-              <th scope="col" className="gg-num">Paid</th>
-              <th scope="col">Payment Status</th>
+              <SortableTableHeader label="Reference" sortKey="reference" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/sale" searchParams={params} />
+              <SortableTableHeader label="Customer" sortKey="customer" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/sale" searchParams={params} />
+              <SortableTableHeader label="Status" sortKey="status" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/sale" searchParams={params} />
+              <SortableTableHeader label="Grand Total" sortKey="grandTotal" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/sale" searchParams={params} className="gg-num" />
+              <SortableTableHeader label="Paid" sortKey="paid" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/sale" searchParams={params} className="gg-num" />
+              <SortableTableHeader label="Payment Status" sortKey="paymentStatus" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/sale" searchParams={params} />
             </tr>
           </thead>
           <tbody>
@@ -118,7 +142,7 @@ async function SaleReportContent({ searchParams }: { searchParams: SearchParams 
       </div>
 
       <div className="gg-pagination">
-        <SaleReportPageSize query={query} date={date} pageSize={pageSize} options={pageSizeOptions} />
+        <SaleReportPageSize query={query} date={date} pageSize={pageSize} options={pageSizeOptions} sortBy={sortBy} sortOrder={sortOrder} />
         <span className="gg-muted gg-num" aria-live="polite">
           {firstRecord}–{lastRecord} of {totalCount}
         </span>
@@ -152,10 +176,20 @@ async function SaleReportContent({ searchParams }: { searchParams: SearchParams 
   );
 }
 
-function fetchSales(where: Prisma.SaleWhereInput, page: number, pageSize: number) {
+function fetchSales(
+  where: Prisma.SaleWhereInput,
+  page: number,
+  pageSize: number,
+  sortBy: (typeof sortFields)[number],
+  sortOrder: "asc" | "desc",
+) {
+  const orderBy: Prisma.SaleOrderByWithRelationInput[] =
+    sortBy === "customer"
+      ? [{ customer: { name: sortOrder } }, { createdAt: sortOrder }]
+      : [{ [sortBy]: sortOrder }, { id: sortOrder }];
   return db.sale.findMany({
     where,
-    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+    orderBy,
     skip: (page - 1) * pageSize,
     take: pageSize,
     select: {
@@ -171,13 +205,15 @@ function fetchSales(where: Prisma.SaleWhereInput, page: number, pageSize: number
 }
 
 function buildHref(
-  params: { query: string; date: string; pageSize: number },
+  params: { query: string; date: string; pageSize: number; sortBy: string; sortOrder: "asc" | "desc" },
   page: number,
 ) {
   const searchParams = new URLSearchParams();
   if (params.query) searchParams.set("q", params.query);
   if (params.date) searchParams.set("date", params.date);
   if (params.pageSize !== 10) searchParams.set("pageSize", String(params.pageSize));
+  searchParams.set("sortBy", params.sortBy);
+  searchParams.set("sortOrder", params.sortOrder);
   if (page > 1) searchParams.set("page", String(page));
   const queryString = searchParams.toString();
   return queryString ? `/reports/sale?${queryString}` : "/reports/sale";
@@ -194,7 +230,7 @@ function PageLink({
   page: number;
   currentPage: number;
   totalPages: number;
-  params: { query: string; date: string; pageSize: number };
+  params: { query: string; date: string; pageSize: number; sortBy: string; sortOrder: "asc" | "desc" };
   label: string;
   children: React.ReactNode;
 }) {

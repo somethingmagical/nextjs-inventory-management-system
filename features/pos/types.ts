@@ -2,6 +2,7 @@ export type PosProduct = {
   id: string;
   code: string;
   name: string;
+  image: string | null;
   price: string;
   stock: string;
   unit: string;

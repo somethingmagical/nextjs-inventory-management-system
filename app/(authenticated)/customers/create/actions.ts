@@ -27,7 +27,9 @@ export async function createCustomer(
     phoneNumber: formData.get("phoneNumber"),
     dateOfBirth: formData.get("dateOfBirth") ?? "",
     country: formData.get("country"),
+    region: formData.get("region"),
     city: formData.get("city"),
+    zipCode: formData.get("zipCode"),
     address: formData.get("address"),
   });
 

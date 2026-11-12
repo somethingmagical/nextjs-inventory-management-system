@@ -28,6 +28,7 @@ const fields: {
   { name: "name", label: "Name", type: "text", placeholder: "Enter Name", autoComplete: "organization", maxLength: 120 },
   { name: "email", label: "Email", type: "email", placeholder: "Enter Email", autoComplete: "email", maxLength: 191 },
   { name: "phoneNumber", label: "Phone Number", type: "tel", placeholder: "Phone Number", autoComplete: "tel", maxLength: 40 },
+  { name: "address", label: "Address", type: "text", placeholder: "Enter Address", autoComplete: "street-address", maxLength: 191 },
 ];
 
 export default function WarehouseForm({
@@ -106,6 +107,31 @@ export default function WarehouseForm({
               );
             }
 
+            if (name === "address") {
+              return (
+                <div className="gg-field warehouse-address" key={name}>
+                  <label className="gg-label" htmlFor={name}>
+                    {label} <span className="gg-req">*</span>
+                  </label>
+                  <textarea
+                    className="gg-textarea"
+                    id={name}
+                    name={name}
+                    placeholder={placeholder}
+                    autoComplete={autoComplete}
+                    maxLength={maxLength}
+                    defaultValue={initialValues?.[name] ?? ""}
+                    required
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? `${name}-error` : undefined}
+                    disabled={isPending}
+                    style={{ minHeight: 110 }}
+                  />
+                  {error && <span className="warehouse-field-error" id={`${name}-error`}>{error}</span>}
+                </div>
+              );
+            }
+
             return (
               <div className="gg-field" key={name}>
                 <label className="gg-label" htmlFor={name}>
@@ -132,11 +158,14 @@ export default function WarehouseForm({
           <CountryCityFields
             initialCountry={initialValues?.country}
             initialCity={initialValues?.city}
+            initialRegion={initialValues?.region ?? ""}
             initialPostalCode={initialValues?.zipCode}
             countryError={fieldError("country")}
             cityError={fieldError("city")}
+            regionError={fieldError("region")}
             postalError={fieldError("zipCode")}
             disabled={isPending}
+            showRegion
             showPostalCode
             onCountryCodeChange={setCountryCode}
             phoneCountrySelection={phoneCountrySelection}

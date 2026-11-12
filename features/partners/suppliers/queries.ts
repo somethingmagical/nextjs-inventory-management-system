@@ -6,6 +6,8 @@ export async function getSupplierListData(input: {
   query: string;
   requestedPage: number;
   pageSize: number;
+  sortBy: "name" | "phoneNumber" | "createdAt";
+  sortOrder: "asc" | "desc";
 }) {
   const where = {
     deletedAt: null,
@@ -24,7 +26,7 @@ export async function getSupplierListData(input: {
   const currentPage = totalPages === 0 ? 1 : Math.min(input.requestedPage, totalPages);
   const items = await db.supplier.findMany({
     where,
-    orderBy: { createdAt: "desc" },
+    orderBy: { [input.sortBy]: input.sortOrder },
     skip: (currentPage - 1) * input.pageSize,
     take: input.pageSize,
     select: {

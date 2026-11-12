@@ -6,6 +6,8 @@ export async function getWarehouseListData(input: {
   query: string;
   requestedPage: number;
   pageSize: number;
+  sortBy: "name" | "city" | "createdAt";
+  sortOrder: "asc" | "desc";
 }) {
   const where = {
     deletedAt: null,
@@ -24,7 +26,7 @@ export async function getWarehouseListData(input: {
   const currentPage = totalPages === 0 ? 1 : Math.min(input.requestedPage, totalPages);
   const items = await db.warehouse.findMany({
     where,
-    orderBy: { createdAt: "desc" },
+    orderBy: { [input.sortBy]: input.sortOrder },
     skip: (currentPage - 1) * input.pageSize,
     take: input.pageSize,
     select: {
@@ -33,6 +35,7 @@ export async function getWarehouseListData(input: {
       email: true,
       phoneNumber: true,
       city: true,
+      region: true,
       country: true,
       createdAt: true,
     },
@@ -51,7 +54,9 @@ export async function getWarehouseEditData(id: string) {
       phoneNumber: true,
       country: true,
       city: true,
+      region: true,
       zipCode: true,
+      address: true,
     },
   });
 }

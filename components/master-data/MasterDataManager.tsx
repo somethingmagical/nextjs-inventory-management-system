@@ -19,6 +19,9 @@ import type {
   MasterDataItem,
 } from "@/app/master-data/action-state";
 import AutoSearchForm from "@/components/shared/AutoSearchForm";
+import SortableTableHeader from "@/components/shared/SortableTableHeader";
+import TableSortFilter from "@/components/shared/TableSortFilter";
+import type { SortOrder, TableSearchParams } from "@/lib/table-sorting";
 
 type MasterDataManagerProps = {
   entity: "Product Category" | "Brand" | "Expense Category";
@@ -27,6 +30,8 @@ type MasterDataManagerProps = {
   pageSize: number;
   items: MasterDataItem[];
   pagination: ReactNode;
+  sortOrder: SortOrder;
+  searchParams: TableSearchParams;
   createAction?: MasterDataAction;
   updateAction?: MasterDataAction;
   deleteAction?: MasterDataAction;
@@ -40,6 +45,8 @@ export default function MasterDataManager({
   query,
   items,
   pagination,
+  sortOrder,
+  searchParams,
   createAction,
   updateAction,
   deleteAction,
@@ -159,6 +166,7 @@ export default function MasterDataManager({
     : entity === "Brand"
       ? "Brands"
       : "Expense Categories";
+  const canManage = Boolean(createAction || updateAction || deleteAction);
 
   return (
     <>
@@ -181,15 +189,18 @@ export default function MasterDataManager({
           label={`Search ${pluralEntity.toLowerCase()}`}
           value={query}
         />
+        <TableSortFilter sortBy="name" sortOrder={sortOrder} options={[{ value: "name", label: "Name" }]} />
         <div className="gg-spacer" />
-        <button
-          className="gg-btn gg-btn--primary"
-          type="button"
-          onClick={(event) => openEditor({ mode: "create" }, event.currentTarget)}
-        >
-          <Plus aria-hidden="true" />
-          Create {entity}
-        </button>
+        {createAction && (
+          <button
+            className="gg-btn gg-btn--primary"
+            type="button"
+            onClick={(event) => openEditor({ mode: "create" }, event.currentTarget)}
+          >
+            <Plus aria-hidden="true" />
+            Create {entity}
+          </button>
+        )}
       </div>
 
       <div className="gg-card gg-card-pad master-data-table-card">
@@ -197,8 +208,15 @@ export default function MasterDataManager({
           <table className="gg-table">
             <thead>
               <tr>
-                <th scope="col">{entity === "Expense Category" ? "Name" : entity}</th>
-                <th scope="col" className="category-actions-heading">Action</th>
+                <SortableTableHeader
+                  label={entity === "Expense Category" ? "Name" : entity}
+                  sortKey="name"
+                  sortBy="name"
+                  sortOrder={sortOrder}
+                  pathname={listPath}
+                  searchParams={searchParams}
+                />
+                {canManage && <th scope="col" className="category-actions-heading">Action</th>}
               </tr>
             </thead>
             <tbody>
@@ -220,37 +238,42 @@ export default function MasterDataManager({
                       <span className="gg-td-strong">{item.name}</span>
                     )}
                   </td>
-                  <td className="category-actions-cell">
-                    <div className="row-acts">
-                      <button
-                        className="act-edit"
-                        type="button"
-                        aria-label={`Edit ${item.name}`}
-                        title="Edit"
-                        onClick={(event) => openEditor({ mode: "edit", item }, event.currentTarget)}
-                      >
-                        <Pencil aria-hidden="true" />
-                      </button>
-                      <button
-                        className="act-del"
-                        type="button"
-                        aria-label={`Delete ${item.name}`}
-                        title="Delete"
-                        disabled={!deleteAction}
-                        onClick={() => {
-                          setMessage("");
-                          setDeleteTarget(item);
-                        }}
-                      >
-                        <Trash2 aria-hidden="true" />
-                      </button>
-                    </div>
-                  </td>
+                  {canManage && (
+                    <td className="category-actions-cell">
+                      <div className="row-acts">
+                        {updateAction && (
+                          <button
+                            className="act-edit"
+                            type="button"
+                            aria-label={`Edit ${item.name}`}
+                            title="Edit"
+                            onClick={(event) => openEditor({ mode: "edit", item }, event.currentTarget)}
+                          >
+                            <Pencil aria-hidden="true" />
+                          </button>
+                        )}
+                        {deleteAction && (
+                          <button
+                            className="act-del"
+                            type="button"
+                            aria-label={`Delete ${item.name}`}
+                            title="Delete"
+                            onClick={() => {
+                              setMessage("");
+                              setDeleteTarget(item);
+                            }}
+                          >
+                            <Trash2 aria-hidden="true" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
               {items.length === 0 && (
                 <tr>
-                  <td className="category-empty-cell" colSpan={2}>
+                  <td className="category-empty-cell" colSpan={canManage ? 2 : 1}>
                     <p className="warehouse-empty-title">
                       {query ? `No ${pluralEntity.toLowerCase()} match your search` : `No ${pluralEntity.toLowerCase()} yet`}
                     </p>
@@ -261,7 +284,7 @@ export default function MasterDataManager({
                           ? "Create an expense category to organize expenses."
                           : `Create a ${entity.toLowerCase()} to organize your inventory.`}
                     </p>
-                    {!query && (
+                    {!query && createAction && (
                       <button
                         className="gg-btn gg-btn--primary"
                         type="button"

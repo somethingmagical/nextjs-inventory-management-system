@@ -1,4 +1,6 @@
-import { CalendarDays, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import Link from "next/link";
+import { CalendarDays, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import type { ReactNode } from "react";
 import { connection } from "next/server";
@@ -6,6 +8,11 @@ import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import ReportPageSuspense from "../ReportPageSuspense";
 import AutoSearchForm from "@/components/shared/AutoSearchForm";
+import DynamicPageSizeSelect from "@/components/shared/DynamicPageSizeSelect";
+import DynamicFilterControl from "@/components/shared/DynamicFilterControl";
+import SortableTableHeader from "@/components/shared/SortableTableHeader";
+import TableSortFilter from "@/components/shared/TableSortFilter";
+import { parseSortBy, parseSortOrder } from "@/lib/table-sorting";
 
 export const metadata: Metadata = {
   title: "Top Selling Products Reports",
@@ -27,7 +34,12 @@ const yearMonthSchema = z.string()
   }));
 const pageSchema = z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive());
 const pageSizeSchema = z.enum(["10", "25", "50"]).transform(Number);
-const pageSizeOptions = [10, 25, 50] as const;
+const sortFields = ["name", "quantity", "grandTotal"] as const;
+const sortOptions = [
+  { value: "name", label: "Product" },
+  { value: "quantity", label: "Quantity" },
+  { value: "grandTotal", label: "Grand Total" },
+] as const;
 const monthNames = [
   "January",
   "February",
@@ -92,69 +104,74 @@ async function TopSellingProductsReportContent({
       : now.getUTCMonth() + 1;
   const requestedPage = parsedPage.success ? parsedPage.data : 1;
   const pageSize = parsedPageSize.success ? parsedPageSize.data : 10;
+  const sortBy = parseSortBy(params.sortBy, sortFields, "grandTotal");
+  const sortOrder = parseSortOrder(params.sortOrder);
 
   const startOfMonth = new Date(Date.UTC(year, month - 1, 1));
   const startOfNextMonth = new Date(Date.UTC(year, month, 1));
 
-  const productGroups = await db.saleItem.groupBy({
-    by: ["productId"],
-    where: {
-      sale: {
-        is: {
-          deletedAt: null,
-          status: "Received",
-          date: { gte: startOfMonth, lt: startOfNextMonth },
-        },
-      },
-      product: {
-        is: {
-          deletedAt: null,
-          ...(query ? { name: { contains: query } } : {}),
-        },
-      },
-    },
-    _sum: {
-      quantity: true,
-      subtotal: true,
-    },
-    orderBy: { _sum: { subtotal: "desc" } },
-  });
-
-  const totalCount = productGroups.length;
+  const where: Prisma.Sql[] = [
+    Prisma.sql`s.\`deletedAt\` IS NULL`,
+    Prisma.sql`s.\`status\` = 'Received'`,
+    Prisma.sql`s.\`date\` >= ${startOfMonth}`,
+    Prisma.sql`s.\`date\` < ${startOfNextMonth}`,
+    Prisma.sql`p.\`deletedAt\` IS NULL`,
+  ];
+  if (query) where.push(Prisma.sql`p.\`name\` LIKE CONCAT('%', ${query}, '%')`);
+  const fromWhere = Prisma.sql`
+    FROM \`SaleItem\` si
+    INNER JOIN \`Sale\` s ON s.\`id\` = si.\`saleId\`
+    INNER JOIN \`Product\` p ON p.\`id\` = si.\`productId\`
+    WHERE ${Prisma.join(where, " AND ")}
+  `;
+  const countRows = await db.$queryRaw<Array<{ totalCount: bigint }>>(Prisma.sql`
+    SELECT COUNT(*) AS \`totalCount\`
+    FROM (
+      SELECT si.\`productId\`
+      ${fromWhere}
+      GROUP BY si.\`productId\`
+    ) AS \`productSales\`
+  `);
+  const totalCount = Number(countRows[0]?.totalCount ?? BigInt(0));
   const totalPages = totalCount === 0 ? 1 : Math.ceil(totalCount / pageSize);
   const currentPage = Math.min(requestedPage, totalPages);
-  const pageStart = (currentPage - 1) * pageSize;
-  const pageItems = productGroups.slice(pageStart, pageStart + pageSize);
-
-  const productIds = pageItems.map(({ productId }) => productId);
-  const products = productIds.length
-    ? await db.product.findMany({
-        where: { id: { in: productIds }, deletedAt: null },
-        select: { id: true, name: true },
-      })
-    : [];
-
-  const productNameById = new Map(products.map(({ id, name }) => [id, name]));
-  const rows: ProductRow[] = pageItems.flatMap((item) => {
-    const name = productNameById.get(item.productId);
-    if (!name) return [];
-    const quantity = Number(item._sum?.quantity ?? 0);
-    const grandTotal = Number(item._sum?.subtotal ?? 0);
-    return [{
-      id: item.productId,
-      name,
-      quantity,
-      grandTotal,
-    }];
-  });
-
-  const maxTotal = Math.max(
-    ...productGroups.map(({ _sum }) => Number(_sum?.subtotal ?? 0)),
-    0,
-  );
+  const sortExpression = {
+    name: Prisma.sql`p.\`name\``,
+    quantity: Prisma.sql`SUM(si.\`quantity\`)`,
+    grandTotal: Prisma.sql`SUM(si.\`subtotal\`)`,
+  }[sortBy];
+  const sortDirection = sortOrder === "asc" ? Prisma.sql`ASC` : Prisma.sql`DESC`;
+  const [pageRows, maxRows] = await Promise.all([
+    db.$queryRaw<Array<{ id: string; name: string; quantity: string; grandTotal: string }>>(Prisma.sql`
+      SELECT
+        p.\`id\`,
+        p.\`name\`,
+        CAST(SUM(si.\`quantity\`) AS CHAR) AS \`quantity\`,
+        CAST(SUM(si.\`subtotal\`) AS CHAR) AS \`grandTotal\`
+      ${fromWhere}
+      GROUP BY p.\`id\`, p.\`name\`
+      ORDER BY ${sortExpression} ${sortDirection}, p.\`id\` ASC
+      LIMIT ${pageSize} OFFSET ${(currentPage - 1) * pageSize}
+    `),
+    db.$queryRaw<Array<{ maxTotal: string }>>(Prisma.sql`
+      SELECT CAST(COALESCE(MAX(\`productSales\`.\`grandTotal\`), 0) AS CHAR) AS \`maxTotal\`
+      FROM (
+        SELECT SUM(si.\`subtotal\`) AS \`grandTotal\`
+        ${fromWhere}
+        GROUP BY si.\`productId\`
+      ) AS \`productSales\`
+    `),
+  ]);
+  const rows: ProductRow[] = pageRows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    quantity: Number(row.quantity),
+    grandTotal: Number(row.grandTotal),
+  }));
+  const maxTotal = Number(maxRows[0]?.maxTotal ?? 0);
   const firstRecord = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const lastRecord = Math.min(currentPage * pageSize, totalCount);
-  const paginationParams = { q: query, year: String(year), month: String(month), pageSize };
+  const paginationParams = { q: query, year: String(year), month: String(month), pageSize, sortBy, sortOrder };
 
   return (
     <main className="gg-content reports-content">
@@ -171,24 +188,24 @@ async function TopSellingProductsReportContent({
 
           <div className="gg-spacer" />
 
-          <form className="sale-report-date-form" action="/reports/top-selling-products">
-            <label className="sr-only" htmlFor="top-products-month">Filter by month</label>
-            <div className="sale-report-date-field">
-              <input
-                className="gg-input"
+          <TableSortFilter sortBy={sortBy} sortOrder={sortOrder} options={sortOptions}>
+            <div className="sale-report-date-form">
+              <div className="sale-report-date-field">
+              <DynamicFilterControl
                 id="top-products-month"
                 name="month"
+                label="Filter by month"
                 type="month"
-                defaultValue={`${year}-${String(month).padStart(2, "0")}`}
+                value={`${year}-${String(month).padStart(2, "0")}`}
+                className="gg-input"
+                visibleLabel
+                wrapperClassName="date-filter-control"
+                clearParams={["year"]}
               />
               <CalendarDays aria-hidden="true" />
+              </div>
             </div>
-            {query && <input type="hidden" name="q" value={query} />}
-            <input type="hidden" name="pageSize" value={String(pageSize)} />
-            <button className="btn-icon-gold" type="submit" aria-label="Apply month filter">
-              <Search aria-hidden="true" />
-            </button>
-          </form>
+          </TableSortFilter>
         </div>
       </div>
 
@@ -225,9 +242,9 @@ async function TopSellingProductsReportContent({
         <table className="gg-table gg-table--spaced sale-report-table">
           <thead>
             <tr>
-              <th scope="col">Product</th>
-              <th scope="col" className="gg-num">Quantity</th>
-              <th scope="col" className="gg-num">Grand Total</th>
+              <SortableTableHeader label="Product" sortKey="name" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/top-selling-products" searchParams={params} />
+              <SortableTableHeader label="Quantity" sortKey="quantity" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/top-selling-products" searchParams={params} className="gg-num" />
+              <SortableTableHeader label="Grand Total" sortKey="grandTotal" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/top-selling-products" searchParams={params} className="gg-num" />
             </tr>
           </thead>
           <tbody>
@@ -250,25 +267,7 @@ async function TopSellingProductsReportContent({
       </div>
 
       <div className="gg-pagination top-selling-pagination">
-        <form className="gg-perpage" action="/reports/top-selling-products">
-          <label className="gg-muted" htmlFor="top-product-report-page-size">Records per page</label>
-          <select
-            className="gg-select"
-            id="top-product-report-page-size"
-            name="pageSize"
-            defaultValue={String(pageSize)}
-          >
-            {pageSizeOptions.map((option) => (
-              <option key={option} value={option}>{option}</option>
-            ))}
-          </select>
-          {query && <input type="hidden" name="q" value={query} />}
-          <input type="hidden" name="year" value={String(year)} />
-          <input type="hidden" name="month" value={String(month)} />
-          <button className="gg-page-btn sale-report-page-size-submit" type="submit" aria-label="Apply page size">
-            <ChevronRight aria-hidden="true" />
-          </button>
-        </form>
+        <DynamicPageSizeSelect id="top-product-report-page-size" pageSize={pageSize} />
         <span className="gg-muted gg-num" aria-live="polite">
           {firstRecord}–{lastRecord} of {totalCount}
         </span>
@@ -324,8 +323,8 @@ function PageLink({
   }
 
   return (
-    <a aria-label={label} className="gg-page-btn" href={`/reports/top-selling-products?${query.toString()}`}>
+    <Link aria-label={label} className="gg-page-btn" href={`/reports/top-selling-products?${query.toString()}`}>
       {children}
-    </a>
+    </Link>
   );
 }

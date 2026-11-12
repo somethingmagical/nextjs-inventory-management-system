@@ -10,7 +10,7 @@ import { initialSettingsActionState } from "./action-state";
 export default function SettingsForm({
   settings,
 }: {
-  settings: { appName: string; faviconPath: string };
+  settings: { appName: string; faviconPath: string; headerLogoPath: string | null };
 }) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState(
@@ -19,7 +19,11 @@ export default function SettingsForm({
   );
   const [faviconPreview, setFaviconPreview] = useState<string | null>(null);
   const [faviconName, setFaviconName] = useState("");
+  const [headerLogoPreview, setHeaderLogoPreview] = useState<string | null>(null);
+  const [headerLogoName, setHeaderLogoName] = useState("");
   const objectUrlRef = useRef<string | null>(null);
+  const headerLogoObjectUrlRef = useRef<string | null>(null);
+  const headerLogoSrc = headerLogoPreview ?? settings.headerLogoPath;
 
   useEffect(() => {
     if (state.status === "success") router.refresh();
@@ -27,6 +31,7 @@ export default function SettingsForm({
 
   useEffect(() => () => {
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    if (headerLogoObjectUrlRef.current) URL.revokeObjectURL(headerLogoObjectUrlRef.current);
   }, []);
 
   function handleFaviconChange(event: ChangeEvent<HTMLInputElement>) {
@@ -35,6 +40,14 @@ export default function SettingsForm({
     objectUrlRef.current = file ? URL.createObjectURL(file) : null;
     setFaviconName(file?.name ?? "");
     setFaviconPreview(objectUrlRef.current);
+  }
+
+  function handleHeaderLogoChange(event: ChangeEvent<HTMLInputElement>) {
+    if (headerLogoObjectUrlRef.current) URL.revokeObjectURL(headerLogoObjectUrlRef.current);
+    const file = event.currentTarget.files?.[0];
+    headerLogoObjectUrlRef.current = file ? URL.createObjectURL(file) : null;
+    setHeaderLogoName(file?.name ?? "");
+    setHeaderLogoPreview(headerLogoObjectUrlRef.current);
   }
 
   return (
@@ -103,6 +116,46 @@ export default function SettingsForm({
             </label>
             <span className="settings-file-name" aria-live="polite">
               {faviconName || "No file chosen"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="settings-row">
+        <div className="settings-row-description">
+          <label className="gg-label" htmlFor="application-header-logo">Header logo</label>
+          <span className="gg-caption">PNG, JPEG, or WebP, up to 2 MB. Leave empty to keep the current logo.</span>
+        </div>
+        <div className="settings-header-logo-control">
+          <div className="settings-header-logo-preview">
+            {headerLogoSrc ? (
+              <Image
+                src={headerLogoSrc}
+                alt="Header logo preview"
+                fill
+                unoptimized
+                sizes="180px"
+              />
+            ) : (
+              <span>{settings.appName}</span>
+            )}
+          </div>
+          <div className="settings-file-picker">
+            <input
+              className="settings-file-input"
+              id="application-header-logo"
+              name="headerLogo"
+              type="file"
+              accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+              onChange={handleHeaderLogoChange}
+              disabled={isPending}
+            />
+            <label className="settings-file-button" htmlFor="application-header-logo">
+              <Upload size={16} aria-hidden="true" />
+              Choose file
+            </label>
+            <span className="settings-file-name" aria-live="polite">
+              {headerLogoName || "No file chosen"}
             </span>
           </div>
         </div>

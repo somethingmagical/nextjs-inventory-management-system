@@ -5,11 +5,13 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { getBrandListData } from "@/features/catalog/master-data/queries";
-import { getBrandAccess } from "../products/authorization";
+import { getBrandViewAccess } from "../products/authorization";
 import MasterDataManager from "@/components/master-data/MasterDataManager";
 import MasterDataPagination from "@/components/master-data/MasterDataPagination";
 import type { MasterDataItem } from "../../master-data/action-state";
 import { createBrand, deleteBrand, updateBrand } from "./actions";
+import { parseSortOrder } from "@/lib/table-sorting";
+import { PERMISSION } from "@/lib/permissions";
 
 export const metadata: Metadata = {
   title: "Brands",
@@ -40,9 +42,10 @@ export default function BrandsPage({ searchParams }: BrandsPageProps) {
 
 async function BrandList({ searchParams }: BrandsPageProps) {
   await connection();
-  const access = await getBrandAccess();
+  const access = await getBrandViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
+  const canManageBrands = access.user.permissions.includes(PERMISSION.manageBrands);
 
   const rawSearchParams = await searchParams;
   const parsedQuery = searchQuerySchema.safeParse(rawSearchParams.q);
@@ -51,11 +54,13 @@ async function BrandList({ searchParams }: BrandsPageProps) {
   const query = parsedQuery.success ? parsedQuery.data : "";
   const requestedPage = parsedPage.success ? parsedPage.data : 1;
   const pageSize = parsedPageSize.success ? parsedPageSize.data : 10;
+  const sortOrder = parseSortOrder(rawSearchParams.sortOrder, "asc");
 
   const { totalCount, totalPages, currentPage, items: brands } = await getBrandListData({
     query,
     requestedPage,
     pageSize,
+    sortOrder,
   });
   const items: MasterDataItem[] = brands;
 
@@ -68,6 +73,8 @@ async function BrandList({ searchParams }: BrandsPageProps) {
       currentPage={currentPage}
       totalPages={totalPages}
       totalCount={totalCount}
+      sortBy="name"
+      sortOrder={sortOrder}
     />
   );
 
@@ -81,9 +88,11 @@ async function BrandList({ searchParams }: BrandsPageProps) {
           pageSize={pageSize}
           items={items}
           pagination={pagination}
-          createAction={createBrand}
-          updateAction={updateBrand}
-          deleteAction={deleteBrand}
+          sortOrder={sortOrder}
+          searchParams={rawSearchParams}
+          createAction={canManageBrands ? createBrand : undefined}
+          updateAction={canManageBrands ? updateBrand : undefined}
+          deleteAction={canManageBrands ? deleteBrand : undefined}
         />
       </main>
     </DashboardLayout>

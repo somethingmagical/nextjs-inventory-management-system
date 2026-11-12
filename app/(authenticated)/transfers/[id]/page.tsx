@@ -7,7 +7,7 @@ import { ArrowLeft } from "lucide-react";
 import { z } from "zod";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { calculatePurchaseTotals } from "@/lib/purchase-pricing";
-import { getTransferAccess } from "../authorization";
+import { getTransferViewAccess } from "../authorization";
 import { getTransferDetails } from "../transfer-details";
 
 export const metadata: Metadata = {
@@ -37,7 +37,7 @@ export default function TransferDetailsPage({ params }: TransferDetailsPageProps
 
 async function AuthorizedTransferDetails({ params }: TransferDetailsPageProps) {
   await connection();
-  const access = await getTransferAccess();
+  const access = await getTransferViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
 

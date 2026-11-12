@@ -10,9 +10,13 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import MasterDataPagination from "@/components/master-data/MasterDataPagination";
 import WarehouseToast from "@/components/shared/WarehouseToast";
 import { db } from "@/lib/db";
-import { getExpenseAccess } from "./authorization";
+import { getExpenseViewAccess } from "./authorization";
+import { PERMISSION } from "@/lib/permissions";
 import ExpenseRowActions from "./ExpenseRowActions";
 import AutoSearchForm from "@/components/shared/AutoSearchForm";
+import SortableTableHeader from "@/components/shared/SortableTableHeader";
+import TableSortFilter from "@/components/shared/TableSortFilter";
+import { parseSortBy, parseSortOrder } from "@/lib/table-sorting";
 
 export const metadata: Metadata = {
   title: "Expenses",
@@ -22,6 +26,14 @@ export const metadata: Metadata = {
 const searchQuerySchema = z.string().trim().max(120);
 const pageSchema = z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive());
 const pageSizeSchema = z.enum(["10", "25", "50"]).transform(Number);
+const sortFields = ["reference", "title", "amount", "date", "category"] as const;
+const sortOptions = [
+  { value: "reference", label: "Reference" },
+  { value: "title", label: "Expense Title" },
+  { value: "amount", label: "Amount" },
+  { value: "date", label: "Date" },
+  { value: "category", label: "Expense Category" },
+] as const;
 
 type ExpensesPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -43,9 +55,10 @@ export default function ExpensesPage({ searchParams }: ExpensesPageProps) {
 
 async function ExpenseList({ searchParams }: ExpensesPageProps) {
   await connection();
-  const access = await getExpenseAccess();
+  const access = await getExpenseViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
+  const canManageExpenses = access.user.permissions.includes(PERMISSION.manageExpenses);
 
   const rawSearchParams = await searchParams;
   const parsedQuery = searchQuerySchema.safeParse(rawSearchParams.q);
@@ -54,6 +67,8 @@ async function ExpenseList({ searchParams }: ExpensesPageProps) {
   const query = parsedQuery.success ? parsedQuery.data : "";
   const requestedPage = parsedPage.success ? parsedPage.data : 1;
   const pageSize = parsedPageSize.success ? parsedPageSize.data : 10;
+  const sortBy = parseSortBy(rawSearchParams.sortBy, sortFields, "date");
+  const sortOrder = parseSortOrder(rawSearchParams.sortOrder);
 
   const searchConditions: Prisma.ExpenseWhereInput[] = [
     { reference: { contains: query } },
@@ -65,9 +80,13 @@ async function ExpenseList({ searchParams }: ExpensesPageProps) {
     deletedAt: null,
     ...(query ? { OR: searchConditions } : {}),
   };
+  const orderBy: Prisma.ExpenseOrderByWithRelationInput[] =
+    sortBy === "category"
+      ? [{ expenseCategory: { name: sortOrder } }, { createdAt: sortOrder }]
+      : [{ [sortBy]: sortOrder }, { createdAt: sortOrder }];
   const fetchPage = (page: number) => db.expense.findMany({
     where,
-    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+    orderBy,
     skip: (page - 1) * pageSize,
     take: pageSize,
     select: {
@@ -116,11 +135,12 @@ async function ExpenseList({ searchParams }: ExpensesPageProps) {
             label="Search expenses"
             value={query}
           />
+          <TableSortFilter sortBy={sortBy} sortOrder={sortOrder} options={sortOptions} />
           <div className="gg-spacer" />
-          <Link className="gg-btn gg-btn--primary" href="/expenses/create">
+          {canManageExpenses && <Link className="gg-btn gg-btn--primary" href="/expenses/create">
             <Plus aria-hidden="true" />
             Create Expense
-          </Link>
+          </Link>}
         </div>
 
         <div className="gg-card gg-card-pad">
@@ -128,13 +148,13 @@ async function ExpenseList({ searchParams }: ExpensesPageProps) {
             <table className="gg-table">
               <thead>
                 <tr>
-                  <th scope="col">Reference</th>
-                  <th scope="col">Expense Title</th>
+                  <SortableTableHeader label="Reference" sortKey="reference" sortBy={sortBy} sortOrder={sortOrder} pathname="/expenses" searchParams={rawSearchParams} />
+                  <SortableTableHeader label="Expense Title" sortKey="title" sortBy={sortBy} sortOrder={sortOrder} pathname="/expenses" searchParams={rawSearchParams} />
                   <th scope="col">Warehouse</th>
-                  <th scope="col">Expense Category</th>
-                  <th scope="col" className="gg-num">Amount</th>
-                  <th scope="col">Created On</th>
-                  <th scope="col" className="product-actions-heading">Action</th>
+                  <SortableTableHeader label="Expense Category" sortKey="category" sortBy={sortBy} sortOrder={sortOrder} pathname="/expenses" searchParams={rawSearchParams} />
+                  <SortableTableHeader label="Amount" sortKey="amount" sortBy={sortBy} sortOrder={sortOrder} pathname="/expenses" searchParams={rawSearchParams} className="gg-num" />
+                  <SortableTableHeader label="Created On" sortKey="date" sortBy={sortBy} sortOrder={sortOrder} pathname="/expenses" searchParams={rawSearchParams} />
+                  {canManageExpenses && <th scope="col" className="product-actions-heading">Action</th>}
                 </tr>
               </thead>
               <tbody>
@@ -157,9 +177,9 @@ async function ExpenseList({ searchParams }: ExpensesPageProps) {
                         </time>
                       </span>
                     </td>
-                    <td className="product-actions-cell">
+                    {canManageExpenses && <td className="product-actions-cell">
                       <ExpenseRowActions expenseId={expense.id} title={expense.title} />
-                    </td>
+                    </td>}
                   </tr>
                 ))}
                 {expenses.length === 0 && (
@@ -196,6 +216,8 @@ async function ExpenseList({ searchParams }: ExpensesPageProps) {
             currentPage={currentPage}
             totalPages={totalPages}
             totalCount={totalCount}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
           />
         </div>
       </main>

@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import SignInForm from "@/components/auth/SignInForm";
+import { getApplicationSettings } from "@/features/settings/application";
 
 export default function SignInPage() {
   return (
@@ -27,5 +28,6 @@ async function SignInContent() {
     redirect("/dashboard");
   }
 
-  return <SignInForm />;
+  const { headerLogoPath } = await getApplicationSettings();
+  return <SignInForm headerLogoPath={headerLogoPath} />;
 }

@@ -3,19 +3,26 @@
 import { useEffect, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CalendarDays, Search } from "lucide-react";
+import TableFilterPopover from "@/components/shared/TableFilterPopover";
 
 type SaleReportFiltersProps = {
   query: string;
   date: string;
   pageSize: number;
+  sortBy: string;
+  sortOrder: "asc" | "desc";
   children: ReactNode;
+  actions: ReactNode;
 };
 
 export default function SaleReportFilters({
   query: initialQuery,
   date: initialDate,
   pageSize: initialPageSize,
+  sortBy,
+  sortOrder,
   children,
+  actions,
 }: SaleReportFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -52,6 +59,8 @@ export default function SaleReportFilters({
     if (trimmedQuery) params.set("q", trimmedQuery);
     if (dateRef.current) params.set("date", dateRef.current);
     if (pageSizeRef.current !== 10) params.set("pageSize", String(pageSizeRef.current));
+    params.set("sortBy", sortBy);
+    params.set("sortOrder", sortOrder);
 
     const queryString = params.toString();
     const href = queryString ? `/reports/sale?${queryString}` : "/reports/sale";
@@ -108,28 +117,31 @@ export default function SaleReportFilters({
 
       <div className="gg-spacer" />
 
-      <form className="sale-report-date-form" onSubmit={handleSearchSubmit}>
-        <label className="sr-only" htmlFor="sale-report-date">Filter sales by date</label>
-        <div className="sale-report-date-field">
-          <input
-            className="gg-input"
-            id="sale-report-date"
-            name="date"
-            type="date"
-            value={date}
-            aria-label="Filter by date"
-            onChange={(event) => {
-              const value = event.target.value;
-              setDate(value);
-              dateRef.current = value;
-              applyFilters();
-            }}
-            onBlur={() => syncFromUrl("date")}
-          />
-          <CalendarDays aria-hidden="true" />
-        </div>
-      </form>
-      {children}
+      <TableFilterPopover label="Filter sales">
+        <form className="sale-report-date-form" onSubmit={handleSearchSubmit}>
+          <label className="dynamic-filter-label" htmlFor="sale-report-date">Filter sales by date</label>
+          <div className="sale-report-date-field">
+            <input
+              className="gg-input"
+              id="sale-report-date"
+              name="date"
+              type="date"
+              value={date}
+              aria-label="Filter by date"
+              onChange={(event) => {
+                const value = event.target.value;
+                setDate(value);
+                dateRef.current = value;
+                applyFilters();
+              }}
+              onBlur={() => syncFromUrl("date")}
+            />
+            <CalendarDays aria-hidden="true" />
+          </div>
+        </form>
+        {children}
+      </TableFilterPopover>
+      {actions}
       <span className="sr-only" aria-live="polite">
         {isPending ? "Updating sales..." : ""}
       </span>
@@ -142,11 +154,15 @@ export function SaleReportPageSize({
   date,
   pageSize,
   options,
+  sortBy,
+  sortOrder,
 }: {
   query: string;
   date: string;
   pageSize: number;
   options: readonly number[];
+  sortBy: string;
+  sortOrder: "asc" | "desc";
 }) {
   const router = useRouter();
   const [selectedPageSize, setSelectedPageSize] = useState(pageSize);
@@ -162,6 +178,8 @@ export function SaleReportPageSize({
     if (query) params.set("q", query);
     if (date) params.set("date", date);
     if (nextPageSize !== 10) params.set("pageSize", String(nextPageSize));
+    params.set("sortBy", sortBy);
+    params.set("sortOrder", sortOrder);
     const queryString = params.toString();
     const href = queryString ? `/reports/sale?${queryString}` : "/reports/sale";
     router.replace(href, { scroll: false });

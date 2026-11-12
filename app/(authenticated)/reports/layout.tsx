@@ -22,7 +22,7 @@ export default function ReportsLayout({ children }: { children: ReactNode }) {
 
 async function AuthorizedReports({ children }: { children: ReactNode }) {
   await connection();
-  const access = await requirePermission(PERMISSION.manageReports);
+  const access = await requirePermission(PERMISSION.viewReports);
 
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");

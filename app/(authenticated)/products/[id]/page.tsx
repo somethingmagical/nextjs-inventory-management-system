@@ -9,7 +9,8 @@ import { ArrowLeft, Pencil } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { db } from "@/lib/db";
 import { getProductDetails } from "@/features/catalog/products/details";
-import { getProductAccess } from "../authorization";
+import { getProductViewAccess } from "../authorization";
+import { PERMISSION } from "@/lib/permissions";
 import { getProductImagePaths } from "../product-images";
 import { productIdSchema } from "../product-schema";
 
@@ -38,9 +39,10 @@ export default function ProductViewPage({ params }: ProductViewPageProps) {
 
 async function AuthorizedProductView({ params }: ProductViewPageProps) {
   await connection();
-  const access = await getProductAccess();
+  const access = await getProductViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
+  const canManageProducts = access.user.permissions.includes(PERMISSION.manageProducts);
 
   const { id } = await params;
   const parsedId = productIdSchema.safeParse(id);
@@ -75,10 +77,12 @@ async function AuthorizedProductView({ params }: ProductViewPageProps) {
               <ArrowLeft aria-hidden="true" />
               Back
             </Link>
-            <Link className="gg-btn gg-btn--primary" href={`/products/${encodeURIComponent(product.id)}/edit`}>
-              <Pencil aria-hidden="true" />
-              Edit Product
-            </Link>
+            {canManageProducts && (
+              <Link className="gg-btn gg-btn--primary" href={`/products/${encodeURIComponent(product.id)}/edit`}>
+                <Pencil aria-hidden="true" />
+                Edit Product
+              </Link>
+            )}
           </div>
         </div>
 

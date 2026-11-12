@@ -26,7 +26,9 @@ export async function createSupplier(
     email: formData.get("email"),
     phoneNumber: formData.get("phoneNumber"),
     country: formData.get("country"),
+    region: formData.get("region"),
     city: formData.get("city"),
+    zipCode: formData.get("zipCode"),
     address: formData.get("address"),
   });
 

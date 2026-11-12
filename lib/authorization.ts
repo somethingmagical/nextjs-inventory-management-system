@@ -2,7 +2,12 @@ import "server-only";
 
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { PERMISSIONS, type Permission } from "@/lib/permissions";
+import {
+  PERMISSIONS,
+  permissionIsGranted,
+  withImpliedViewPermissions,
+  type Permission,
+} from "@/lib/permissions";
 
 export async function requirePermission(permission: Permission) {
   const session = await auth();
@@ -42,7 +47,10 @@ export async function requirePermission(permission: Permission) {
 
   const allowed =
     user.roleRecord.name === "admin" ||
-    user.roleRecord.permissions.some(({ permission: assigned }) => assigned === permission);
+    permissionIsGranted(
+      user.roleRecord.permissions.map(({ permission: assigned }) => assigned),
+      permission,
+    );
 
   if (!allowed) {
     return { status: "forbidden" as const };
@@ -60,7 +68,9 @@ export async function requirePermission(permission: Permission) {
       role: user.role,
       roleId: user.roleId,
       roleName: user.roleRecord.name,
-      permissions: user.roleRecord.permissions.map(({ permission: assigned }) => assigned),
+      permissions: withImpliedViewPermissions(
+        user.roleRecord.permissions.map(({ permission: assigned }) => assigned),
+      ),
     },
   };
 }
@@ -120,10 +130,12 @@ export function canManageRoleInHierarchy(
   actor: { roleName: string; permissions: readonly string[] },
   target: { name: string; permissions: readonly string[] },
 ): boolean {
+  const actorPermissions = withImpliedViewPermissions(actor.permissions);
+  const targetPermissions = withImpliedViewPermissions(target.permissions);
   return (
     isAdminRole(actor.roleName) ||
     (!isAdminRole(target.name) &&
-      target.permissions.every((permission) => actor.permissions.includes(permission)))
+      targetPermissions.every((permission) => actorPermissions.includes(permission)))
   );
 }
 
@@ -158,6 +170,5 @@ export async function getCurrentPermissions(): Promise<Permission[]> {
   if (!user) return [];
   if (user.roleRecord.name === "admin") return [...PERMISSIONS];
 
-  const assigned = new Set(user.roleRecord.permissions.map(({ permission }) => permission));
-  return PERMISSIONS.filter((permission) => assigned.has(permission));
+  return withImpliedViewPermissions(user.roleRecord.permissions.map(({ permission }) => permission));
 }

@@ -27,7 +27,9 @@ export async function createWarehouse(
     phoneNumber: formData.get("phoneNumber"),
     country: formData.get("country"),
     city: formData.get("city"),
+    region: formData.get("region") ?? "",
     zipCode: formData.get("zipCode"),
+    address: formData.get("address"),
   });
 
   if (!parsed.success) {

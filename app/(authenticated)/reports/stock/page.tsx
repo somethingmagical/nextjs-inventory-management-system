@@ -4,7 +4,6 @@ import {
   ChevronLast,
   ChevronLeft,
   ChevronRight,
-  Search,
 } from "lucide-react";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -15,6 +14,11 @@ import ExcelExportLink from "../ExcelExportLink";
 import ReportPageSuspense from "../ReportPageSuspense";
 import { buildStockReportWhere } from "@/lib/reports/filters";
 import AutoSearchForm from "@/components/shared/AutoSearchForm";
+import DynamicPageSizeSelect from "@/components/shared/DynamicPageSizeSelect";
+import DynamicFilterControl from "@/components/shared/DynamicFilterControl";
+import SortableTableHeader from "@/components/shared/SortableTableHeader";
+import TableSortFilter from "@/components/shared/TableSortFilter";
+import { parseSortBy, parseSortOrder } from "@/lib/table-sorting";
 
 export const metadata: Metadata = {
   title: "Stock Reports",
@@ -25,7 +29,14 @@ const querySchema = z.string().trim().max(120);
 const warehouseIdSchema = z.string().max(100);
 const pageSchema = z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive());
 const pageSizeSchema = z.enum(["10", "25", "50"]).transform(Number);
-const pageSizeOptions = [10, 25, 50] as const;
+const sortFields = ["code", "name", "category", "purchasePrice", "price"] as const;
+const sortOptions = [
+  { value: "code", label: "Code" },
+  { value: "name", label: "Name" },
+  { value: "category", label: "Category" },
+  { value: "purchasePrice", label: "Cost" },
+  { value: "price", label: "Price" },
+] as const;
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -48,6 +59,8 @@ async function StockReportContent({ searchParams }: { searchParams: SearchParams
   const requestedWarehouseId = parsedWarehouseId.success ? parsedWarehouseId.data : "";
   const requestedPage = parsedPage.success ? parsedPage.data : 1;
   const pageSize = parsedPageSize.success ? parsedPageSize.data : 10;
+  const sortBy = parseSortBy(params.sortBy, sortFields, "name");
+  const sortOrder = parseSortOrder(params.sortOrder, "asc");
 
   const warehouses = await db.warehouse.findMany({
     where: { deletedAt: null },
@@ -61,9 +74,13 @@ async function StockReportContent({ searchParams }: { searchParams: SearchParams
   const totalCount = await db.product.count({ where });
   const totalPages = Math.ceil(totalCount / pageSize);
   const currentPage = totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
+  const orderBy: Prisma.ProductOrderByWithRelationInput[] =
+    sortBy === "category"
+      ? [{ categoryRecord: { name: sortOrder } }, { id: sortOrder }]
+      : [{ [sortBy]: sortOrder }, { id: sortOrder }];
   const products = await db.product.findMany({
     where,
-    orderBy: [{ name: "asc" }, { code: "asc" }],
+    orderBy,
     skip: (currentPage - 1) * pageSize,
     take: pageSize,
     select: {
@@ -99,32 +116,28 @@ async function StockReportContent({ searchParams }: { searchParams: SearchParams
   );
   const firstRecord = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const lastRecord = Math.min(currentPage * pageSize, totalCount);
-  const paginationParams = { query, warehouseId, pageSize };
+  const paginationParams = { query, warehouseId, pageSize, sortBy, sortOrder };
 
   return (
     <main className="gg-content reports-content">
       <div className="rpt-toolbar stock-report-toolbar">
         <div className="report-toolbar-controls">
-          <form className="wh-filter stock-report-warehouse-filter" action="/reports/stock">
-            <label htmlFor="stock-report-warehouse">Warehouse :</label>
-            <select
-              className="gg-select"
+          <TableSortFilter sortBy={sortBy} sortOrder={sortOrder} options={sortOptions}>
+            <div className="wh-filter stock-report-warehouse-filter">
+              <DynamicFilterControl
               id="stock-report-warehouse"
               name="warehouseId"
-              defaultValue={warehouseId ?? ""}
-            >
-              <option value="">All Warehouse</option>
-              {warehouses.map((warehouse) => (
-                <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
-              ))}
-            </select>
-            {query && <input type="hidden" name="q" value={query} />}
-            <input type="hidden" name="pageSize" value={pageSize} />
-            <button className="btn-icon-gold wh-filter-submit" type="submit" aria-label="Apply warehouse filter">
-              <Search aria-hidden="true" />
-            </button>
-          </form>
+              label="Warehouse"
+              value={warehouseId ?? ""}
+              options={[
+                { value: "", label: "All Warehouse" },
+                ...warehouses.map((warehouse) => ({ value: warehouse.id, label: warehouse.name })),
+              ]}
+                visibleLabel
+              />
+            </div>
 
+          </TableSortFilter>
           <AutoSearchForm
             action="/reports/stock"
             className="stock-report-search"
@@ -143,11 +156,11 @@ async function StockReportContent({ searchParams }: { searchParams: SearchParams
           <table className="gg-table stock-report-table">
             <thead>
               <tr>
-                <th scope="col">Code</th>
-                <th scope="col">Name</th>
-                <th scope="col">Category</th>
-                <th scope="col" className="gg-num">Cost</th>
-                <th scope="col" className="gg-num">Price</th>
+                <SortableTableHeader label="Code" sortKey="code" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/stock" searchParams={params} />
+                <SortableTableHeader label="Name" sortKey="name" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/stock" searchParams={params} />
+                <SortableTableHeader label="Category" sortKey="category" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/stock" searchParams={params} />
+                <SortableTableHeader label="Cost" sortKey="purchasePrice" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/stock" searchParams={params} className="gg-num" />
+                <SortableTableHeader label="Price" sortKey="price" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/stock" searchParams={params} className="gg-num" />
                 <th scope="col">Current Stock</th>
                 <th scope="col" className="stock-report-action-heading">Action</th>
               </tr>
@@ -189,24 +202,7 @@ async function StockReportContent({ searchParams }: { searchParams: SearchParams
         </div>
 
         <div className="gg-pagination">
-          <form className="gg-perpage" action="/reports/stock">
-            <label className="gg-muted" htmlFor="stock-report-page-size">Records per page</label>
-            <select
-              className="gg-select"
-              id="stock-report-page-size"
-              name="pageSize"
-              defaultValue={String(pageSize)}
-            >
-              {pageSizeOptions.map((option) => (
-                <option key={option} value={option}>{option}</option>
-              ))}
-            </select>
-            {query && <input type="hidden" name="q" value={query} />}
-            {warehouseId && <input type="hidden" name="warehouseId" value={warehouseId} />}
-            <button className="gg-page-btn stock-report-page-size-submit" type="submit" aria-label="Apply page size">
-              <ChevronRight aria-hidden="true" />
-            </button>
-          </form>
+          <DynamicPageSizeSelect id="stock-report-page-size" pageSize={pageSize} />
           <span className="gg-muted gg-num" aria-live="polite">
             {firstRecord}–{lastRecord} of {totalCount}
           </span>
@@ -242,13 +238,15 @@ async function StockReportContent({ searchParams }: { searchParams: SearchParams
 }
 
 function buildHref(
-  params: { query: string; warehouseId?: string; pageSize: number },
+  params: { query: string; warehouseId?: string; pageSize: number; sortBy: string; sortOrder: "asc" | "desc" },
   page: number,
 ) {
   const searchParams = new URLSearchParams();
   if (params.query) searchParams.set("q", params.query);
   if (params.warehouseId) searchParams.set("warehouseId", params.warehouseId);
   if (params.pageSize !== 10) searchParams.set("pageSize", String(params.pageSize));
+  searchParams.set("sortBy", params.sortBy);
+  searchParams.set("sortOrder", params.sortOrder);
   if (page > 1) searchParams.set("page", String(page));
   const queryString = searchParams.toString();
   return queryString ? `/reports/stock?${queryString}` : "/reports/stock";
@@ -265,7 +263,7 @@ function PageLink({
   page: number;
   currentPage: number;
   totalPages: number;
-  params: { query: string; warehouseId?: string; pageSize: number };
+  params: { query: string; warehouseId?: string; pageSize: number; sortBy: string; sortOrder: "asc" | "desc" };
   label: string;
   children: React.ReactNode;
 }) {

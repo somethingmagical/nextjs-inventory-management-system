@@ -3,7 +3,9 @@
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import { createProductWithInitialStock } from "@/features/catalog/products/create";
+import { resolveProductImageOrder } from "@/lib/product-image-order";
 import { getProductAccess } from "../authorization";
 import { getProductImageEntries, removeProductImages, saveProductImages } from "../product-images";
 import { productSchema } from "../product-schema";
@@ -54,6 +56,17 @@ export async function createProduct(
       fieldErrors: { images: ["Choose up to 10 PNG, JPEG, or WebP images, each smaller than 2 MB."] },
     };
   }
+  const parsedImageOrder = z.array(z.string().max(600)).max(10).safeParse(formData.getAll("imageOrder"));
+  const parsedNewImageIds = z.array(
+    z.string().regex(/^new:[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/i),
+  ).max(10).safeParse(formData.getAll("newImageId"));
+  if (!parsedImageOrder.success || !parsedNewImageIds.success) {
+    return {
+      status: "error",
+      message: "The product image order is invalid. Review the selected images and try again.",
+      fieldErrors: { images: ["The product image order is invalid."] },
+    };
+  }
 
   const upload = await saveProductImages(imageEntries.files);
   if (upload.status !== "success") {
@@ -66,10 +79,26 @@ export async function createProduct(
     };
   }
 
+  const orderedImages = resolveProductImageOrder({
+    order: parsedImageOrder.data,
+    existingImages: [],
+    removedImages: [],
+    newImageIds: parsedNewImageIds.data,
+    uploadedImagePaths: upload.images.map((image) => image.path),
+  });
+  if (!orderedImages) {
+    await removeProductImages(upload.images.map((image) => image.path));
+    return {
+      status: "error",
+      message: "The product image order is invalid. Review the selected images and try again.",
+      fieldErrors: { images: ["The product image order is invalid."] },
+    };
+  }
+
   try {
     const created = await createProductWithInitialStock({
       ...parsed.data,
-      images: upload.images.map((image) => image.path),
+      images: orderedImages,
       actorId: access.userId,
     });
     if (!created) {

@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { calculatePurchaseTotals } from "@/lib/purchase-pricing";
-import { getPurchaseAccess } from "../../authorization";
+import { getPurchaseViewAccess } from "../../authorization";
 import { purchaseIdSchema } from "../../purchase-create-schema";
 import { generatePurchasePdf } from "../../purchase-pdf";
 
@@ -10,7 +10,7 @@ type PurchasePdfRouteContext = {
 };
 
 export async function GET(_request: Request, { params }: PurchasePdfRouteContext) {
-  const access = await getPurchaseAccess();
+  const access = await getPurchaseViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") {
     return new Response("You do not have permission to manage purchases.", { status: 403 });

@@ -32,7 +32,9 @@ export async function updateSupplier(
     email: formData.get("email"),
     phoneNumber: formData.get("phoneNumber"),
     country: formData.get("country"),
+    region: formData.get("region"),
     city: formData.get("city"),
+    zipCode: formData.get("zipCode"),
     address: formData.get("address"),
   });
 
@@ -52,7 +54,9 @@ export async function updateSupplier(
       email: true,
       phoneNumber: true,
       country: true,
+      region: true,
       city: true,
+      zipCode: true,
       address: true,
     },
   });
@@ -66,7 +70,9 @@ export async function updateSupplier(
     supplier.email !== parsed.data.email ||
     supplier.phoneNumber !== parsed.data.phoneNumber ||
     supplier.country !== parsed.data.country ||
+    supplier.region !== parsed.data.region ||
     supplier.city !== parsed.data.city ||
+    supplier.zipCode !== parsed.data.zipCode ||
     supplier.address !== parsed.data.address;
 
   if (!hasChanges) {

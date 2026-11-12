@@ -5,11 +5,13 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { getProductCategoryListData } from "@/features/catalog/master-data/queries";
-import { getProductCategoryAccess } from "../products/authorization";
+import { getProductCategoryViewAccess } from "../products/authorization";
 import MasterDataManager from "@/components/master-data/MasterDataManager";
 import MasterDataPagination from "@/components/master-data/MasterDataPagination";
 import type { MasterDataItem } from "../../master-data/action-state";
 import { createCategory, deleteCategory, updateCategory } from "./actions";
+import { parseSortOrder } from "@/lib/table-sorting";
+import { PERMISSION } from "@/lib/permissions";
 
 export const metadata: Metadata = {
   title: "Product Category",
@@ -40,9 +42,10 @@ export default function ProductCategoriesPage({ searchParams }: CategoriesPagePr
 
 async function CategoryList({ searchParams }: CategoriesPageProps) {
   await connection();
-  const access = await getProductCategoryAccess();
+  const access = await getProductCategoryViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
+  const canManageProductCategories = access.user.permissions.includes(PERMISSION.manageProductCategories);
 
   const rawSearchParams = await searchParams;
   const parsedQuery = searchQuerySchema.safeParse(rawSearchParams.q);
@@ -51,11 +54,13 @@ async function CategoryList({ searchParams }: CategoriesPageProps) {
   const query = parsedQuery.success ? parsedQuery.data : "";
   const requestedPage = parsedPage.success ? parsedPage.data : 1;
   const pageSize = parsedPageSize.success ? parsedPageSize.data : 10;
+  const sortOrder = parseSortOrder(rawSearchParams.sortOrder, "asc");
 
   const { totalCount, totalPages, currentPage, items: categories } = await getProductCategoryListData({
     query,
     requestedPage,
     pageSize,
+    sortOrder,
   });
   const items: MasterDataItem[] = categories;
 
@@ -68,6 +73,8 @@ async function CategoryList({ searchParams }: CategoriesPageProps) {
       currentPage={currentPage}
       totalPages={totalPages}
       totalCount={totalCount}
+      sortBy="name"
+      sortOrder={sortOrder}
     />
   );
 
@@ -81,9 +88,11 @@ async function CategoryList({ searchParams }: CategoriesPageProps) {
           pageSize={pageSize}
           items={items}
           pagination={pagination}
-          createAction={createCategory}
-          updateAction={updateCategory}
-          deleteAction={deleteCategory}
+          sortOrder={sortOrder}
+          searchParams={rawSearchParams}
+          createAction={canManageProductCategories ? createCategory : undefined}
+          updateAction={canManageProductCategories ? updateCategory : undefined}
+          deleteAction={canManageProductCategories ? deleteCategory : undefined}
         />
       </main>
     </DashboardLayout>

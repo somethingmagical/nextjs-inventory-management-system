@@ -18,7 +18,7 @@ type CustomerFormAction = (
 ) => Promise<CustomerActionState>;
 
 const fields: {
-  name: Exclude<CustomerField, "dateOfBirth" | "address" | "country" | "city">;
+  name: Exclude<CustomerField, "dateOfBirth" | "address" | "country" | "region" | "city" | "zipCode">;
   label: string;
   placeholder: string;
   autoComplete: string;
@@ -152,10 +152,16 @@ export default function CustomerForm({
 
           <CountryCityFields
             initialCountry={initialValues?.country}
+            initialRegion={initialValues?.region}
             initialCity={initialValues?.city}
+            initialPostalCode={initialValues?.zipCode}
             countryError={fieldError("country")}
+            regionError={fieldError("region")}
             cityError={fieldError("city")}
+            postalError={fieldError("zipCode")}
             disabled={isPending}
+            showRegion
+            showPostalCode
             onCountryCodeChange={setCountryCode}
             phoneCountrySelection={phoneCountrySelection}
           />
@@ -171,7 +177,6 @@ export default function CustomerForm({
               placeholder="Enter Address"
               maxLength={191}
               defaultValue={initialValues?.address ?? ""}
-              required
               aria-invalid={Boolean(fieldError("address"))}
               aria-describedby={fieldError("address") ? "address-error" : undefined}
               disabled={isPending}

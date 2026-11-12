@@ -55,6 +55,7 @@ async function AuthenticatedDashboard({ children }: { children: ReactNode }) {
       permissions={permissions}
       appName={settings.appName}
       faviconPath={settings.faviconPath}
+      headerLogoPath={settings.headerLogoPath}
     >
       {children}
     </DashboardShell>

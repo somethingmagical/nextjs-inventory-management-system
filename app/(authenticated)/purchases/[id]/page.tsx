@@ -6,7 +6,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Download } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { calculatePurchaseTotals } from "@/lib/purchase-pricing";
-import { getPurchaseAccess } from "../authorization";
+import { getPurchaseViewAccess } from "../authorization";
 import { purchaseIdSchema } from "../purchase-create-schema";
 import { getPurchaseDetails } from "../purchase-details";
 
@@ -35,7 +35,7 @@ export default function PurchaseDetailsPage({ params }: PurchaseDetailsPageProps
 
 async function AuthorizedPurchaseDetails({ params }: PurchaseDetailsPageProps) {
   await connection();
-  const access = await getPurchaseAccess();
+  const access = await getPurchaseViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
 

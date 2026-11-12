@@ -1,0 +1,2 @@
+ALTER TABLE `Warehouse`
+ADD COLUMN `region` VARCHAR(191) NULL;

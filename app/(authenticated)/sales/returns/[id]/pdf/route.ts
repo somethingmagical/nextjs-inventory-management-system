@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { calculatePurchaseTotals } from "@/lib/purchase-pricing";
-import { getSaleReturnAccess } from "../../../authorization";
+import { getSaleReturnViewAccess } from "../../../authorization";
 import { getSaleReturnDetails } from "../../sale-return-details";
 import { saleReturnIdSchema } from "../../sale-return-schema";
 import { generateSalePdf } from "../../../sale-pdf";
@@ -10,7 +10,7 @@ type SaleReturnPdfRouteContext = {
 };
 
 export async function GET(_request: Request, { params }: SaleReturnPdfRouteContext) {
-  const access = await getSaleReturnAccess();
+  const access = await getSaleReturnViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") {
     return new Response("You do not have permission to manage sale returns.", { status: 403 });

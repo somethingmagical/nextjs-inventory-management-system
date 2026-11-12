@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import { ArrowLeft, Check, Info } from "lucide-react";
-import { PERMISSIONS, type Permission } from "@/lib/permissions";
+import {
+  getViewPermission,
+  PERMISSION_CATEGORIES,
+  PERMISSIONS,
+  withImpliedViewPermissions,
+  type Permission,
+} from "@/lib/permissions";
 import { initialRoleActionState, type RoleActionState } from "./action-state";
 
 type RoleFormAction = (
@@ -28,10 +34,13 @@ export default function RoleForm({
     action,
     initialRoleActionState,
   );
-  const [selectedPermissions, setSelectedPermissions] = useState<string[]>(initialPermissions);
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>(() =>
+    withImpliedViewPermissions(initialPermissions),
+  );
   const [showToast, setShowToast] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
-  const allSelected = availablePermissions.every((permission) => selectedPermissions.includes(permission));
+  const effectivePermissions = withImpliedViewPermissions(selectedPermissions);
+  const allSelected = availablePermissions.every((permission) => effectivePermissions.includes(permission));
 
   useEffect(() => {
     if (state.status !== "error") {
@@ -55,11 +64,29 @@ export default function RoleForm({
   }
 
   function togglePermission(permission: string, checked: boolean) {
-    setSelectedPermissions((current) =>
-      checked
-        ? [...current, permission]
-        : current.filter((selected) => selected !== permission),
-    );
+    setSelectedPermissions((current) => {
+      const viewPermission = getViewPermission(permission);
+      if (checked) {
+        return [
+          ...current.filter((selected) => selected !== permission),
+          permission,
+          ...(viewPermission ? [viewPermission] : []),
+        ];
+      }
+
+      if (viewPermission) {
+        return current.filter((selected) => selected !== permission);
+      }
+
+      const managePermission = PERMISSION_CATEGORIES
+        .flatMap((category) => category.permissions)
+        .find((candidate) =>
+          getViewPermission(candidate) === permission && current.includes(candidate),
+        );
+      return current.filter((selected) =>
+        selected !== permission && selected !== managePermission,
+      );
+    });
   }
 
   const nameError = state.fieldErrors?.name?.[0];
@@ -111,25 +138,49 @@ export default function RoleForm({
               <span>All Permissions</span>
             </label>
           </div>
+          <p className="gg-caption">Manage permissions include View access. Removing View also removes the matching Manage permission.</p>
 
           <div
-            className="role-permission-grid"
+            className="role-permission-categories"
             aria-describedby={permissionsError ? "role-permissions-error" : undefined}
           >
-            {availablePermissions.map((permission) => (
-              <label className="role-permission-item" key={permission}>
-                <input
-                  className="gg-check"
-                  type="checkbox"
-                  name="permissions"
-                  value={permission}
-                  checked={selectedPermissions.includes(permission)}
-                  onChange={(event) => togglePermission(permission, event.currentTarget.checked)}
-                  disabled={isPending}
-                />
-                <span>{permission}</span>
-              </label>
-            ))}
+            {PERMISSION_CATEGORIES.map((category) => {
+              const categoryPermissions = category.permissions.filter((permission) =>
+                availablePermissions.includes(permission),
+              );
+              if (categoryPermissions.length === 0) return null;
+
+              return (
+                <section
+                  className="role-permission-category"
+                  aria-labelledby={`role-permission-category-${category.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+                  key={category.label}
+                >
+                  <h3
+                    className="role-permission-category-title"
+                    id={`role-permission-category-${category.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+                  >
+                    {category.label}
+                  </h3>
+                  <div className="role-permission-grid">
+                    {categoryPermissions.map((permission) => (
+                      <label className="role-permission-item" key={permission}>
+                        <input
+                          className="gg-check"
+                          type="checkbox"
+                          name="permissions"
+                          value={permission}
+                          checked={effectivePermissions.includes(permission)}
+                          onChange={(event) => togglePermission(permission, event.currentTarget.checked)}
+                          disabled={isPending}
+                        />
+                        <span>{permission}</span>
+                      </label>
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
           </div>
           {permissionsError && (
             <span className="profile-field-error" id="role-permissions-error">{permissionsError}</span>

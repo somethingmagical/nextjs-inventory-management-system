@@ -8,7 +8,7 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import { calculatePurchaseTotals } from "@/lib/purchase-pricing";
 import { db } from "@/lib/db";
 import WarehouseToast from "@/components/shared/WarehouseToast";
-import { getSaleAccess } from "../authorization";
+import { getSaleViewAccess } from "../authorization";
 import { saleIdSchema } from "./payments/payment-schema";
 
 export const metadata: Metadata = {
@@ -37,7 +37,7 @@ export default function SaleDetailsPage(props: SaleDetailsPageProps) {
 
 async function AuthorizedSaleDetails({ params, searchParams }: SaleDetailsPageProps) {
   await connection();
-  const access = await getSaleAccess();
+  const access = await getSaleViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
 

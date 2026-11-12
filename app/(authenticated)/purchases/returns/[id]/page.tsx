@@ -6,7 +6,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Download } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { calculatePurchaseTotals } from "@/lib/purchase-pricing";
-import { getPurchaseReturnAccess } from "../authorization";
+import { getPurchaseReturnViewAccess } from "../authorization";
 import { purchaseReturnIdSchema } from "../purchase-return-create-schema";
 import { getPurchaseReturnDetails } from "../purchase-return-details";
 
@@ -35,7 +35,7 @@ export default function PurchaseReturnDetailsPage({ params }: PurchaseReturnDeta
 
 async function AuthorizedPurchaseReturnDetails({ params }: PurchaseReturnDetailsPageProps) {
   await connection();
-  const access = await getPurchaseReturnAccess();
+  const access = await getPurchaseReturnViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
 

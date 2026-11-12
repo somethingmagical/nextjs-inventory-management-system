@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { PERMISSION } from "@/lib/permissions";
+import { PERMISSION, withImpliedViewPermissions } from "@/lib/permissions";
 import { canManageRoleInHierarchy, isAdminRole } from "@/lib/authorization";
 import { getRoleManagementAccess } from "./authorization";
 import type { RoleActionState } from "./action-state";
@@ -38,9 +38,10 @@ export async function createRole(
     };
   }
 
+  const permissions = withImpliedViewPermissions(parsed.data.permissions);
   if (
     !isAdminRole(access.user.roleName) &&
-    parsed.data.permissions.some((permission) => !access.user.permissions.includes(permission))
+    permissions.some((permission) => !access.user.permissions.includes(permission))
   ) {
     return { status: "error", message: "A role cannot have permissions above your own." };
   }
@@ -57,7 +58,7 @@ export async function createRole(
       data: {
         name: parsed.data.name,
         permissions: {
-          create: parsed.data.permissions.map((permission) => ({ permission })),
+          create: permissions.map((permission) => ({ permission })),
         },
       },
       select: { id: true },
@@ -103,6 +104,7 @@ export async function updateRole(
       fieldErrors: parsed.error.flatten().fieldErrors,
     };
   }
+  const permissions = withImpliedViewPermissions(parsed.data.permissions);
 
   try {
     const updated = await db.$transaction(async (transaction) => {
@@ -137,12 +139,12 @@ export async function updateRole(
 
       if (
         !actorIsAdmin &&
-        parsed.data.permissions.some((permission) => !access.user.permissions.includes(permission))
+        permissions.some((permission) => !access.user.permissions.includes(permission))
       ) {
         return { status: "error" as const, message: "A role cannot have permissions above your own." };
       }
 
-      const keepsManageRoles = parsed.data.permissions.includes(PERMISSION.manageRoles);
+      const keepsManageRoles = permissions.includes(PERMISSION.manageRoles);
       if (isAdminRole(currentRole.name) && !keepsManageRoles) {
         return {
           status: "error" as const,
@@ -170,7 +172,7 @@ export async function updateRole(
       });
       await transaction.rolePermission.deleteMany({ where: { roleId: currentRole.id } });
       await transaction.rolePermission.createMany({
-        data: parsed.data.permissions.map((permission) => ({
+        data: permissions.map((permission) => ({
           roleId: currentRole.id,
           permission,
         })),

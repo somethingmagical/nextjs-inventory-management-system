@@ -10,9 +10,11 @@ import { initialTransferCreateActionState } from "@/app/(authenticated)/transfer
 export default function TransferRowActions({
   transferId,
   reference,
+  canManage,
 }: {
   transferId: string;
   reference: string;
+  canManage: boolean;
 }) {
   const dialogId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -43,15 +45,15 @@ export default function TransferRowActions({
         >
           <Eye aria-hidden="true" />
         </Link>
-        <Link
+        {canManage && <Link
           className="act-edit"
           href={`${basePath}/edit`}
           aria-label={`Edit ${reference}`}
           title="Edit transfer"
         >
           <Pencil aria-hidden="true" />
-        </Link>
-        <button
+        </Link>}
+        {canManage && <button
           className="act-del"
           type="button"
           aria-label={`Delete ${reference}`}
@@ -60,7 +62,7 @@ export default function TransferRowActions({
           onClick={() => setConfirmOpen(true)}
         >
           <Trash2 aria-hidden="true" />
-        </button>
+        </button>}
       </div>
       {deleteState.status === "error" && !confirmOpen && (
         <p className="warehouse-toast is-visible" role="alert">

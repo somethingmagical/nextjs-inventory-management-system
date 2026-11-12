@@ -8,8 +8,10 @@ import MasterDataManager from "@/components/master-data/MasterDataManager";
 import MasterDataPagination from "@/components/master-data/MasterDataPagination";
 import type { MasterDataItem } from "@/app/master-data/action-state";
 import { getExpenseCategoryListData } from "@/features/expenses/categories/queries";
-import { getExpenseCategoryAccess } from "./authorization";
+import { getExpenseCategoryViewAccess } from "./authorization";
 import { createExpenseCategory, deleteExpenseCategory, updateExpenseCategory } from "./actions";
+import { parseSortOrder } from "@/lib/table-sorting";
+import { PERMISSION } from "@/lib/permissions";
 
 export const metadata: Metadata = {
   title: "Expense Categories",
@@ -40,9 +42,10 @@ export default function ExpenseCategoriesPage({ searchParams }: ExpenseCategorie
 
 async function ExpenseCategoryList({ searchParams }: ExpenseCategoriesPageProps) {
   await connection();
-  const access = await getExpenseCategoryAccess();
+  const access = await getExpenseCategoryViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
+  const canManageExpenseCategories = access.user.permissions.includes(PERMISSION.manageExpenseCategories);
 
   const rawSearchParams = await searchParams;
   const parsedQuery = searchQuerySchema.safeParse(rawSearchParams.q);
@@ -51,11 +54,13 @@ async function ExpenseCategoryList({ searchParams }: ExpenseCategoriesPageProps)
   const query = parsedQuery.success ? parsedQuery.data : "";
   const requestedPage = parsedPage.success ? parsedPage.data : 1;
   const pageSize = parsedPageSize.success ? parsedPageSize.data : 10;
+  const sortOrder = parseSortOrder(rawSearchParams.sortOrder, "asc");
 
   const { totalCount, totalPages, currentPage, items: categories } = await getExpenseCategoryListData({
     query,
     requestedPage,
     pageSize,
+    sortOrder,
   });
   const items: MasterDataItem[] = categories.map((category) => ({
     ...category,
@@ -71,6 +76,8 @@ async function ExpenseCategoryList({ searchParams }: ExpenseCategoriesPageProps)
       currentPage={currentPage}
       totalPages={totalPages}
       totalCount={totalCount}
+      sortBy="name"
+      sortOrder={sortOrder}
     />
   );
   return (
@@ -83,9 +90,11 @@ async function ExpenseCategoryList({ searchParams }: ExpenseCategoriesPageProps)
           pageSize={pageSize}
           items={items}
           pagination={pagination}
-          createAction={createExpenseCategory}
-          updateAction={updateExpenseCategory}
-          deleteAction={deleteExpenseCategory}
+          sortOrder={sortOrder}
+          searchParams={rawSearchParams}
+          createAction={canManageExpenseCategories ? createExpenseCategory : undefined}
+          updateAction={canManageExpenseCategories ? updateExpenseCategory : undefined}
+          deleteAction={canManageExpenseCategories ? deleteExpenseCategory : undefined}
         />
       </main>
     </DashboardLayout>

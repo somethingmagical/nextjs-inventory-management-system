@@ -35,7 +35,7 @@ type ExportData = {
 };
 
 export async function GET(request: Request) {
-  const access = await requirePermission(PERMISSION.manageReports);
+  const access = await requirePermission(PERMISSION.viewReports);
   if (access.status === "unauthenticated") {
     return Response.json({ error: "Authentication required." }, { status: 401 });
   }

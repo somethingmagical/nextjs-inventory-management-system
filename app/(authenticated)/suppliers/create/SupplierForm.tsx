@@ -138,10 +138,16 @@ export default function SupplierForm({
           })}
           <CountryCityFields
             initialCountry={initialValues?.country}
+            initialRegion={initialValues?.region}
             initialCity={initialValues?.city}
+            initialPostalCode={initialValues?.zipCode}
             countryError={fieldError("country")}
+            regionError={fieldError("region")}
             cityError={fieldError("city")}
+            postalError={fieldError("zipCode")}
             disabled={isPending}
+            showRegion
+            showPostalCode
             onCountryCodeChange={setCountryCode}
             phoneCountrySelection={phoneCountrySelection}
           />

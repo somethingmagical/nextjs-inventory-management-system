@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { calculatePurchaseTotals } from "@/lib/purchase-pricing";
-import { getSaleAccess } from "../../authorization";
+import { getSaleViewAccess } from "../../authorization";
 import { saleIdSchema } from "../payments/payment-schema";
 import { generateSalePdf } from "../../sale-pdf";
 
@@ -10,7 +10,7 @@ type SalePdfRouteContext = {
 };
 
 export async function GET(_request: Request, { params }: SalePdfRouteContext) {
-  const access = await getSaleAccess();
+  const access = await getSaleViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") {
     return new Response("You do not have permission to manage sales.", { status: 403 });

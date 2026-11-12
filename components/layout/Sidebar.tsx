@@ -2,14 +2,16 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
+import type { MouseEvent, ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PERMISSION, type Permission } from "@/lib/permissions";
 
 const iconPaths: Record<string, ReactNode> = {
   dashboard: <><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="4" rx="1.5" /><rect x="14" y="11" width="7" height="10" rx="2" /><rect x="3" y="12" width="7" height="9" rx="2" /></>,
   boxes: <><path d="m3 7.5 9-4.5 9 4.5-9 4.5-9-4.5Z" /><path d="M3 7.5v9L12 21l9-4.5v-9M12 12v9" /></>,
+  inventory: <><path d="M3 5h18v4H3z" /><path d="M5 9v11h14V9M9 14h6M10 5V3h4v2" /></>,
   sliders: <><path d="M4 6h7M4 12h14M4 18h9" /><circle cx="15" cy="6" r="2.5" /><circle cx="12" cy="18" r="2.5" /></>,
   fileText: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" /><path d="M14 3v5h5M8 13h8M8 17h8" /></>,
   receipt: <><path d="M5 4.5h14v15l-2.5-1.5L14 19l-2.5-1.5L9 19l-2.5-1.5L4 19v-14Z" /><path d="M8 8h8M8 12h8" /></>,
@@ -64,58 +66,59 @@ type NavigationItem = {
 };
 
 const navigation: NavigationItem[] = [
-  { label: "Dashboard", icon: "dashboard", href: "/dashboard", permission: PERMISSION.manageDashboard },
+  { label: "Dashboard", icon: "dashboard", href: "/dashboard", permission: PERMISSION.viewDashboard },
   {
     label: "Products",
     icon: "boxes",
     children: [
-      { label: "Products", href: "/products", permission: PERMISSION.manageProducts, activePrefix: "/products" },
-      { label: "Product Category", href: "/product-categories", permission: PERMISSION.manageProductCategories, activePrefix: "/product-categories" },
-      { label: "Brands", href: "/brands", permission: PERMISSION.manageBrands, activePrefix: "/brands" },
+      { label: "Products", href: "/products", permission: PERMISSION.viewProducts, activePrefix: "/products" },
+      { label: "Product Category", href: "/product-categories", permission: PERMISSION.viewProductCategories, activePrefix: "/product-categories" },
+      { label: "Brands", href: "/brands", permission: PERMISSION.viewBrands, activePrefix: "/brands" },
       // { label: "Units", permission: PERMISSION.manageUnits },
       // { label: "Base Units", permission: PERMISSION.manageUnits },
       // { label: "Print Barcode", permission: PERMISSION.manageProducts },
     ],
   },
-  { label: "Adjustments", icon: "sliders", href: "/adjustments", permission: PERMISSION.manageAdjustments },
+  { label: "Adjustments", icon: "sliders", href: "/adjustments", permission: PERMISSION.viewAdjustments },
   // { label: "Quotations", icon: "fileText", permission: PERMISSION.manageQuotations },
   {
     label: "Purchases",
     icon: "receipt",
     children: [
-      { label: "Purchases", href: "/purchases", permission: PERMISSION.managePurchase, activePrefix: "/purchases", excludePrefix: "/purchases/returns" },
-      { label: "Purchases Returns", href: "/purchases/returns", permission: PERMISSION.managePurchaseReturn, activePrefix: "/purchases/returns" },
+      { label: "Purchases", href: "/purchases", permission: PERMISSION.viewPurchases, activePrefix: "/purchases", excludePrefix: "/purchases/returns" },
+      { label: "Purchases Returns", href: "/purchases/returns", permission: PERMISSION.viewPurchaseReturns, activePrefix: "/purchases/returns" },
     ],
   },
   {
     label: "Sales",
     icon: "shoppingCart",
     children: [
-      { label: "Sales", href: "/sales", permission: PERMISSION.manageSale, activePrefix: "/sales", excludePrefix: "/sales/returns" },
-      { label: "Sales Returns", href: "/sales/returns", permission: PERMISSION.manageSaleReturn, activePrefix: "/sales/returns" },
+      { label: "Sales", href: "/sales", permission: PERMISSION.viewSales, activePrefix: "/sales", excludePrefix: "/sales/returns" },
+      { label: "Sales Returns", href: "/sales/returns", permission: PERMISSION.viewSaleReturns, activePrefix: "/sales/returns" },
     ],
   },
-  { label: "Transfers", icon: "repeat", href: "/transfers", permission: PERMISSION.manageTransfers },
+  { label: "Transfers", icon: "repeat", href: "/transfers", permission: PERMISSION.viewTransfers },
   {
     label: "Expenses",
     icon: "wallet",
     children: [
-      { label: "Expenses", href: "/expenses", permission: PERMISSION.manageExpenses, activePrefix: "/expenses" },
-      { label: "Expense Categories", href: "/expense-categories", permission: PERMISSION.manageExpenseCategories, activePrefix: "/expense-categories" },
+      { label: "Expenses", href: "/expenses", permission: PERMISSION.viewExpenses, activePrefix: "/expenses" },
+      { label: "Expense Categories", href: "/expense-categories", permission: PERMISSION.viewExpenseCategories, activePrefix: "/expense-categories" },
     ],
   },
   {
     label: "Peoples",
     icon: "users",
     children: [
-      { label: "Customers", href: "/customers", permission: PERMISSION.manageCustomers, activePrefix: "/customers" },
-      { label: "Suppliers", href: "/suppliers", permission: PERMISSION.manageSuppliers, activePrefix: "/suppliers" },
-      { label: "Users", href: "/users", permission: PERMISSION.manageUsers, activePrefix: "/users" },
+      { label: "Customers", href: "/customers", permission: PERMISSION.viewCustomers, activePrefix: "/customers" },
+      { label: "Suppliers", href: "/suppliers", permission: PERMISSION.viewSuppliers, activePrefix: "/suppliers" },
+      { label: "Users", href: "/users", permission: PERMISSION.viewUsers, activePrefix: "/users" },
     ],
   },
-  { label: "Roles/Permissions", icon: "shieldCheck", href: "/roles", permission: PERMISSION.manageRoles },
-  { label: "Warehouse", icon: "warehouse", href: "/warehouse", permission: PERMISSION.manageWarehouses, activePrefix: "/warehouse" },
-  { label: "Reports", icon: "chart", href: "/reports/warehouse", permission: PERMISSION.manageReports },
+  { label: "Roles/Permissions", icon: "shieldCheck", href: "/roles", permission: PERMISSION.viewRoles },
+  { label: "Warehouse", icon: "warehouse", href: "/warehouse", permission: PERMISSION.viewWarehouses, activePrefix: "/warehouse" },
+  { label: "Stock", icon: "inventory", href: "/stock", permission: PERMISSION.viewStock, activePrefix: "/stock" },
+  { label: "Reports", icon: "chart", href: "/reports/warehouse", permission: PERMISSION.viewReports },
   // { label: "Currencies", icon: "dollar", permission: PERMISSION.manageCurrency },
   // { label: "Languages", icon: "languages", permission: PERMISSION.manageLanguage },
   // {
@@ -155,16 +158,24 @@ export default function Sidebar({
   isCollapsed,
   appName,
   faviconPath,
+  headerLogoPath,
 }: {
   permissions: Permission[];
   isCollapsed: boolean;
   appName: string;
   faviconPath: string;
+  headerLogoPath: string | null;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
   const [openGroups, setOpenGroups] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isMobile, setIsMobile] = useState(false);
+  const [openFlyoutLabel, setOpenFlyoutLabel] = useState<string | null>(null);
+  const [flyoutPosition, setFlyoutPosition] = useState({ top: 8, left: 84 });
+  const [portalReady, setPortalReady] = useState(false);
+  const [focusFirstFlyoutLink, setFocusFirstFlyoutLink] = useState(false);
+  const groupButtonRefs = useRef(new Map<string, HTMLButtonElement>());
+  const flyoutRef = useRef<HTMLDivElement>(null);
   const allowedPermissions = useMemo(() => new Set(permissions), [permissions]);
   const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
   const visibleNavigation = useMemo(() => navigation.flatMap((item) => {
@@ -186,17 +197,101 @@ export default function Sidebar({
       ? [item]
       : [];
   }), [allowedPermissions, normalizedSearch]);
+  const openFlyoutChildren = visibleNavigation.find(
+    (item) => item.label === openFlyoutLabel,
+  )?.children;
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 820px)");
+    const updateCompactMode = () => setIsMobile(mediaQuery.matches);
+    updateCompactMode();
+    mediaQuery.addEventListener("change", updateCompactMode);
+    return () => mediaQuery.removeEventListener("change", updateCompactMode);
+  }, []);
+
+  useEffect(() => {
+    if (!isCollapsed && !isMobile) setOpenFlyoutLabel(null);
+  }, [isCollapsed, isMobile]);
+
+  useEffect(() => {
+    if (!openFlyoutLabel || !openFlyoutChildren) return;
+
+    const updatePosition = () => {
+      const button = groupButtonRefs.current.get(openFlyoutLabel);
+      if (!button) return;
+      const rect = button.getBoundingClientRect();
+      const estimatedHeight = Math.min(
+        openFlyoutChildren.length * 44 + 48,
+        window.innerHeight - 16,
+      );
+      setFlyoutPosition({
+        top: Math.max(8, Math.min(rect.top, window.innerHeight - estimatedHeight - 8)),
+        left: rect.right + 8,
+      });
+    };
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      const button = groupButtonRefs.current.get(openFlyoutLabel);
+      if (
+        target instanceof Node
+        && !button?.contains(target)
+        && !flyoutRef.current?.contains(target)
+      ) {
+        setOpenFlyoutLabel(null);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setOpenFlyoutLabel(null);
+      groupButtonRefs.current.get(openFlyoutLabel)?.focus();
+    };
+
+    updatePosition();
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [openFlyoutChildren, openFlyoutLabel]);
+
+  useEffect(() => {
+    if (!portalReady || !openFlyoutLabel || !focusFirstFlyoutLink) return;
+    flyoutRef.current?.querySelector<HTMLAnchorElement>("a")?.focus();
+    setFocusFirstFlyoutLink(false);
+  }, [focusFirstFlyoutLink, openFlyoutLabel, portalReady]);
 
   function toggleGroup(label: string) {
     setOpenGroups((groups) => groups.includes(label) ? groups.filter((group) => group !== label) : [...groups, label]);
   }
 
   return (
+    <>
     <aside className="gg-sidebar">
-      <Link className="gg-brand" href="/dashboard" aria-label={`${appName} dashboard`} title="Dashboard">
+      <Link className={`gg-brand${headerLogoPath ? " has-logo" : ""}`} href="/dashboard" aria-label={`${appName} dashboard`} title="Dashboard">
         <Image className="gg-brand-favicon" src={faviconPath} alt="" width={30} height={30} aria-hidden="true" unoptimized />
+        {headerLogoPath && (
+          <Image
+            className="gg-brand-logo"
+            src={headerLogoPath}
+            alt=""
+            width={160}
+            height={44}
+            aria-hidden="true"
+            unoptimized
+          />
+        )}
         {/* <span className="gg-brand-mark">I</span> */}
-        <span className="gg-brand-name">{appName}</span>
+        {!headerLogoPath && <span className="gg-brand-name">{appName}</span>}
       </Link>
       <div className="gg-sidebar-search">
         <div className="gg-input-icon">
@@ -218,6 +313,7 @@ export default function Sidebar({
           const isOpen = openGroups.includes(item.label)
             || Boolean(normalizedSearch && children)
             || children?.some((child) => child.activePrefix && pathname.startsWith(child.activePrefix));
+          const isFlyoutOpen = openFlyoutLabel === item.label;
           const content = (
             <>
               <Icon name={item.icon} className="gg-nav-ico" />
@@ -226,11 +322,16 @@ export default function Sidebar({
             </>
           );
           if (children) {
-            const primaryLink = children.find((child) => child.href);
-            const handleGroupClick = () => {
-              const isIconMode = isCollapsed || window.matchMedia("(max-width: 820px)").matches;
-              if (isIconMode && primaryLink?.href) {
-                router.push(primaryLink.href);
+            const handleGroupClick = (event: MouseEvent<HTMLButtonElement>) => {
+              const isIconMode = isCollapsed || isMobile;
+              if (isIconMode) {
+                if (isFlyoutOpen) {
+                  setOpenFlyoutLabel(null);
+                  setFocusFirstFlyoutLink(false);
+                } else {
+                  setOpenFlyoutLabel(item.label);
+                  setFocusFirstFlyoutLink(event.detail === 0);
+                }
                 return;
               }
               toggleGroup(item.label);
@@ -241,7 +342,13 @@ export default function Sidebar({
                 <button
                   className="gg-nav-item gg-nav-toggle"
                   type="button"
-                  aria-expanded={isOpen}
+                  id={`sidebar-group-trigger-${item.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+                  ref={(element) => {
+                    if (element) groupButtonRefs.current.set(item.label, element);
+                    else groupButtonRefs.current.delete(item.label);
+                  }}
+                  aria-expanded={isCollapsed || isMobile ? isFlyoutOpen : isOpen}
+                  aria-controls={isFlyoutOpen ? `sidebar-flyout-${item.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}` : undefined}
                   aria-label={item.label}
                   title={item.label}
                   onClick={handleGroupClick}
@@ -256,7 +363,7 @@ export default function Sidebar({
                       : false;
                     const className = `gg-nav-item ${active ? "is-active" : ""}`;
                     return child.href ? (
-                      <Link className={className} href={child.href} key={child.label}>
+                      <Link className={className} href={child.href} key={child.label} title={child.label}>
                         <span className="gg-nav-label">{child.label}</span>
                       </Link>
                     ) : (
@@ -277,6 +384,7 @@ export default function Sidebar({
               key={item.label}
               className={`gg-nav-item ${active ? "is-active" : ""}`}
               href={item.href ?? "#"}
+              title={item.label}
             >
               {content}
             </Link>
@@ -287,5 +395,37 @@ export default function Sidebar({
         )}
       </nav>
     </aside>
+    {portalReady && openFlyoutLabel && openFlyoutChildren
+      ? createPortal(
+          <div
+            ref={flyoutRef}
+            className="gg-nav-flyout"
+            id={`sidebar-flyout-${openFlyoutLabel.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+            role="group"
+            aria-labelledby={`sidebar-group-trigger-${openFlyoutLabel.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+            style={{ top: flyoutPosition.top, left: flyoutPosition.left }}
+          >
+            {openFlyoutChildren.map((child) => {
+              const active = child.activePrefix
+                ? pathname.startsWith(child.activePrefix)
+                  && (!child.excludePrefix || !pathname.startsWith(child.excludePrefix))
+                : false;
+              return child.href ? (
+                <Link
+                  className={`gg-nav-flyout-link${active ? " is-active" : ""}`}
+                  href={child.href}
+                  key={child.label}
+                  aria-current={active ? "page" : undefined}
+                  onClick={() => setOpenFlyoutLabel(null)}
+                >
+                  {child.label}
+                </Link>
+              ) : null;
+            })}
+          </div>,
+          document.body,
+        )
+      : null}
+    </>
   );
 }

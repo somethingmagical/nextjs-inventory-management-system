@@ -11,7 +11,7 @@ import ThemeCustomizer from "./ThemeCustomizer";
 
 export const metadata: Metadata = {
   title: "Settings",
-  description: "Manage website name and favicon",
+  description: "Manage website name, favicon, and header logo",
 };
 
 export default function SettingsPage() {

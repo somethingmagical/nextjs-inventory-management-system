@@ -20,6 +20,7 @@ export async function updateApplicationSettings(
   const result = await updateSettings({
     appName: formData.get("appName"),
     favicon: formData.get("favicon"),
+    headerLogo: formData.get("headerLogo"),
   });
   if (result.status === "error") {
     return { status: "error", message: result.message };

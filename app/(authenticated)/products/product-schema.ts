@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_PRODUCT_PRICE } from "@/lib/product-price";
 
 export const productIdSchema = z.string().trim().min(1).max(191);
 
@@ -32,7 +33,10 @@ export const productDetailsSchema = z.object({
   brandId: requiredText("brand"),
   price: z.string()
     .trim()
-    .regex(/^\d{1,10}(?:\.\d{1,2})?$/, "Price must be a non-negative amount with up to 2 decimal places."),
+    .regex(
+      new RegExp(`^\\d{1,${MAX_PRODUCT_PRICE.split(".")[0].length}}(?:\\.\\d{1,2})?$`),
+      `Price must be a non-negative amount up to $${MAX_PRODUCT_PRICE} with up to 2 decimal places.`,
+    ),
   productUnit: requiredText("product unit"),
   stockAlert: optionalDecimal(9, 3, "Stock alert"),
   orderTax: optionalDecimal(3, 2, "Order tax"),

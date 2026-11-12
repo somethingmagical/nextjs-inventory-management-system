@@ -4,7 +4,9 @@ export type CustomerField =
   | "phoneNumber"
   | "dateOfBirth"
   | "country"
+  | "region"
   | "city"
+  | "zipCode"
   | "address";
 
 export type CustomerActionState = {

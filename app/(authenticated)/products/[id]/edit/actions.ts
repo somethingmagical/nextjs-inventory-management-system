@@ -2,8 +2,10 @@
 
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { getProductImageState } from "@/features/catalog/products/queries";
 import { updateProductDetails } from "@/features/catalog/products/update";
+import { resolveProductImageOrder } from "@/lib/product-image-order";
 import { getProductAccess } from "../../authorization";
 import {
   getProductImageEntries,
@@ -68,6 +70,17 @@ export async function updateProduct(
   if (!parsedRemovals.success) {
     return { status: "error", message: "The image selection is invalid. Refresh and try again." };
   }
+  const parsedImageOrder = z.array(z.string().max(600)).max(10).safeParse(formData.getAll("imageOrder"));
+  const parsedNewImageIds = z.array(
+    z.string().regex(/^new:[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/i),
+  ).max(10).safeParse(formData.getAll("newImageId"));
+  if (!parsedImageOrder.success || !parsedNewImageIds.success) {
+    return {
+      status: "error",
+      message: "The product image order is invalid. Review the selected images and try again.",
+      fieldErrors: { images: ["The product image order is invalid."] },
+    };
+  }
 
   const product = await getProductImageState(parsedId.data);
   if (!product) {
@@ -96,7 +109,21 @@ export async function updateProduct(
     };
   }
 
-  const images = [...retainedImages, ...upload.images.map((image) => image.path)];
+  const images = resolveProductImageOrder({
+    order: parsedImageOrder.data,
+    existingImages,
+    removedImages,
+    newImageIds: parsedNewImageIds.data,
+    uploadedImagePaths: upload.images.map((image) => image.path),
+  });
+  if (!images) {
+    await removeProductImages(upload.images.map((image) => image.path));
+    return {
+      status: "error",
+      message: "The product image order is invalid. Review the selected images and try again.",
+      fieldErrors: { images: ["The product image order is invalid."] },
+    };
+  }
   try {
     const updated = await updateProductDetails({
       id: parsedId.data,

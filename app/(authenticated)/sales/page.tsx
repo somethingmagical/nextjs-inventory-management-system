@@ -9,7 +9,6 @@ import {
   ChevronLast,
   ChevronLeft,
   ChevronRight,
-  Filter,
   Plus,
 } from "lucide-react";
 import { Prisma } from "@prisma/client";
@@ -18,15 +17,20 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import SaleRowActions from "@/components/sales/SaleRowActions";
 import WarehouseToast from "@/components/shared/WarehouseToast";
 import { db } from "@/lib/db";
-import { getSaleAccess } from "./authorization";
+import { getSaleViewAccess } from "./authorization";
+import { PERMISSION } from "@/lib/permissions";
 import AutoSearchForm from "@/components/shared/AutoSearchForm";
+import DynamicPageSizeSelect from "@/components/shared/DynamicPageSizeSelect";
+import DynamicFilterControl from "@/components/shared/DynamicFilterControl";
+import SortableTableHeader from "@/components/shared/SortableTableHeader";
+import TableSortFilter from "@/components/shared/TableSortFilter";
+import { parseSortBy, parseSortOrder } from "@/lib/table-sorting";
 
 export const metadata: Metadata = {
   title: "Sales",
   description: "Manage customer sales",
 };
 
-const pageSizeOptions = [10, 25, 50] as const;
 const searchQuerySchema = z.string().trim().max(120);
 const pageSchema = z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive());
 const pageSizeSchema = z.enum(["10", "25", "50"]).transform(Number);
@@ -34,6 +38,17 @@ const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
   const date = new Date(`${value}T00:00:00.000Z`);
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 });
+const sortFields = ["reference", "customer", "warehouse", "status", "grandTotal", "paid", "paymentStatus", "date"] as const;
+const sortOptions = [
+  { value: "reference", label: "Reference" },
+  { value: "customer", label: "Customer" },
+  { value: "warehouse", label: "Warehouse" },
+  { value: "status", label: "Status" },
+  { value: "grandTotal", label: "Grand Total" },
+  { value: "paid", label: "Paid" },
+  { value: "paymentStatus", label: "Payment Status" },
+  { value: "date", label: "Date" },
+] as const;
 
 type SalesPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -55,9 +70,10 @@ export default function SalesPage({ searchParams }: SalesPageProps) {
 
 async function SaleList({ searchParams }: SalesPageProps) {
   await connection();
-  const access = await getSaleAccess();
+  const access = await getSaleViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
+  const canManageSales = access.user.permissions.includes(PERMISSION.manageSale);
 
   const rawSearchParams = await searchParams;
   const parsedQuery = searchQuerySchema.safeParse(rawSearchParams.q);
@@ -68,6 +84,8 @@ async function SaleList({ searchParams }: SalesPageProps) {
   const date = parsedDate.success ? parsedDate.data : "";
   const requestedPage = parsedPage.success ? parsedPage.data : 1;
   const pageSize = parsedPageSize.success ? parsedPageSize.data : 10;
+  const sortBy = parseSortBy(rawSearchParams.sortBy, sortFields, "date");
+  const sortOrder = parseSortOrder(rawSearchParams.sortOrder);
 
   const statusMatch = (["Pending", "Ordered", "Received"] as const)
     .find((status) => status.toLowerCase() === query.toLowerCase());
@@ -87,9 +105,15 @@ async function SaleList({ searchParams }: SalesPageProps) {
     ...(date ? { date: new Date(`${date}T00:00:00.000Z`) } : {}),
     ...(query ? { OR: searchConditions } : {}),
   };
+  const orderBy: Prisma.SaleOrderByWithRelationInput[] =
+    sortBy === "customer"
+      ? [{ customer: { name: sortOrder } }, { createdAt: sortOrder }]
+      : sortBy === "warehouse"
+        ? [{ warehouse: { name: sortOrder } }, { createdAt: sortOrder }]
+        : [{ [sortBy]: sortOrder }, { createdAt: sortOrder }];
   const fetchPage = (page: number) => db.sale.findMany({
     where,
-    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+    orderBy,
     skip: (page - 1) * pageSize,
     take: pageSize,
     select: {
@@ -149,29 +173,27 @@ async function SaleList({ searchParams }: SalesPageProps) {
             value={query}
           />
           <div className="gg-spacer" />
-          <form className="purchase-date-form" action="/sales" role="search">
-            <label className="sr-only" htmlFor="sale-date-filter">Filter sales by date</label>
-            <div className="purchase-date-field">
-              <input
-                className="gg-input"
+          <TableSortFilter sortBy={sortBy} sortOrder={sortOrder} options={sortOptions}>
+            <div className="purchase-date-form">
+              <div className="purchase-date-field">
+              <DynamicFilterControl
                 id="sale-date-filter"
                 name="date"
+                label="Filter sales by date"
                 type="date"
-                defaultValue={date}
-                aria-label="Filter by date"
+                value={date}
+                className="gg-input"
+                visibleLabel
+                wrapperClassName="date-filter-control"
               />
               <CalendarDays aria-hidden="true" />
+              </div>
             </div>
-            {query && <input type="hidden" name="q" value={query} />}
-            <input type="hidden" name="pageSize" value={pageSize} />
-            <button className="gg-icon-btn purchase-filter-submit" type="submit" aria-label="Apply filters">
-              <Filter aria-hidden="true" />
-            </button>
-          </form>
-          <Link className="gg-btn gg-btn--primary" href="/sales/create">
+          </TableSortFilter>
+          {canManageSales && <Link className="gg-btn gg-btn--primary" href="/sales/create">
             <Plus aria-hidden="true" />
             Create Sale
-          </Link>
+          </Link>}
         </div>
 
         <div className="gg-card gg-card-pad">
@@ -179,22 +201,22 @@ async function SaleList({ searchParams }: SalesPageProps) {
             <table className="gg-table">
               <thead>
                 <tr>
-                  <th scope="col">Reference</th>
-                  <th scope="col">Customer</th>
-                  <th scope="col">Warehouse</th>
-                  <th scope="col">Status</th>
-                  <th scope="col" className="gg-num">Grand Total</th>
-                  <th scope="col" className="gg-num">Paid</th>
-                  <th scope="col">Payment Status</th>
+                  <SortableTableHeader label="Reference" sortKey="reference" sortBy={sortBy} sortOrder={sortOrder} pathname="/sales" searchParams={rawSearchParams} />
+                  <SortableTableHeader label="Customer" sortKey="customer" sortBy={sortBy} sortOrder={sortOrder} pathname="/sales" searchParams={rawSearchParams} />
+                  <SortableTableHeader label="Warehouse" sortKey="warehouse" sortBy={sortBy} sortOrder={sortOrder} pathname="/sales" searchParams={rawSearchParams} />
+                  <SortableTableHeader label="Status" sortKey="status" sortBy={sortBy} sortOrder={sortOrder} pathname="/sales" searchParams={rawSearchParams} />
+                  <SortableTableHeader label="Grand Total" sortKey="grandTotal" sortBy={sortBy} sortOrder={sortOrder} pathname="/sales" searchParams={rawSearchParams} className="gg-num" />
+                  <SortableTableHeader label="Paid" sortKey="paid" sortBy={sortBy} sortOrder={sortOrder} pathname="/sales" searchParams={rawSearchParams} className="gg-num" />
+                  <SortableTableHeader label="Payment Status" sortKey="paymentStatus" sortBy={sortBy} sortOrder={sortOrder} pathname="/sales" searchParams={rawSearchParams} />
                   <th scope="col">Payment Type</th>
-                  <th scope="col">Created On</th>
-                  <th scope="col" className="purchase-actions-heading">Action</th>
+                  <SortableTableHeader label="Created On" sortKey="date" sortBy={sortBy} sortOrder={sortOrder} pathname="/sales" searchParams={rawSearchParams} />
+                  {canManageSales && <th scope="col" className="purchase-actions-heading">Action</th>}
                 </tr>
               </thead>
               <tbody>
                 {sales.map((sale) => (
                   <tr key={sale.id}>
-                    <td><span className="gg-chip-code">{sale.reference}</span></td>
+                    <td><Link className="gg-chip-code" href={`/sales/${encodeURIComponent(sale.id)}`}>{sale.reference}</Link></td>
                     <td className="gg-muted">{sale.customer.name}</td>
                     <td>{sale.warehouse?.name ?? "Warehouse unavailable"}</td>
                     <td>
@@ -222,29 +244,31 @@ async function SaleList({ searchParams }: SalesPageProps) {
                         </time>
                       </span>
                     </td>
-                    <td className="purchase-actions-cell">
+                    {canManageSales && <td className="purchase-actions-cell">
                       <SaleRowActions saleId={sale.id} reference={sale.reference} />
-                    </td>
+                    </td>}
                   </tr>
                 ))}
                 {sales.length === 0 && (
                   <tr>
-                    <td className="product-empty-cell" colSpan={10}>
+                    <td className="product-empty-cell" colSpan={canManageSales ? 10 : 9}>
                       <p className="warehouse-empty-title">
                         {query || date ? "No sales match your filters" : "No sales yet"}
                       </p>
                       <p className="gg-muted">
                         {query || date
                           ? "Try changing the search or date filter."
-                          : "Create a sale to record customer transactions."}
+                          : canManageSales
+                            ? "Create a sale to record customer transactions."
+                            : "No sales are available."}
                       </p>
                       {query || date ? (
                         <Link className="gg-btn gg-btn--secondary" href="/sales">Clear filters</Link>
-                      ) : (
+                      ) : canManageSales ? (
                         <Link className="gg-btn gg-btn--primary" href="/sales/create">
                           <Plus aria-hidden="true" />Create Sale
                         </Link>
-                      )}
+                      ) : null}
                     </td>
                   </tr>
                 )}
@@ -267,33 +291,21 @@ async function SaleList({ searchParams }: SalesPageProps) {
           </div>
 
           <div className="gg-pagination">
-            <form className="gg-perpage" action="/sales">
-              <label className="gg-muted" htmlFor="sale-page-size">Records per page</label>
-              <select className="gg-select" id="sale-page-size" name="pageSize" defaultValue={String(pageSize)}>
-                {pageSizeOptions.map((option) => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
-              </select>
-              {query && <input type="hidden" name="q" value={query} />}
-              {date && <input type="hidden" name="date" value={date} />}
-              <button className="gg-page-btn warehouse-page-size-submit" type="submit" aria-label="Apply page size">
-                <ChevronRight aria-hidden="true" />
-              </button>
-            </form>
+            <DynamicPageSizeSelect id="sale-page-size" pageSize={pageSize} />
             <span className="gg-muted gg-num" aria-live="polite">
               {firstRecord}–{lastRecord} of {totalCount}
             </span>
             <div className="gg-spacer" />
-            <PaginationLink page={1} currentPage={currentPage} totalPages={totalPages} query={query} date={date} pageSize={pageSize} label="First page">
+            <PaginationLink page={1} currentPage={currentPage} totalPages={totalPages} query={query} date={date} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="First page">
               <ChevronFirst aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.max(1, currentPage - 1)} currentPage={currentPage} totalPages={totalPages} query={query} date={date} pageSize={pageSize} label="Previous page">
+            <PaginationLink page={Math.max(1, currentPage - 1)} currentPage={currentPage} totalPages={totalPages} query={query} date={date} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Previous page">
               <ChevronLeft aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.min(totalPages, currentPage + 1)} currentPage={currentPage} totalPages={totalPages} query={query} date={date} pageSize={pageSize} label="Next page">
+            <PaginationLink page={Math.min(totalPages, currentPage + 1)} currentPage={currentPage} totalPages={totalPages} query={query} date={date} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Next page">
               <ChevronRight aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={totalPages} currentPage={currentPage} totalPages={totalPages} query={query} date={date} pageSize={pageSize} label="Last page">
+            <PaginationLink page={totalPages} currentPage={currentPage} totalPages={totalPages} query={query} date={date} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Last page">
               <ChevronLast aria-hidden="true" />
             </PaginationLink>
           </div>
@@ -310,6 +322,8 @@ function PaginationLink({
   query,
   date,
   pageSize,
+  sortBy,
+  sortOrder,
   label,
   children,
 }: {
@@ -319,6 +333,8 @@ function PaginationLink({
   query: string;
   date: string;
   pageSize: number;
+  sortBy: string;
+  sortOrder: "asc" | "desc";
   label: string;
   children: React.ReactNode;
 }) {
@@ -326,6 +342,8 @@ function PaginationLink({
   const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
   if (query) params.set("q", query);
   if (date) params.set("date", date);
+  params.set("sortBy", sortBy);
+  params.set("sortOrder", sortOrder);
 
   if (isDisabled) {
     return <span className="gg-page-btn is-disabled" aria-disabled="true" aria-label={label}>{children}</span>;

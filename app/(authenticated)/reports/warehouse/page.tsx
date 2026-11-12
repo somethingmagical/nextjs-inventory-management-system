@@ -4,13 +4,13 @@ import {
   ChevronLast,
   ChevronLeft,
   ChevronRight,
-  Filter,
   ShoppingBag,
   ShoppingCart,
   ArrowLeft,
   ArrowRight,
 } from "lucide-react";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { connection } from "next/server";
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
@@ -23,6 +23,11 @@ import {
   buildWarehouseSaleWhere,
 } from "@/lib/reports/filters";
 import AutoSearchForm from "@/components/shared/AutoSearchForm";
+import DynamicPageSizeSelect from "@/components/shared/DynamicPageSizeSelect";
+import DynamicFilterControl from "@/components/shared/DynamicFilterControl";
+import SortableTableHeader from "@/components/shared/SortableTableHeader";
+import TableSortFilter from "@/components/shared/TableSortFilter";
+import { parseSortBy, parseSortOrder } from "@/lib/table-sorting";
 
 export const metadata: Metadata = {
   title: "Warehouse Reports",
@@ -34,10 +39,17 @@ const querySchema = z.string().trim().max(120);
 const warehouseIdSchema = z.string().max(100);
 const pageSchema = z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive());
 const pageSizeSchema = z.enum(["10", "25", "50"]).transform(Number);
-const pageSizeOptions = [10, 25, 50] as const;
+const sortFields = ["reference", "name", "warehouse", "grandTotal"] as const;
+const sortOptions = [
+  { value: "reference", label: "Reference" },
+  { value: "name", label: "Customer / Supplier / Expense" },
+  { value: "warehouse", label: "Warehouse" },
+  { value: "grandTotal", label: "Total / Amount" },
+] as const;
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 type ReportTab = z.infer<typeof tabSchema>;
+type WarehouseReportSortField = (typeof sortFields)[number];
 type ReportRow = {
   id: string;
   reference: string;
@@ -85,6 +97,8 @@ async function WarehouseReportContent({
   const requestedPage = parsedPage.success ? parsedPage.data : 1;
   const parsedPageSize = pageSizeSchema.safeParse(params.pageSize);
   const pageSize = parsedPageSize.success ? parsedPageSize.data : 10;
+  const sortBy = parseSortBy(params.sortBy, sortFields, "reference");
+  const sortOrder = parseSortOrder(params.sortOrder);
   const parsedWarehouseId = warehouseIdSchema.safeParse(params.warehouseId);
 
   const warehouses = await db.warehouse.findMany({
@@ -113,7 +127,7 @@ async function WarehouseReportContent({
       db.sale.count({ where }),
       db.sale.findMany({
         where,
-        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        orderBy: getDocumentOrderBy("sale", sortBy, sortOrder),
         skip: (requestedPage - 1) * pageSize,
         take: pageSize,
         select: {
@@ -148,7 +162,7 @@ async function WarehouseReportContent({
       db.saleReturn.count({ where }),
       db.saleReturn.findMany({
         where,
-        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        orderBy: getDocumentOrderBy("saleReturn", sortBy, sortOrder),
         skip: (requestedPage - 1) * pageSize,
         take: pageSize,
         select: {
@@ -183,7 +197,7 @@ async function WarehouseReportContent({
       db.purchaseReturn.count({ where }),
       db.purchaseReturn.findMany({
         where,
-        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        orderBy: getDocumentOrderBy("purchaseReturn", sortBy, sortOrder),
         skip: (requestedPage - 1) * pageSize,
         take: pageSize,
         select: {
@@ -218,7 +232,7 @@ async function WarehouseReportContent({
       db.expense.count({ where }),
       db.expense.findMany({
         where,
-        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        orderBy: getDocumentOrderBy("expense", sortBy, sortOrder),
         skip: (requestedPage - 1) * pageSize,
         take: pageSize,
         select: {
@@ -251,34 +265,13 @@ async function WarehouseReportContent({
   const currentPage = totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
   const rows = currentPage === requestedPage
     ? requestedRows
-    : await fetchPage(tab, { warehouseId, query, page: currentPage, pageSize });
+    : await fetchPage(tab, { warehouseId, query, page: currentPage, pageSize, sortBy, sortOrder });
   const firstRecord = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const lastRecord = Math.min(currentPage * pageSize, totalCount);
-  const baseParams = { tab, warehouseId, query, pageSize };
+  const baseParams = { tab, warehouseId, query, pageSize, sortBy, sortOrder };
 
   return (
     <main className="gg-content reports-content">
-      <form className="wh-filter warehouse-report-warehouse-filter" action="/reports/warehouse">
-        <label htmlFor="warehouse-filter">Warehouse :</label>
-        <select
-          className="gg-select"
-          id="warehouse-filter"
-          name="warehouseId"
-          defaultValue={warehouseId ?? ""}
-        >
-          <option value="">All Warehouse</option>
-          {warehouses.map((warehouse) => (
-            <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
-          ))}
-        </select>
-        <input type="hidden" name="tab" value={tab} />
-        <input type="hidden" name="pageSize" value={pageSize} />
-        {query && <input type="hidden" name="q" value={query} />}
-        <button className="btn-icon-gold wh-filter-submit" type="submit" aria-label="Apply warehouse filter">
-          <Filter aria-hidden="true" />
-        </button>
-      </form>
-
       <section className="gg-kpi-grid warehouse-report-kpis" aria-label="Document counts">
         <CountKpi label="Sales" count={salesCount} tone="violet" icon={<ShoppingCart aria-hidden="true" />} />
         <CountKpi label="Purchases" count={purchasesCount} tone="emerald" icon={<ShoppingBag aria-hidden="true" />} />
@@ -309,6 +302,21 @@ async function WarehouseReportContent({
             value={query}
             iconClassName="gg-input-icon"
           />
+          <TableSortFilter sortBy={sortBy} sortOrder={sortOrder} options={sortOptions}>
+            <div className="wh-filter warehouse-report-warehouse-filter">
+              <DynamicFilterControl
+                id="warehouse-filter"
+                name="warehouseId"
+                label="Warehouse"
+                value={warehouseId ?? ""}
+                options={[
+                  { value: "", label: "All Warehouse" },
+                  ...warehouses.map((warehouse) => ({ value: warehouse.id, label: warehouse.name })),
+                ]}
+                visibleLabel
+              />
+            </div>
+          </TableSortFilter>
           <div className="report-toolbar-export">
             <ExcelExportLink report="warehouse" query={query} warehouseId={warehouseId} tab={tab} />
           </div>
@@ -318,7 +326,7 @@ async function WarehouseReportContent({
       <div className="gg-card gg-card-pad">
         <div className="gg-table-wrap">
           <table className="gg-table warehouse-report-table">
-            <ReportTableHead tab={tab} />
+            <ReportTableHead tab={tab} sortBy={sortBy} sortOrder={sortOrder} searchParams={params} />
             <tbody>
               {rows.map((row) => <ReportTableRow key={row.id} row={row} tab={tab} />)}
               {rows.length === 0 && (
@@ -331,23 +339,7 @@ async function WarehouseReportContent({
         </div>
 
         <div className="gg-pagination">
-          <form className="gg-perpage" action="/reports/warehouse">
-            <label className="gg-muted" htmlFor="warehouse-report-page-size">Records per page</label>
-            <select
-              className="gg-select"
-              id="warehouse-report-page-size"
-              name="pageSize"
-              defaultValue={String(pageSize)}
-            >
-              {pageSizeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-            </select>
-            <input type="hidden" name="tab" value={tab} />
-            {warehouseId && <input type="hidden" name="warehouseId" value={warehouseId} />}
-            {query && <input type="hidden" name="q" value={query} />}
-            <button className="gg-page-btn warehouse-page-size-submit" type="submit" aria-label="Apply page size">
-              <ChevronRight aria-hidden="true" />
-            </button>
-          </form>
+          <DynamicPageSizeSelect id="warehouse-report-page-size" pageSize={pageSize} />
           <span className="gg-muted gg-num" aria-live="polite">{firstRecord}–{lastRecord} of {totalCount}</span>
           <div className="gg-spacer" />
           <PaginationLink page={1} currentPage={currentPage} totalPages={totalPages} params={baseParams} label="First page">
@@ -368,12 +360,26 @@ async function WarehouseReportContent({
   );
 }
 
-function ReportTableHead({ tab }: { tab: ReportTab }) {
+function ReportTableHead({
+  tab,
+  sortBy,
+  sortOrder,
+  searchParams,
+}: {
+  tab: ReportTab;
+  sortBy: (typeof sortFields)[number];
+  sortOrder: "asc" | "desc";
+  searchParams: Record<string, string | string[] | undefined>;
+}) {
   if (tab === "sales" || tab === "sales-returns") {
     return (
       <thead><tr>
-        <th>Reference</th><th>Customer</th><th>Warehouse</th><th>Status</th>
-        <th>Grand Total</th><th>Paid</th><th>Due</th><th>Payment Status</th>
+        <SortableTableHeader label="Reference" sortKey="reference" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/warehouse" searchParams={searchParams} />
+        <SortableTableHeader label="Customer" sortKey="name" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/warehouse" searchParams={searchParams} />
+        <SortableTableHeader label="Warehouse" sortKey="warehouse" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/warehouse" searchParams={searchParams} />
+        <th scope="col">Status</th>
+        <SortableTableHeader label="Grand Total" sortKey="grandTotal" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/warehouse" searchParams={searchParams} />
+        <th scope="col">Paid</th><th scope="col">Due</th><th scope="col">Payment Status</th>
       </tr></thead>
     );
   }
@@ -381,15 +387,23 @@ function ReportTableHead({ tab }: { tab: ReportTab }) {
   if (tab === "purchase-returns") {
     return (
       <thead><tr>
-        <th>Reference</th><th>Supplier</th><th>Warehouse</th><th>Status</th>
-        <th>Grand Total</th><th>Paid</th><th>Due</th><th>Payment Type</th>
+        <SortableTableHeader label="Reference" sortKey="reference" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/warehouse" searchParams={searchParams} />
+        <SortableTableHeader label="Supplier" sortKey="name" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/warehouse" searchParams={searchParams} />
+        <SortableTableHeader label="Warehouse" sortKey="warehouse" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/warehouse" searchParams={searchParams} />
+        <th scope="col">Status</th>
+        <SortableTableHeader label="Grand Total" sortKey="grandTotal" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/warehouse" searchParams={searchParams} />
+        <th scope="col">Paid</th><th scope="col">Due</th><th scope="col">Payment Type</th>
       </tr></thead>
     );
   }
 
   return (
     <thead><tr>
-      <th>Reference</th><th>Expense</th><th>Warehouse</th><th>Date</th><th>Amount</th>
+      <SortableTableHeader label="Reference" sortKey="reference" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/warehouse" searchParams={searchParams} />
+      <SortableTableHeader label="Expense" sortKey="name" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/warehouse" searchParams={searchParams} />
+      <SortableTableHeader label="Warehouse" sortKey="warehouse" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/warehouse" searchParams={searchParams} />
+      <th scope="col">Date</th>
+      <SortableTableHeader label="Amount" sortKey="grandTotal" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/warehouse" searchParams={searchParams} />
     </tr></thead>
   );
 }
@@ -452,15 +466,66 @@ function CountKpi({
   );
 }
 
+function getDocumentOrderBy(
+  model: "sale",
+  sortBy: WarehouseReportSortField,
+  sortOrder: "asc" | "desc",
+): Prisma.SaleOrderByWithRelationInput[];
+function getDocumentOrderBy(
+  model: "saleReturn",
+  sortBy: WarehouseReportSortField,
+  sortOrder: "asc" | "desc",
+): Prisma.SaleReturnOrderByWithRelationInput[];
+function getDocumentOrderBy(
+  model: "purchaseReturn",
+  sortBy: WarehouseReportSortField,
+  sortOrder: "asc" | "desc",
+): Prisma.PurchaseReturnOrderByWithRelationInput[];
+function getDocumentOrderBy(
+  model: "expense",
+  sortBy: WarehouseReportSortField,
+  sortOrder: "asc" | "desc",
+): Prisma.ExpenseOrderByWithRelationInput[];
+function getDocumentOrderBy(
+  model: "sale" | "saleReturn" | "purchaseReturn" | "expense",
+  sortBy: WarehouseReportSortField,
+  sortOrder: "asc" | "desc",
+) {
+  if (model === "sale") {
+    if (sortBy === "name") return [{ customer: { name: sortOrder } }, { createdAt: sortOrder }];
+    if (sortBy === "warehouse") return [{ warehouse: { name: sortOrder } }, { createdAt: sortOrder }];
+    if (sortBy === "grandTotal") return [{ grandTotal: sortOrder }, { createdAt: sortOrder }];
+    return [{ reference: sortOrder }, { createdAt: sortOrder }];
+  }
+  if (model === "saleReturn") {
+    if (sortBy === "name") return [{ customer: { name: sortOrder } }, { createdAt: sortOrder }];
+    if (sortBy === "warehouse") return [{ warehouse: { name: sortOrder } }, { createdAt: sortOrder }];
+    if (sortBy === "grandTotal") return [{ grandTotal: sortOrder }, { createdAt: sortOrder }];
+    return [{ reference: sortOrder }, { createdAt: sortOrder }];
+  }
+  if (model === "purchaseReturn") {
+    if (sortBy === "name") return [{ supplier: { name: sortOrder } }, { createdAt: sortOrder }];
+    if (sortBy === "warehouse") return [{ warehouse: { name: sortOrder } }, { createdAt: sortOrder }];
+    if (sortBy === "grandTotal") return [{ grandTotal: sortOrder }, { createdAt: sortOrder }];
+    return [{ reference: sortOrder }, { createdAt: sortOrder }];
+  }
+  if (sortBy === "name") return [{ title: sortOrder }, { createdAt: sortOrder }];
+  if (sortBy === "warehouse") return [{ warehouse: { name: sortOrder } }, { createdAt: sortOrder }];
+  if (sortBy === "grandTotal") return [{ amount: sortOrder }, { createdAt: sortOrder }];
+  return [{ reference: sortOrder }, { createdAt: sortOrder }];
+}
+
 function buildHref(
   pathname: string,
-  params: { tab?: string; warehouseId?: string; query?: string; pageSize?: number; page?: number },
+  params: { tab?: string; warehouseId?: string; query?: string; pageSize?: number; page?: number; sortBy?: string; sortOrder?: "asc" | "desc" },
 ) {
   const queryParams = new URLSearchParams();
   if (params.tab) queryParams.set("tab", params.tab);
   if (params.warehouseId) queryParams.set("warehouseId", params.warehouseId);
   if (params.query) queryParams.set("q", params.query);
   if (params.pageSize && params.pageSize !== 10) queryParams.set("pageSize", String(params.pageSize));
+  if (params.sortBy) queryParams.set("sortBy", params.sortBy);
+  if (params.sortOrder) queryParams.set("sortOrder", params.sortOrder);
   if (params.page && params.page > 1) queryParams.set("page", String(params.page));
   const search = queryParams.toString();
   return search ? `${pathname}?${search}` : pathname;
@@ -477,7 +542,7 @@ function PaginationLink({
   page: number;
   currentPage: number;
   totalPages: number;
-  params: { tab: ReportTab; warehouseId?: string; query: string; pageSize: number };
+  params: { tab: ReportTab; warehouseId?: string; query: string; pageSize: number; sortBy: string; sortOrder: "asc" | "desc" };
   label: string;
   children: React.ReactNode;
 }) {
@@ -498,7 +563,7 @@ function PaginationLink({
 
 async function fetchPage(
   tab: ReportTab,
-  filters: { warehouseId?: string; query: string; page: number; pageSize: number },
+  filters: { warehouseId?: string; query: string; page: number; pageSize: number; sortBy: (typeof sortFields)[number]; sortOrder: "asc" | "desc" },
 ): Promise<ReportRow[]> {
   const skip = (filters.page - 1) * filters.pageSize;
 
@@ -506,7 +571,7 @@ async function fetchPage(
     const where = buildWarehouseSaleWhere(filters.query, filters.warehouseId);
     const items = await db.sale.findMany({
       where,
-      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      orderBy: getDocumentOrderBy("sale", filters.sortBy, filters.sortOrder),
       skip,
       take: filters.pageSize,
       select: {
@@ -525,7 +590,7 @@ async function fetchPage(
     const where = buildWarehouseSaleReturnWhere(filters.query, filters.warehouseId);
     const items = await db.saleReturn.findMany({
       where,
-      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      orderBy: getDocumentOrderBy("saleReturn", filters.sortBy, filters.sortOrder),
       skip,
       take: filters.pageSize,
       select: {
@@ -544,7 +609,7 @@ async function fetchPage(
     const where = buildWarehousePurchaseReturnWhere(filters.query, filters.warehouseId);
     const items = await db.purchaseReturn.findMany({
       where,
-      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      orderBy: getDocumentOrderBy("purchaseReturn", filters.sortBy, filters.sortOrder),
       skip,
       take: filters.pageSize,
       select: {
@@ -562,7 +627,7 @@ async function fetchPage(
   const where = buildWarehouseExpenseWhere(filters.query, filters.warehouseId);
   const items = await db.expense.findMany({
     where,
-    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+    orderBy: getDocumentOrderBy("expense", filters.sortBy, filters.sortOrder),
     skip,
     take: filters.pageSize,
     select: {

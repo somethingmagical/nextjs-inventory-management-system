@@ -33,7 +33,9 @@ export async function updateWarehouse(
     phoneNumber: formData.get("phoneNumber"),
     country: formData.get("country"),
     city: formData.get("city"),
+    region: formData.get("region") ?? "",
     zipCode: formData.get("zipCode"),
+    address: formData.get("address"),
   });
 
   if (!parsed.success) {
@@ -53,7 +55,9 @@ export async function updateWarehouse(
       phoneNumber: true,
       country: true,
       city: true,
+      region: true,
       zipCode: true,
+      address: true,
     },
   });
 
@@ -67,7 +71,9 @@ export async function updateWarehouse(
     warehouse.phoneNumber !== parsed.data.phoneNumber ||
     warehouse.country !== parsed.data.country ||
     warehouse.city !== parsed.data.city ||
-    warehouse.zipCode !== parsed.data.zipCode;
+    warehouse.region !== parsed.data.region ||
+    warehouse.zipCode !== parsed.data.zipCode ||
+    warehouse.address !== parsed.data.address;
 
   if (!hasChanges) {
     redirect("/warehouse");

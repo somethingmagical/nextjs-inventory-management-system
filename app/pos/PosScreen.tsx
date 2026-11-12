@@ -1,9 +1,11 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import Image from "next/image";
+import { useActionState, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Prisma } from "@prisma/client";
 import {
   Banknote,
+  CalendarDays,
   Calculator,
   Check,
   ChevronDown,
@@ -24,13 +26,15 @@ import {
   UserRound,
   X,
 } from "lucide-react";
+import { CountryCityFields, PhoneNumberInput } from "@/components/shared/GeographyFields";
 import {
   calculatePurchaseLineTotals,
   calculatePurchaseTotals,
 } from "@/lib/purchase-pricing";
 import { createSale } from "@/app/(authenticated)/sales/create/actions";
 import { initialSaleCreateActionState } from "@/app/(authenticated)/sales/create/action-state";
-import { loadPosProducts } from "./actions";
+import { createPosCustomer, initialPosCustomerActionState, loadPosProducts } from "./actions";
+import type { CustomerField } from "@/app/(authenticated)/customers/create/action-state";
 import type { PosOption, PosProduct } from "./types";
 
 type PosCartItem = PosProduct & {
@@ -116,6 +120,7 @@ export default function PosScreen({
   initialProducts,
   defaultCustomerId,
   initialWarehouseId,
+  canCreateCustomers,
 }: {
   warehouses: PosOption[];
   customers: PosOption[];
@@ -124,8 +129,11 @@ export default function PosScreen({
   initialProducts: PosProduct[];
   defaultCustomerId: string;
   initialWarehouseId: string;
+  canCreateCustomers: boolean;
 }) {
   const [customerId, setCustomerId] = useState(defaultCustomerId);
+  const [customerOptions, setCustomerOptions] = useState(customers);
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [warehouseId, setWarehouseId] = useState(initialWarehouseId);
   const [products, setProducts] = useState(initialProducts);
   const [cart, setCart] = useState<PosCartItem[]>([]);
@@ -156,6 +164,12 @@ export default function PosScreen({
   const pendingReceiptRef = useRef<Omit<PosReceipt, "saleId" | "reference"> | null>(null);
   const requestId = useRef(0);
   const lastLoadedWarehouseId = useRef(initialWarehouseId);
+
+  const handleCustomerCreated = useCallback((customer: PosOption) => {
+    setCustomerOptions((current) => [...current, customer]);
+    setCustomerId(customer.id);
+    setIsCustomerModalOpen(false);
+  }, []);
 
   const [saleDate] = useState(() => {
     const now = new Date();
@@ -358,7 +372,7 @@ export default function PosScreen({
       id: crypto.randomUUID(),
       heldAt: Date.now(),
       customerId,
-      customerName: customers.find((customer) => customer.id === customerId)?.name ?? "Unknown customer",
+      customerName: customerOptions.find((customer) => customer.id === customerId)?.name ?? "Unknown customer",
       warehouseId,
       warehouseName: warehouses.find((warehouse) => warehouse.id === warehouseId)?.name ?? "Unknown warehouse",
       cart: cart.map((item) => ({ ...item })),
@@ -397,7 +411,7 @@ export default function PosScreen({
       return;
     }
     pendingReceiptRef.current = {
-      customerName: customers.find((customer) => customer.id === customerId)?.name ?? "Unknown customer",
+      customerName: customerOptions.find((customer) => customer.id === customerId)?.name ?? "Unknown customer",
       warehouseName: warehouses.find((warehouse) => warehouse.id === warehouseId)?.name ?? "Unknown warehouse",
       date: saleDate,
       paymentType,
@@ -524,45 +538,60 @@ export default function PosScreen({
       </form>
       <section className="pos-column" aria-label="Sale cart">
         <div className="pos-toolbar">
-          <label className="pos-customer-box">
+          <div className="pos-customer-box">
             <UserRound aria-hidden="true" />
             <span className="pos-select-wrap">
               <span className="pos-select-label">Customer</span>
-              <select
-                aria-label="Customer"
-                value={customerId}
-                onChange={(event) => setCustomerId(event.target.value)}
-              >
-                {customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>{customer.name}</option>
-                ))}
-              </select>
+              <span className="pos-select-control">
+                <select
+                  aria-label="Customer"
+                  value={customerId}
+                  onChange={(event) => setCustomerId(event.target.value)}
+                >
+                  {customerOptions.map((customer) => (
+                    <option key={customer.id} value={customer.id}>{customer.name}</option>
+                  ))}
+                </select>
+                <ChevronDown aria-hidden="true" className="pos-select-chevron" />
+              </span>
             </span>
-            <ChevronDown aria-hidden="true" className="pos-select-chevron" />
-          </label>
+            {canCreateCustomers && (
+              <button
+                className="pos-customer-add"
+                type="button"
+                aria-label="Add new customer"
+                title="Add new customer"
+                onClick={() => setIsCustomerModalOpen(true)}
+              >
+                <Plus aria-hidden="true" />
+              </button>
+            )}
+          </div>
           <label className="pos-warehouse-box">
             <Home aria-hidden="true" />
             <span className="pos-select-wrap">
               <span className="pos-select-label">Warehouse</span>
-              <select
-                aria-label="Warehouse"
-                value={warehouseId}
-                disabled={!warehouses.length || isLoading}
-                onChange={(event) => {
-                  if (cart.length) {
-                    const heldOrder = makeHeldOrder();
-                    setHeldOrders((current) => [heldOrder, ...current]);
-                  }
-                  clearCurrentOrder();
-                  setWarehouseId(event.target.value);
-                }}
-              >
-                {warehouses.map((warehouse) => (
-                  <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
-                ))}
-              </select>
+              <span className="pos-select-control">
+                <select
+                  aria-label="Warehouse"
+                  value={warehouseId}
+                  disabled={!warehouses.length || isLoading}
+                  onChange={(event) => {
+                    if (cart.length) {
+                      const heldOrder = makeHeldOrder();
+                      setHeldOrders((current) => [heldOrder, ...current]);
+                    }
+                    clearCurrentOrder();
+                    setWarehouseId(event.target.value);
+                  }}
+                >
+                  {warehouses.map((warehouse) => (
+                    <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
+                  ))}
+                </select>
+                <ChevronDown aria-hidden="true" className="pos-select-chevron" />
+              </span>
             </span>
-            <ChevronDown aria-hidden="true" className="pos-select-chevron" />
           </label>
         </div>
 
@@ -720,47 +749,35 @@ export default function PosScreen({
         </div>
 
         <div className="pos-products">
-          <div className="pos-chip-row" aria-label="Filter by category">
-            <button
-              className={`pos-chip${categoryId === "all" ? " is-active" : ""}`}
-              type="button"
-              aria-pressed={categoryId === "all"}
-              onClick={() => setCategoryId("all")}
-            >
-              All Categories
-            </button>
-            {categories.map((category) => (
-              <button
-                className={`pos-chip${categoryId === category.id ? " is-active" : ""}`}
-                type="button"
-                key={category.id}
-                aria-pressed={categoryId === category.id}
-                onClick={() => setCategoryId(category.id)}
+          <div className="pos-filter-row">
+            <label className="pos-filter-select">
+              <span className="pos-select-label">Category</span>
+              <select
+                aria-label="Filter by category"
+                value={categoryId}
+                onChange={(event) => setCategoryId(event.target.value)}
               >
-                {category.name}
-              </button>
-            ))}
-          </div>
-          <div className="pos-chip-row" aria-label="Filter by brand">
-            <button
-              className={`pos-chip${brandId === "all" ? " is-active" : ""}`}
-              type="button"
-              aria-pressed={brandId === "all"}
-              onClick={() => setBrandId("all")}
-            >
-              All Brands
-            </button>
-            {brands.map((brand) => (
-              <button
-                className={`pos-chip${brandId === brand.id ? " is-active" : ""}`}
-                type="button"
-                key={brand.id}
-                aria-pressed={brandId === brand.id}
-                onClick={() => setBrandId(brand.id)}
+                <option value="all">All Categories</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>{category.name}</option>
+                ))}
+              </select>
+              <ChevronDown aria-hidden="true" className="pos-select-chevron" />
+            </label>
+            <label className="pos-filter-select">
+              <span className="pos-select-label">Brand</span>
+              <select
+                aria-label="Filter by brand"
+                value={brandId}
+                onChange={(event) => setBrandId(event.target.value)}
               >
-                {brand.name}
-              </button>
-            ))}
+                <option value="all">All Brands</option>
+                {brands.map((brand) => (
+                  <option key={brand.id} value={brand.id}>{brand.name}</option>
+                ))}
+              </select>
+              <ChevronDown aria-hidden="true" className="pos-select-chevron" />
+            </label>
           </div>
 
           {loadError && <p className="pos-product-message pos-product-error" role="alert">{loadError}</p>}
@@ -788,7 +805,18 @@ export default function PosScreen({
                       className="pos-product-art"
                       style={{ backgroundImage: `linear-gradient(140deg, ${startColor}, ${endColor})` }}
                     >
-                      <PackageOpen aria-hidden="true" />
+                      {product.image ? (
+                        <Image
+                          className="pos-product-photo"
+                          src={product.image}
+                          alt=""
+                          width={320}
+                          height={220}
+                          unoptimized
+                        />
+                      ) : (
+                        <PackageOpen aria-hidden="true" />
+                      )}
                       <span className="pos-product-tag pos-product-price">$ {formatPrice(product.price)}</span>
                       <span className="pos-product-tag pos-product-stock">
                         {formatStock(product.stock)} {product.unit}
@@ -819,7 +847,7 @@ export default function PosScreen({
       {isHeldOrdersOpen && (
         <HeldOrdersModal
           orders={heldOrders}
-          activeCustomerName={customers.find((customer) => customer.id === customerId)?.name ?? "Unknown customer"}
+          activeCustomerName={customerOptions.find((customer) => customer.id === customerId)?.name ?? "Unknown customer"}
           activeWarehouseName={warehouses.find((warehouse) => warehouse.id === warehouseId)?.name ?? "Unknown warehouse"}
           hasActiveCart={cart.length > 0}
           onResume={resumeHeldOrder}
@@ -855,7 +883,154 @@ export default function PosScreen({
           onClose={() => setReceipt(null)}
         />
       )}
+      {isCustomerModalOpen && (
+        <PosCustomerModal
+          onCreated={handleCustomerCreated}
+          onClose={() => setIsCustomerModalOpen(false)}
+        />
+      )}
     </main>
+  );
+}
+
+function PosCustomerModal({
+  onCreated,
+  onClose,
+}: {
+  onCreated: (customer: PosOption) => void;
+  onClose: () => void;
+}) {
+  const [state, formAction, isPending] = useActionState(
+    createPosCustomer,
+    initialPosCustomerActionState,
+  );
+  const [countryCode, setCountryCode] = useState("");
+  const [phoneCountrySelection, setPhoneCountrySelection] = useState<{
+    countryCode: string;
+    version: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (state.status === "success") onCreated(state.customer);
+  }, [onCreated, state]);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !isPending) onClose();
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isPending, onClose]);
+
+  const fieldError = (field: CustomerField) =>
+    state.status === "error" ? state.fieldErrors?.[field]?.[0] : undefined;
+
+  return (
+    <div
+      className="pos-held-overlay"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !isPending) onClose();
+      }}
+    >
+      <section className="gg-modal pos-customer-modal" role="dialog" aria-modal="true" aria-labelledby="pos-customer-modal-title">
+        <div className="gg-modal-head">
+          <h2 className="gg-card-title" id="pos-customer-modal-title">Add Customer</h2>
+          <button className="gg-modal-close" type="button" aria-label="Close customer form" onClick={onClose} disabled={isPending}>
+            <X aria-hidden="true" />
+          </button>
+        </div>
+        <form action={formAction} noValidate>
+          <div className="pos-customer-modal-body">
+            {state.status === "error" && (
+              <p className="pos-customer-form-error" role="alert">{state.message}</p>
+            )}
+            <div className="exp-grid">
+              <div className="gg-field">
+                <label className="gg-label" htmlFor="pos-customer-name">Name <span className="gg-req">*</span></label>
+                <input
+                  className="gg-input"
+                  id="pos-customer-name"
+                  name="name"
+                  autoComplete="name"
+                  maxLength={120}
+                  required
+                  aria-invalid={Boolean(fieldError("name"))}
+                  disabled={isPending}
+                />
+                {fieldError("name") && <span className="warehouse-field-error">{fieldError("name")}</span>}
+              </div>
+              <div className="gg-field">
+                <label className="gg-label" htmlFor="pos-customer-email">Email <span className="gg-req">*</span></label>
+                <input
+                  className="gg-input"
+                  id="pos-customer-email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  maxLength={191}
+                  required
+                  aria-invalid={Boolean(fieldError("email"))}
+                  disabled={isPending}
+                />
+                {fieldError("email") && <span className="warehouse-field-error">{fieldError("email")}</span>}
+              </div>
+              <PhoneNumberInput
+                error={fieldError("phoneNumber")}
+                disabled={isPending}
+                required
+                countryCode={countryCode}
+                onCountryCodeChange={(nextCountryCode) => {
+                  setPhoneCountrySelection((current) => ({
+                    countryCode: nextCountryCode,
+                    version: (current?.version ?? 0) + 1,
+                  }));
+                }}
+              />
+              <div className="gg-field">
+                <label className="gg-label" htmlFor="pos-customer-dob">Date of birth</label>
+                <div className="date-field">
+                  <input className="gg-input gg-num" id="pos-customer-dob" name="dateOfBirth" type="date" autoComplete="bday" disabled={isPending} />
+                  <CalendarDays aria-hidden="true" />
+                </div>
+                {fieldError("dateOfBirth") && <span className="warehouse-field-error">{fieldError("dateOfBirth")}</span>}
+              </div>
+              <CountryCityFields
+                countryError={fieldError("country")}
+                regionError={fieldError("region")}
+                cityError={fieldError("city")}
+                postalError={fieldError("zipCode")}
+                disabled={isPending}
+                showRegion
+                showPostalCode
+                onCountryCodeChange={setCountryCode}
+                phoneCountrySelection={phoneCountrySelection}
+              />
+              <div className="gg-field pos-customer-address">
+                <label className="gg-label" htmlFor="pos-customer-address">Address <span className="gg-req">*</span></label>
+                <textarea
+                  className="gg-textarea"
+                  id="pos-customer-address"
+                  name="address"
+                  maxLength={191}
+                  required
+                  aria-invalid={Boolean(fieldError("address"))}
+                  disabled={isPending}
+                />
+                {fieldError("address") && <span className="warehouse-field-error">{fieldError("address")}</span>}
+              </div>
+            </div>
+          </div>
+          <div className="gg-modal-foot">
+            <button className="gg-btn gg-btn--secondary" type="button" onClick={onClose} disabled={isPending}>Cancel</button>
+            <button className="gg-btn gg-btn--primary" type="submit" disabled={isPending}>
+              <Check aria-hidden="true" />{isPending ? "Saving..." : "Save Customer"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
   );
 }
 

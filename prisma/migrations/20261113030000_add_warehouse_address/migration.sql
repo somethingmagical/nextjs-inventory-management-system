@@ -1,0 +1,2 @@
+ALTER TABLE `Warehouse`
+ADD COLUMN `address` VARCHAR(191) NOT NULL DEFAULT '';

@@ -55,6 +55,8 @@ export async function getPosProducts(warehouseId: string): Promise<PosProduct[]>
       id: true,
       code: true,
       name: true,
+      image: true,
+      images: true,
       price: true,
       productUnit: true,
       orderTax: true,
@@ -74,6 +76,7 @@ export async function getPosProducts(warehouseId: string): Promise<PosProduct[]>
     id: product.id,
     code: product.code,
     name: product.name,
+    image: getPrimaryImage(product.images, product.image),
     price: product.price.toString(),
     stock: product.productStocks[0]?.quantity.toString() ?? "0",
     unit: product.productUnit,
@@ -84,4 +87,14 @@ export async function getPosProducts(warehouseId: string): Promise<PosProduct[]>
     brandId: product.brandId,
     brandName: product.brandRecord.name,
   }));
+}
+
+function getPrimaryImage(images: unknown, legacyImage: string | null): string | null {
+  if (Array.isArray(images)) {
+    const firstImage = images.find(
+      (image): image is string => typeof image === "string" && image.trim().length > 0,
+    );
+    if (firstImage) return firstImage;
+  }
+  return legacyImage;
 }

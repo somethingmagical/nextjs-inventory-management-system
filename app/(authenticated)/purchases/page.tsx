@@ -9,7 +9,6 @@ import {
   ChevronLast,
   ChevronLeft,
   ChevronRight,
-  Filter,
   Plus,
 } from "lucide-react";
 import { Prisma } from "@prisma/client";
@@ -17,16 +16,21 @@ import { z } from "zod";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { db } from "@/lib/db";
 import WarehouseToast from "@/components/shared/WarehouseToast";
-import { getPurchaseAccess } from "./authorization";
+import { getPurchaseViewAccess } from "./authorization";
+import { PERMISSION } from "@/lib/permissions";
 import PurchaseRowActions from "@/components/purchases/PurchaseRowActions";
 import AutoSearchForm from "@/components/shared/AutoSearchForm";
+import DynamicPageSizeSelect from "@/components/shared/DynamicPageSizeSelect";
+import DynamicFilterControl from "@/components/shared/DynamicFilterControl";
+import SortableTableHeader from "@/components/shared/SortableTableHeader";
+import TableSortFilter from "@/components/shared/TableSortFilter";
+import { parseSortBy, parseSortOrder } from "@/lib/table-sorting";
 
 export const metadata: Metadata = {
   title: "Purchases",
   description: "Manage supplier purchases",
 };
 
-const pageSizeOptions = [10, 25, 50] as const;
 const searchQuerySchema = z.string().trim().max(120);
 const pageSchema = z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive());
 const pageSizeSchema = z.enum(["10", "25", "50"]).transform(Number);
@@ -34,6 +38,15 @@ const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
   const date = new Date(`${value}T00:00:00.000Z`);
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 });
+const sortFields = ["reference", "supplier", "warehouse", "status", "grandTotal", "date"] as const;
+const sortOptions = [
+  { value: "reference", label: "Reference" },
+  { value: "supplier", label: "Supplier" },
+  { value: "warehouse", label: "Warehouse" },
+  { value: "status", label: "Status" },
+  { value: "grandTotal", label: "Grand Total" },
+  { value: "date", label: "Date" },
+] as const;
 
 type PurchasesPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -55,9 +68,10 @@ export default function PurchasesPage({ searchParams }: PurchasesPageProps) {
 
 async function PurchaseList({ searchParams }: PurchasesPageProps) {
   await connection();
-  const access = await getPurchaseAccess();
+  const access = await getPurchaseViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
+  const canManagePurchases = access.user.permissions.includes(PERMISSION.managePurchase);
 
   const rawSearchParams = await searchParams;
   const parsedQuery = searchQuerySchema.safeParse(rawSearchParams.q);
@@ -68,6 +82,8 @@ async function PurchaseList({ searchParams }: PurchasesPageProps) {
   const date = parsedDate.success ? parsedDate.data : "";
   const requestedPage = parsedPage.success ? parsedPage.data : 1;
   const pageSize = parsedPageSize.success ? parsedPageSize.data : 10;
+  const sortBy = parseSortBy(rawSearchParams.sortBy, sortFields, "date");
+  const sortOrder = parseSortOrder(rawSearchParams.sortOrder);
 
   const statusMatch = (["Pending", "Ordered", "Received"] as const)
     .find((status) => status.toLowerCase() === query.toLowerCase());
@@ -84,9 +100,15 @@ async function PurchaseList({ searchParams }: PurchasesPageProps) {
     ...(date ? { date: new Date(`${date}T00:00:00.000Z`) } : {}),
     ...(query ? { OR: searchConditions } : {}),
   };
+  const orderBy: Prisma.PurchaseOrderByWithRelationInput[] =
+    sortBy === "supplier"
+      ? [{ supplier: { name: sortOrder } }, { createdAt: sortOrder }]
+      : sortBy === "warehouse"
+        ? [{ warehouse: { name: sortOrder } }, { createdAt: sortOrder }]
+        : [{ [sortBy]: sortOrder }, { createdAt: sortOrder }];
   const fetchPage = (page: number) => db.purchase.findMany({
     where,
-    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+    orderBy,
     skip: (page - 1) * pageSize,
     take: pageSize,
     select: {
@@ -143,29 +165,27 @@ async function PurchaseList({ searchParams }: PurchasesPageProps) {
             value={query}
           />
           <div className="gg-spacer" />
-          <form className="purchase-date-form" action="/purchases" role="search">
-            <label className="sr-only" htmlFor="purchase-date-filter">Filter purchases by date</label>
-            <div className="purchase-date-field">
-              <input
-                className="gg-input"
+          <TableSortFilter sortBy={sortBy} sortOrder={sortOrder} options={sortOptions}>
+            <div className="purchase-date-form">
+              <div className="purchase-date-field">
+              <DynamicFilterControl
                 id="purchase-date-filter"
                 name="date"
+                label="Filter purchases by date"
                 type="date"
-                defaultValue={date}
-                aria-label="Filter by date"
+                value={date}
+                className="gg-input"
+                visibleLabel
+                wrapperClassName="date-filter-control"
               />
               <CalendarDays aria-hidden="true" />
+              </div>
             </div>
-            {query && <input type="hidden" name="q" value={query} />}
-            <input type="hidden" name="pageSize" value={pageSize} />
-            <button className="gg-icon-btn purchase-filter-submit" type="submit" aria-label="Apply filters">
-              <Filter aria-hidden="true" />
-            </button>
-          </form>
-          <Link className="gg-btn gg-btn--primary" href="/purchases/create">
+          </TableSortFilter>
+          {canManagePurchases && <Link className="gg-btn gg-btn--primary" href="/purchases/create">
             <Plus aria-hidden="true" />
             Create Purchase
-          </Link>
+          </Link>}
         </div>
 
         <div className="gg-card gg-card-pad">
@@ -173,20 +193,20 @@ async function PurchaseList({ searchParams }: PurchasesPageProps) {
             <table className="gg-table">
               <thead>
                 <tr>
-                  <th scope="col">Reference</th>
-                  <th scope="col">Supplier</th>
-                  <th scope="col">Warehouse</th>
-                  <th scope="col">Status</th>
-                  <th scope="col" className="gg-num">Grand Total</th>
+                  <SortableTableHeader label="Reference" sortKey="reference" sortBy={sortBy} sortOrder={sortOrder} pathname="/purchases" searchParams={rawSearchParams} />
+                  <SortableTableHeader label="Supplier" sortKey="supplier" sortBy={sortBy} sortOrder={sortOrder} pathname="/purchases" searchParams={rawSearchParams} />
+                  <SortableTableHeader label="Warehouse" sortKey="warehouse" sortBy={sortBy} sortOrder={sortOrder} pathname="/purchases" searchParams={rawSearchParams} />
+                  <SortableTableHeader label="Status" sortKey="status" sortBy={sortBy} sortOrder={sortOrder} pathname="/purchases" searchParams={rawSearchParams} />
+                  <SortableTableHeader label="Grand Total" sortKey="grandTotal" sortBy={sortBy} sortOrder={sortOrder} pathname="/purchases" searchParams={rawSearchParams} className="gg-num" />
                   <th scope="col">Payment Type</th>
-                  <th scope="col">Created On</th>
-                  <th scope="col" className="purchase-actions-heading">Action</th>
+                  <SortableTableHeader label="Created On" sortKey="date" sortBy={sortBy} sortOrder={sortOrder} pathname="/purchases" searchParams={rawSearchParams} />
+                  {canManagePurchases && <th scope="col" className="purchase-actions-heading">Action</th>}
                 </tr>
               </thead>
               <tbody>
                 {purchases.map((purchase) => (
                   <tr key={purchase.id}>
-                    <td><span className="gg-chip-code">{purchase.reference}</span></td>
+                    <td><Link className="gg-chip-code" href={`/purchases/${encodeURIComponent(purchase.id)}`}>{purchase.reference}</Link></td>
                     <td className="gg-muted">{purchase.supplier.name}</td>
                     <td>{purchase.warehouse.name}</td>
                     <td>
@@ -208,29 +228,31 @@ async function PurchaseList({ searchParams }: PurchasesPageProps) {
                         </time>
                       </span>
                     </td>
-                    <td className="purchase-actions-cell">
+                    {canManagePurchases && <td className="purchase-actions-cell">
                       <PurchaseRowActions purchaseId={purchase.id} reference={purchase.reference} />
-                    </td>
+                    </td>}
                   </tr>
                 ))}
                 {purchases.length === 0 && (
                   <tr>
-                    <td className="product-empty-cell" colSpan={8}>
+                    <td className="product-empty-cell" colSpan={canManagePurchases ? 8 : 7}>
                       <p className="warehouse-empty-title">
                         {query || date ? "No purchases match your filters" : "No purchases yet"}
                       </p>
                       <p className="gg-muted">
                         {query || date
                           ? "Try changing the search or date filter."
-                          : "Create a purchase to record stock from a supplier."}
+                          : canManagePurchases
+                            ? "Create a purchase to record stock from a supplier."
+                            : "No purchases are available."}
                       </p>
                       {query || date ? (
                         <Link className="gg-btn gg-btn--secondary" href="/purchases">Clear filters</Link>
-                      ) : (
+                      ) : canManagePurchases ? (
                         <Link className="gg-btn gg-btn--primary" href="/purchases/create">
                           <Plus aria-hidden="true" />Create Purchase
                         </Link>
-                      )}
+                      ) : null}
                     </td>
                   </tr>
                 )}
@@ -251,38 +273,21 @@ async function PurchaseList({ searchParams }: PurchasesPageProps) {
           </div>
 
           <div className="gg-pagination">
-            <form className="gg-perpage" action="/purchases">
-              <label className="gg-muted" htmlFor="purchase-page-size">Records per page</label>
-              <select
-                className="gg-select"
-                id="purchase-page-size"
-                name="pageSize"
-                defaultValue={String(pageSize)}
-              >
-                {pageSizeOptions.map((option) => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
-              </select>
-              {query && <input type="hidden" name="q" value={query} />}
-              {date && <input type="hidden" name="date" value={date} />}
-              <button className="gg-page-btn warehouse-page-size-submit" type="submit" aria-label="Apply page size">
-                <ChevronRight aria-hidden="true" />
-              </button>
-            </form>
+            <DynamicPageSizeSelect id="purchase-page-size" pageSize={pageSize} />
             <span className="gg-muted gg-num" aria-live="polite">
               {firstRecord}–{lastRecord} of {totalCount}
             </span>
             <div className="gg-spacer" />
-            <PaginationLink page={1} currentPage={currentPage} totalPages={totalPages} query={query} date={date} pageSize={pageSize} label="First page">
+            <PaginationLink page={1} currentPage={currentPage} totalPages={totalPages} query={query} date={date} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="First page">
               <ChevronFirst aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.max(1, currentPage - 1)} currentPage={currentPage} totalPages={totalPages} query={query} date={date} pageSize={pageSize} label="Previous page">
+            <PaginationLink page={Math.max(1, currentPage - 1)} currentPage={currentPage} totalPages={totalPages} query={query} date={date} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Previous page">
               <ChevronLeft aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.min(totalPages, currentPage + 1)} currentPage={currentPage} totalPages={totalPages} query={query} date={date} pageSize={pageSize} label="Next page">
+            <PaginationLink page={Math.min(totalPages, currentPage + 1)} currentPage={currentPage} totalPages={totalPages} query={query} date={date} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Next page">
               <ChevronRight aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={totalPages} currentPage={currentPage} totalPages={totalPages} query={query} date={date} pageSize={pageSize} label="Last page">
+            <PaginationLink page={totalPages} currentPage={currentPage} totalPages={totalPages} query={query} date={date} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Last page">
               <ChevronLast aria-hidden="true" />
             </PaginationLink>
           </div>
@@ -299,6 +304,8 @@ function PaginationLink({
   query,
   date,
   pageSize,
+  sortBy,
+  sortOrder,
   label,
   children,
 }: {
@@ -308,6 +315,8 @@ function PaginationLink({
   query: string;
   date: string;
   pageSize: number;
+  sortBy: string;
+  sortOrder: "asc" | "desc";
   label: string;
   children: React.ReactNode;
 }) {
@@ -315,6 +324,8 @@ function PaginationLink({
   const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
   if (query) params.set("q", query);
   if (date) params.set("date", date);
+  params.set("sortBy", sortBy);
+  params.set("sortOrder", sortOrder);
 
   if (isDisabled) {
     return <span className="gg-page-btn is-disabled" aria-disabled="true" aria-label={label}>{children}</span>;

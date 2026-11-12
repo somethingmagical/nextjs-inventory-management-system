@@ -2,8 +2,10 @@ export type WarehouseField =
   | "name"
   | "email"
   | "phoneNumber"
+  | "address"
   | "country"
   | "city"
+  | "region"
   | "zipCode";
 
 export type WarehouseActionState = {

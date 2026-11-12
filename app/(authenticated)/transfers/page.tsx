@@ -16,18 +16,30 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import TransferTable, { type TransferListRow } from "@/components/transfers/TransferTable";
 import WarehouseToast from "@/components/shared/WarehouseToast";
 import { db } from "@/lib/db";
-import { getTransferAccess } from "./authorization";
+import { getTransferViewAccess } from "./authorization";
+import { PERMISSION } from "@/lib/permissions";
 import AutoSearchForm from "@/components/shared/AutoSearchForm";
+import DynamicPageSizeSelect from "@/components/shared/DynamicPageSizeSelect";
+import TableSortFilter from "@/components/shared/TableSortFilter";
+import { parseSortBy, parseSortOrder } from "@/lib/table-sorting";
 
 export const metadata: Metadata = {
   title: "Transfers",
   description: "Move products between warehouses",
 };
 
-const pageSizeOptions = [10, 25, 50] as const;
 const searchQuerySchema = z.string().trim().max(120);
 const pageSchema = z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive());
 const pageSizeSchema = z.enum(["10", "25", "50"]).transform(Number);
+const sortFields = ["reference", "fromWarehouse", "toWarehouse", "status", "grandTotal", "date"] as const;
+const sortOptions = [
+  { value: "reference", label: "Reference" },
+  { value: "fromWarehouse", label: "From Warehouse" },
+  { value: "toWarehouse", label: "To Warehouse" },
+  { value: "status", label: "Status" },
+  { value: "grandTotal", label: "Grand Total" },
+  { value: "date", label: "Created On" },
+] as const;
 
 type TransfersPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -49,9 +61,10 @@ export default function TransfersPage({ searchParams }: TransfersPageProps) {
 
 async function TransferList({ searchParams }: TransfersPageProps) {
   await connection();
-  const access = await getTransferAccess();
+  const access = await getTransferViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
+  const canManageTransfers = access.user.permissions.includes(PERMISSION.manageTransfers);
 
   const rawSearchParams = await searchParams;
   const parsedQuery = searchQuerySchema.safeParse(rawSearchParams.q);
@@ -60,6 +73,8 @@ async function TransferList({ searchParams }: TransfersPageProps) {
   const query = parsedQuery.success ? parsedQuery.data : "";
   const requestedPage = parsedPage.success ? parsedPage.data : 1;
   const pageSize = parsedPageSize.success ? parsedPageSize.data : 10;
+  const sortBy = parseSortBy(rawSearchParams.sortBy, sortFields, "date");
+  const sortOrder = parseSortOrder(rawSearchParams.sortOrder);
 
   const statusMatch = Object.values(TransferStatus)
     .find((status) => status.toLowerCase() === query.toLowerCase());
@@ -88,9 +103,15 @@ async function TransferList({ searchParams }: TransfersPageProps) {
     deletedAt: null,
     ...(query ? { OR: searchConditions } : {}),
   };
+  const orderBy: Prisma.TransferOrderByWithRelationInput[] =
+    sortBy === "fromWarehouse"
+      ? [{ fromWarehouse: { name: sortOrder } }, { createdAt: sortOrder }]
+      : sortBy === "toWarehouse"
+        ? [{ toWarehouse: { name: sortOrder } }, { createdAt: sortOrder }]
+        : [{ [sortBy]: sortOrder }, { createdAt: sortOrder }];
   const fetchPage = (page: number) => db.transfer.findMany({
     where,
-    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+    orderBy,
     skip: (page - 1) * pageSize,
     take: pageSize,
     select: {
@@ -156,49 +177,41 @@ async function TransferList({ searchParams }: TransfersPageProps) {
             label="Search transfers"
             value={query}
           />
+          <TableSortFilter sortBy={sortBy} sortOrder={sortOrder} options={sortOptions} />
           <div className="gg-spacer" />
-          <Link className="gg-btn gg-btn--primary" href="/transfers/create">
+          {canManageTransfers && <Link className="gg-btn gg-btn--primary" href="/transfers/create">
             <Plus aria-hidden="true" />
             Create Transfer
-          </Link>
+          </Link>}
         </div>
 
         <div className="gg-card gg-card-pad">
           <div className="gg-table-wrap">
-            <TransferTable transfers={transferRows} isFiltered={Boolean(query)} />
+            <TransferTable
+              transfers={transferRows}
+              canManage={canManageTransfers}
+              isFiltered={Boolean(query)}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              searchParams={rawSearchParams}
+            />
           </div>
           <div className="gg-pagination">
-            <form className="gg-perpage" action="/transfers">
-              <label className="gg-muted" htmlFor="transfer-page-size">Records per page</label>
-              <select
-                className="gg-select"
-                id="transfer-page-size"
-                name="pageSize"
-                defaultValue={String(pageSize)}
-              >
-                {pageSizeOptions.map((option) => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
-              </select>
-              {query && <input type="hidden" name="q" value={query} />}
-              <button className="gg-page-btn warehouse-page-size-submit" type="submit" aria-label="Apply page size">
-                <ChevronRight aria-hidden="true" />
-              </button>
-            </form>
+            <DynamicPageSizeSelect id="transfer-page-size" pageSize={pageSize} />
             <span className="gg-muted gg-num" aria-live="polite">
               {firstRecord}–{lastRecord} of {totalCount}
             </span>
             <div className="gg-spacer" />
-            <PaginationLink page={1} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} label="First page">
+            <PaginationLink page={1} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="First page">
               <ChevronFirst aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.max(1, currentPage - 1)} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} label="Previous page">
+            <PaginationLink page={Math.max(1, currentPage - 1)} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Previous page">
               <ChevronLeft aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.min(totalPages, currentPage + 1)} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} label="Next page">
+            <PaginationLink page={Math.min(totalPages, currentPage + 1)} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Next page">
               <ChevronRight aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={totalPages} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} label="Last page">
+            <PaginationLink page={totalPages} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Last page">
               <ChevronLast aria-hidden="true" />
             </PaginationLink>
           </div>
@@ -214,6 +227,8 @@ function PaginationLink({
   totalPages,
   query,
   pageSize,
+  sortBy,
+  sortOrder,
   label,
   children,
 }: {
@@ -222,12 +237,16 @@ function PaginationLink({
   totalPages: number;
   query: string;
   pageSize: number;
+  sortBy: string;
+  sortOrder: "asc" | "desc";
   label: string;
   children: React.ReactNode;
 }) {
   const isDisabled = totalPages === 0 || page === currentPage;
   const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
   if (query) params.set("q", query);
+  params.set("sortBy", sortBy);
+  params.set("sortOrder", sortOrder);
 
   if (isDisabled) {
     return <span className="gg-page-btn is-disabled" aria-disabled="true" aria-label={label}>{children}</span>;

@@ -109,10 +109,21 @@ model RolePermission {
 }
 
 model ApplicationSetting {
-  id          String   @id
-  appName     String   @db.VarChar(100)
-  faviconPath String?  @db.VarChar(255)
-  updatedAt   DateTime @updatedAt
+  id             String   @id
+  appName        String   @db.VarChar(100)
+  faviconPath    String?  @db.VarChar(255)
+  headerLogoPath String?  @db.VarChar(255)
+  updatedAt      DateTime @updatedAt
+}
+
+model LoginAttemptBucket {
+  key             String    @id @db.Char(64)
+  attempts        Int       @default(0)
+  windowStartedAt DateTime  @db.DateTime(3)
+  lockedUntil     DateTime? @db.DateTime(3)
+  updatedAt       DateTime  @updatedAt
+
+  @@index([updatedAt])
 }
 
 model Warehouse {
@@ -122,7 +133,9 @@ model Warehouse {
   phoneNumber     String
   country         String
   city            String
+  region          String?
   zipCode         String
+  address         String
   deletedAt       DateTime?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
@@ -146,7 +159,9 @@ model Supplier {
   email           String
   phoneNumber     String
   country         String
+  region          String?
   city            String
+  zipCode         String?
   address         String
   deletedAt       DateTime?
   createdAt       DateTime         @default(now())
@@ -165,7 +180,9 @@ model Customer {
   phoneNumber String
   dateOfBirth DateTime?
   country     String
+  region      String?
   city        String
+  zipCode     String?
   address     String
   deletedAt   DateTime?
   createdAt   DateTime     @default(now())

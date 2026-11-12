@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { signIn } from "next-auth/react";
 import { Info, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -11,7 +12,7 @@ const credentialsSchema = z.object({
   password: z.string().min(1),
 });
 
-export default function SignInForm() {
+export default function SignInForm({ headerLogoPath }: { headerLogoPath: string | null }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,7 +49,7 @@ export default function SignInForm() {
       if (!result || !result.ok || result.error) {
         setError(
           result?.error === "CredentialsSignin"
-            ? "Invalid email or password."
+            ? "Invalid email or password, or too many attempts. Please wait and try again."
             : "Unable to connect to the sign-in service. Please try again later.",
         );
         return;
@@ -66,10 +67,14 @@ export default function SignInForm() {
   return (
     <main className="auth-page">
       <div className="auth">
-        <div className="auth-ava" aria-hidden="true">
-          <UserRound size={36} strokeWidth={1.7} />
-        </div>
         <section className="auth-card" aria-labelledby="sign-in-title">
+          <div className={`auth-ava${headerLogoPath ? " has-logo" : ""}`} aria-hidden="true">
+            {headerLogoPath ? (
+              <Image src={headerLogoPath} alt="" width={180} height={72} unoptimized />
+            ) : (
+              <UserRound size={36} strokeWidth={1.7} />
+            )}
+          </div>
           <h1 className="auth-title" id="sign-in-title">Sign In</h1>
           <form noValidate onSubmit={handleSubmit}>
             {error && (

@@ -60,7 +60,9 @@ async function AuthorizedEditCustomer({ params }: EditCustomerPageProps) {
       phoneNumber: true,
       dateOfBirth: true,
       country: true,
+      region: true,
       city: true,
+      zipCode: true,
       address: true,
     },
   });
@@ -81,7 +83,9 @@ async function AuthorizedEditCustomer({ params }: EditCustomerPageProps) {
     phoneNumber: customer.phoneNumber,
     dateOfBirth: customer.dateOfBirth?.toISOString().slice(0, 10) ?? "",
     country: customer.country,
+    region: customer.region ?? "",
     city: customer.city,
+    zipCode: customer.zipCode ?? "",
     address: customer.address,
   };
 

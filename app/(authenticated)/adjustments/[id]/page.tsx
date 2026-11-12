@@ -6,7 +6,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { db } from "@/lib/db";
-import { getAdjustmentAccess } from "../authorization";
+import { getAdjustmentViewAccess } from "../authorization";
 import { adjustmentIdSchema } from "../adjustment-schema";
 
 export const metadata: Metadata = {
@@ -36,7 +36,7 @@ export default async function AdjustmentDetailsPage({
 
 async function AuthorizedAdjustmentDetails({ params }: AdjustmentDetailsPageProps) {
   await connection();
-  const access = await getAdjustmentAccess();
+  const access = await getAdjustmentViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
 

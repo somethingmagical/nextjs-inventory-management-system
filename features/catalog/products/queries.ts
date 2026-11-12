@@ -1,5 +1,6 @@
 import "server-only";
 
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 
 export async function getProductListData(input: {
@@ -9,6 +10,8 @@ export async function getProductListData(input: {
   status?: "Received" | "Pending" | "Ordered";
   requestedPage: number;
   pageSize: number;
+  sortBy: "name" | "code" | "brand" | "price" | "createdAt";
+  sortOrder: "asc" | "desc";
 }) {
   const stockFilter = {
     ...(input.warehouseId ? { warehouseId: input.warehouseId } : {}),
@@ -33,9 +36,13 @@ export async function getProductListData(input: {
   const totalCount = await db.product.count({ where });
   const totalPages = Math.ceil(totalCount / input.pageSize);
   const currentPage = totalPages === 0 ? 1 : Math.min(input.requestedPage, totalPages);
+  const orderBy: Prisma.ProductOrderByWithRelationInput[] =
+    input.sortBy === "brand"
+      ? [{ brandRecord: { name: input.sortOrder } }, { name: input.sortOrder }]
+      : [{ [input.sortBy]: input.sortOrder }, { id: input.sortOrder }];
   const products = await db.product.findMany({
     where,
-    orderBy: { createdAt: "desc" },
+    orderBy,
     skip: (currentPage - 1) * input.pageSize,
     take: input.pageSize,
     select: {

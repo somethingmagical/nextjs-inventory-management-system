@@ -37,7 +37,7 @@ export default function DashboardPage() {
 
 async function DashboardData() {
   await connection();
-  const access = await requirePermission(PERMISSION.manageDashboard);
+  const access = await requirePermission(PERMISSION.viewDashboard);
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") notFound();
 
@@ -224,6 +224,7 @@ async function DashboardData() {
         ON w.id = ps.warehouseId AND w.deletedAt IS NULL
       WHERE p.stockAlert IS NOT NULL AND ps.quantity <= p.stockAlert
       ORDER BY p.name ASC, w.name ASC
+      LIMIT 5
     `,
   ]);
 
@@ -365,6 +366,12 @@ async function DashboardData() {
             alertQuantity: stock.alertQuantity.toString(),
             unit: stock.unit,
           }))}
+          stockHref={
+            access.user.roleName === "admin"
+              || access.user.permissions.includes(PERMISSION.viewStock)
+              ? "/stock"
+              : undefined
+          }
         />
       </div>
     </main>

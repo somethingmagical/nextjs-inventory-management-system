@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { calculatePurchaseTotals } from "@/lib/purchase-pricing";
-import { getPurchaseReturnAccess } from "../../authorization";
+import { getPurchaseReturnViewAccess } from "../../authorization";
 import { purchaseReturnIdSchema } from "../../purchase-return-create-schema";
 import { getPurchaseReturnDetails } from "../../purchase-return-details";
 import { generatePurchasePdf } from "../../../purchase-pdf";
@@ -10,7 +10,7 @@ type PurchaseReturnPdfRouteContext = {
 };
 
 export async function GET(_request: Request, { params }: PurchaseReturnPdfRouteContext) {
-  const access = await getPurchaseReturnAccess();
+  const access = await getPurchaseReturnViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") {
     return new Response("You do not have permission to manage purchase returns.", { status: 403 });

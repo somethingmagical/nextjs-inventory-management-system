@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import TransferRowActions from "./TransferRowActions";
+import SortableTableHeader from "@/components/shared/SortableTableHeader";
 
 export type TransferListRow = {
   id: string;
@@ -19,10 +20,18 @@ export type TransferListRow = {
 
 export default function TransferTable({
   transfers,
+  canManage,
   isFiltered,
+  sortBy,
+  sortOrder,
+  searchParams,
 }: {
   transfers: TransferListRow[];
+  canManage: boolean;
   isFiltered: boolean;
+  sortBy: string;
+  sortOrder: "asc" | "desc";
+  searchParams: Record<string, string | string[] | undefined>;
 }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const allSelected = transfers.length > 0 && transfers.every((transfer) => selectedIds.has(transfer.id));
@@ -48,7 +57,7 @@ export default function TransferTable({
     <table className="gg-table transfer-list-table">
       <thead>
         <tr>
-          <th scope="col" style={{ width: 44 }}>
+          {canManage && <th scope="col" style={{ width: 44 }}>
             <input
               type="checkbox"
               className="gg-check"
@@ -60,21 +69,21 @@ export default function TransferTable({
               }}
               onChange={toggleAll}
             />
-          </th>
-          <th scope="col">Reference</th>
-          <th scope="col">From Warehouse</th>
-          <th scope="col">To Warehouse</th>
+          </th>}
+          <SortableTableHeader label="Reference" sortKey="reference" sortBy={sortBy} sortOrder={sortOrder} pathname="/transfers" searchParams={searchParams} />
+          <SortableTableHeader label="From Warehouse" sortKey="fromWarehouse" sortBy={sortBy} sortOrder={sortOrder} pathname="/transfers" searchParams={searchParams} />
+          <SortableTableHeader label="To Warehouse" sortKey="toWarehouse" sortBy={sortBy} sortOrder={sortOrder} pathname="/transfers" searchParams={searchParams} />
           <th scope="col">Items</th>
-          <th scope="col" className="gg-num">Grand Total</th>
-          <th scope="col">Status</th>
-          <th scope="col">Created On</th>
+          <SortableTableHeader label="Grand Total" sortKey="grandTotal" sortBy={sortBy} sortOrder={sortOrder} pathname="/transfers" searchParams={searchParams} className="gg-num" />
+          <SortableTableHeader label="Status" sortKey="status" sortBy={sortBy} sortOrder={sortOrder} pathname="/transfers" searchParams={searchParams} />
+          <SortableTableHeader label="Created On" sortKey="date" sortBy={sortBy} sortOrder={sortOrder} pathname="/transfers" searchParams={searchParams} />
           <th scope="col" className="transfer-actions-heading">Action</th>
         </tr>
       </thead>
       <tbody>
         {transfers.map((transfer) => (
           <tr key={transfer.id}>
-            <td>
+            {canManage && <td>
               <input
                 type="checkbox"
                 className="gg-check"
@@ -82,7 +91,7 @@ export default function TransferTable({
                 checked={selectedIds.has(transfer.id)}
                 onChange={() => toggleOne(transfer.id)}
               />
-            </td>
+            </td>}
             <td><span className="gg-chip-code">{transfer.reference}</span></td>
             <td>{transfer.fromWarehouse}</td>
             <td>{transfer.toWarehouse}</td>
@@ -105,28 +114,30 @@ export default function TransferTable({
               </span>
             </td>
             <td className="transfer-actions-cell">
-              <TransferRowActions transferId={transfer.id} reference={transfer.reference} />
+              <TransferRowActions transferId={transfer.id} reference={transfer.reference} canManage={canManage} />
             </td>
           </tr>
         ))}
         {transfers.length === 0 && (
           <tr>
-            <td className="product-empty-cell" colSpan={9}>
+            <td className="product-empty-cell" colSpan={canManage ? 9 : 8}>
               <p className="warehouse-empty-title">
                 {isFiltered ? "No transfers match your search" : "No transfers yet"}
               </p>
               <p className="gg-muted">
                 {isFiltered
                   ? "Try changing the search term."
-                  : "Create a transfer to move stock between warehouses."}
+                  : canManage
+                    ? "Create a transfer to move stock between warehouses."
+                    : "No transfers are available."}
               </p>
               {isFiltered ? (
                 <Link className="gg-btn gg-btn--secondary" href="/transfers">Clear search</Link>
-              ) : (
+              ) : canManage ? (
                 <Link className="gg-btn gg-btn--primary" href="/transfers/create">
                   Create Transfer
                 </Link>
-              )}
+              ) : null}
             </td>
           </tr>
         )}

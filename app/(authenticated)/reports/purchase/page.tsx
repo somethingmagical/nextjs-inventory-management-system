@@ -5,7 +5,6 @@ import {
   ChevronLast,
   ChevronLeft,
   ChevronRight,
-  Filter,
 } from "lucide-react";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -16,13 +15,17 @@ import ExcelExportLink from "../ExcelExportLink";
 import ReportPageSuspense from "../ReportPageSuspense";
 import { buildPurchaseReportWhere } from "@/lib/reports/filters";
 import AutoSearchForm from "@/components/shared/AutoSearchForm";
+import DynamicPageSizeSelect from "@/components/shared/DynamicPageSizeSelect";
+import DynamicFilterControl from "@/components/shared/DynamicFilterControl";
+import SortableTableHeader from "@/components/shared/SortableTableHeader";
+import TableSortFilter from "@/components/shared/TableSortFilter";
+import { parseSortBy, parseSortOrder } from "@/lib/table-sorting";
 
 export const metadata: Metadata = {
   title: "Purchase Reports",
   description: "Search and review purchases by date, status, and payment type.",
 };
 
-const pageSizeOptions = [10, 25, 50] as const;
 const querySchema = z.string().trim().max(120);
 const pageSchema = z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive());
 const pageSizeSchema = z.enum(["10", "25", "50"]).transform(Number);
@@ -30,6 +33,14 @@ const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
   const date = new Date(`${value}T00:00:00.000Z`);
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 });
+const sortFields = ["reference", "supplier", "status", "grandTotal", "createdAt"] as const;
+const sortOptions = [
+  { value: "reference", label: "Reference" },
+  { value: "supplier", label: "Supplier" },
+  { value: "status", label: "Status" },
+  { value: "grandTotal", label: "Grand Total" },
+  { value: "createdAt", label: "Created On" },
+] as const;
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -52,20 +63,22 @@ async function PurchaseReportContent({ searchParams }: { searchParams: SearchPar
   const date = parsedDate.success ? parsedDate.data : "";
   const requestedPage = parsedPage.success ? parsedPage.data : 1;
   const pageSize = parsedPageSize.success ? parsedPageSize.data : 10;
+  const sortBy = parseSortBy(params.sortBy, sortFields, "createdAt");
+  const sortOrder = parseSortOrder(params.sortOrder);
 
   const where = buildPurchaseReportWhere(query, date);
   const [totalCount, requestedPurchases] = await Promise.all([
     db.purchase.count({ where }),
-    fetchPurchases(where, requestedPage, pageSize),
+    fetchPurchases(where, requestedPage, pageSize, sortBy, sortOrder),
   ]);
   const totalPages = Math.ceil(totalCount / pageSize);
   const currentPage = totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
   const purchases = currentPage === requestedPage
     ? requestedPurchases
-    : await fetchPurchases(where, currentPage, pageSize);
+    : await fetchPurchases(where, currentPage, pageSize, sortBy, sortOrder);
   const firstRecord = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const lastRecord = Math.min(currentPage * pageSize, totalCount);
-  const paginationParams = { query, date, pageSize };
+  const paginationParams = { query, date, pageSize, sortBy, sortOrder };
 
   return (
     <main className="gg-content reports-content">
@@ -81,25 +94,23 @@ async function PurchaseReportContent({ searchParams }: { searchParams: SearchPar
 
           <div className="gg-spacer" />
 
-          <form className="purchase-report-date-form" action="/reports/purchase" role="search">
-            <label className="sr-only" htmlFor="purchase-report-date">Filter purchases by date</label>
-            <div className="purchase-report-date-field">
-              <input
-                className="gg-input"
+          <TableSortFilter sortBy={sortBy} sortOrder={sortOrder} options={sortOptions}>
+            <div className="purchase-report-date-form">
+              <div className="purchase-report-date-field">
+              <DynamicFilterControl
                 id="purchase-report-date"
                 name="date"
+                label="Filter purchases by date"
                 type="date"
-                defaultValue={date}
-                aria-label="Filter by date"
+                value={date}
+                className="gg-input"
+                visibleLabel
+                wrapperClassName="date-filter-control"
               />
               <CalendarDays aria-hidden="true" />
+              </div>
             </div>
-            {query && <input type="hidden" name="q" value={query} />}
-            <input type="hidden" name="pageSize" value={pageSize} />
-            <button className="btn-icon-gold" type="submit" aria-label="Apply date filter">
-              <Filter aria-hidden="true" />
-            </button>
-          </form>
+          </TableSortFilter>
           <div className="report-toolbar-export">
             <ExcelExportLink report="purchase" query={query} date={date} />
           </div>
@@ -110,14 +121,14 @@ async function PurchaseReportContent({ searchParams }: { searchParams: SearchPar
         <table className="gg-table gg-table--spaced purchase-report-table">
           <thead>
             <tr>
-              <th scope="col">Reference</th>
-              <th scope="col">Supplier</th>
-              <th scope="col">Status</th>
-              <th scope="col" className="gg-num">Grand Total</th>
+              <SortableTableHeader label="Reference" sortKey="reference" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/purchase" searchParams={params} />
+              <SortableTableHeader label="Supplier" sortKey="supplier" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/purchase" searchParams={params} />
+              <SortableTableHeader label="Status" sortKey="status" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/purchase" searchParams={params} />
+              <SortableTableHeader label="Grand Total" sortKey="grandTotal" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/purchase" searchParams={params} className="gg-num" />
               <th scope="col" className="gg-num">Paid</th>
               <th scope="col" className="gg-num">Due</th>
               <th scope="col">Payment Type</th>
-              <th scope="col">Created On</th>
+              <SortableTableHeader label="Created On" sortKey="createdAt" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/purchase" searchParams={params} />
             </tr>
           </thead>
           <tbody>
@@ -160,24 +171,7 @@ async function PurchaseReportContent({ searchParams }: { searchParams: SearchPar
       </div>
 
       <div className="gg-pagination">
-        <form className="gg-perpage" action="/reports/purchase">
-          <label className="gg-muted" htmlFor="purchase-report-page-size">Records per page</label>
-          <select
-            className="gg-select"
-            id="purchase-report-page-size"
-            name="pageSize"
-            defaultValue={String(pageSize)}
-          >
-            {pageSizeOptions.map((option) => (
-              <option key={option} value={option}>{option}</option>
-            ))}
-          </select>
-          {query && <input type="hidden" name="q" value={query} />}
-          {date && <input type="hidden" name="date" value={date} />}
-          <button className="gg-page-btn purchase-report-page-size-submit" type="submit" aria-label="Apply page size">
-            <ChevronRight aria-hidden="true" />
-          </button>
-        </form>
+        <DynamicPageSizeSelect id="purchase-report-page-size" pageSize={pageSize} />
         <span className="gg-muted gg-num" aria-live="polite">
           {firstRecord}–{lastRecord} of {totalCount}
         </span>
@@ -211,10 +205,20 @@ async function PurchaseReportContent({ searchParams }: { searchParams: SearchPar
   );
 }
 
-function fetchPurchases(where: Prisma.PurchaseWhereInput, page: number, pageSize: number) {
+function fetchPurchases(
+  where: Prisma.PurchaseWhereInput,
+  page: number,
+  pageSize: number,
+  sortBy: (typeof sortFields)[number],
+  sortOrder: "asc" | "desc",
+) {
+  const orderBy: Prisma.PurchaseOrderByWithRelationInput[] =
+    sortBy === "supplier"
+      ? [{ supplier: { name: sortOrder } }, { createdAt: sortOrder }]
+      : [{ [sortBy]: sortOrder }, { id: sortOrder }];
   return db.purchase.findMany({
     where,
-    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+    orderBy,
     skip: (page - 1) * pageSize,
     take: pageSize,
     select: {
@@ -230,13 +234,15 @@ function fetchPurchases(where: Prisma.PurchaseWhereInput, page: number, pageSize
 }
 
 function buildHref(
-  params: { query: string; date: string; pageSize: number },
+  params: { query: string; date: string; pageSize: number; sortBy: string; sortOrder: "asc" | "desc" },
   page: number,
 ) {
   const searchParams = new URLSearchParams();
   if (params.query) searchParams.set("q", params.query);
   if (params.date) searchParams.set("date", params.date);
   if (params.pageSize !== 10) searchParams.set("pageSize", String(params.pageSize));
+  searchParams.set("sortBy", params.sortBy);
+  searchParams.set("sortOrder", params.sortOrder);
   if (page > 1) searchParams.set("page", String(page));
   const queryString = searchParams.toString();
   return queryString ? `/reports/purchase?${queryString}` : "/reports/purchase";
@@ -253,7 +259,7 @@ function PageLink({
   page: number;
   currentPage: number;
   totalPages: number;
-  params: { query: string; date: string; pageSize: number };
+  params: { query: string; date: string; pageSize: number; sortBy: string; sortOrder: "asc" | "desc" };
   label: string;
   children: React.ReactNode;
 }) {

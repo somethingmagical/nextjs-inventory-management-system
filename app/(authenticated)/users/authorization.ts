@@ -4,3 +4,7 @@ import { PERMISSION } from "@/lib/permissions";
 export async function getUserManagementAccess() {
   return requirePermission(PERMISSION.manageUsers);
 }
+
+export async function getUserViewAccess() {
+  return requirePermission(PERMISSION.viewUsers);
+}

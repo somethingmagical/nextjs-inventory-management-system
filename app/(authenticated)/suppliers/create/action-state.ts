@@ -1,4 +1,4 @@
-export type SupplierField = "name" | "email" | "phoneNumber" | "country" | "city" | "address";
+export type SupplierField = "name" | "email" | "phoneNumber" | "country" | "region" | "city" | "zipCode" | "address";
 
 export type SupplierActionState = {
   status: "idle" | "error" | "success";

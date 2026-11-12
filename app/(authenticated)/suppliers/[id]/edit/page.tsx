@@ -59,7 +59,9 @@ async function AuthorizedEditSupplier({ params }: EditSupplierPageProps) {
       email: true,
       phoneNumber: true,
       country: true,
+      region: true,
       city: true,
+      zipCode: true,
       address: true,
     },
   });
@@ -75,7 +77,9 @@ async function AuthorizedEditSupplier({ params }: EditSupplierPageProps) {
     email: supplier.email,
     phoneNumber: supplier.phoneNumber,
     country: supplier.country,
+    region: supplier.region ?? "",
     city: supplier.city,
+    zipCode: supplier.zipCode ?? "",
     address: supplier.address,
   };
 

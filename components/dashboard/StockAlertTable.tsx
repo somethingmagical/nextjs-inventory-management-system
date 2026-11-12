@@ -1,3 +1,4 @@
+import Link from "next/link";
 import DashboardCard from "./DashboardCard";
 
 type StockAlert = {
@@ -10,9 +11,19 @@ type StockAlert = {
   unit: string;
 };
 
-export default function StockAlertTable({ stockAlerts }: { stockAlerts: StockAlert[] }) {
+export default function StockAlertTable({
+  stockAlerts,
+  stockHref,
+}: {
+  stockAlerts: StockAlert[];
+  stockHref?: string;
+}) {
   return (
-    <DashboardCard title="Stock Alert" contentClassName="dashboard-table-pad">
+    <DashboardCard
+      title="Stock Alert"
+      action={stockHref ? <Link className="gg-btn gg-btn--ghost gg-btn--sm" href={stockHref}>View all</Link> : undefined}
+      contentClassName="dashboard-table-pad"
+    >
       <div className="gg-table-wrap">
         <table className="gg-table">
           <thead>

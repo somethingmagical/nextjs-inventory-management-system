@@ -33,7 +33,9 @@ export async function updateCustomer(
     phoneNumber: formData.get("phoneNumber"),
     dateOfBirth: formData.get("dateOfBirth") ?? "",
     country: formData.get("country"),
+    region: formData.get("region"),
     city: formData.get("city"),
+    zipCode: formData.get("zipCode"),
     address: formData.get("address"),
   });
 
@@ -54,7 +56,9 @@ export async function updateCustomer(
       phoneNumber: true,
       dateOfBirth: true,
       country: true,
+      region: true,
       city: true,
+      zipCode: true,
       address: true,
     },
   });
@@ -74,7 +78,9 @@ export async function updateCustomer(
     customer.phoneNumber !== parsed.data.phoneNumber ||
     customer.dateOfBirth?.getTime() !== parsed.data.dateOfBirth?.getTime() ||
     customer.country !== parsed.data.country ||
+    customer.region !== parsed.data.region ||
     customer.city !== parsed.data.city ||
+    customer.zipCode !== parsed.data.zipCode ||
     customer.address !== parsed.data.address;
 
   if (!hasChanges) {

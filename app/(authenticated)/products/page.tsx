@@ -20,21 +20,32 @@ import { getProductListData } from "@/features/catalog/products/queries";
 import ProductDeleteButton from "./ProductDeleteButton";
 import ProductListTools from "./ProductListTools";
 import { getProductImagePaths } from "./product-images";
-import { getProductAccess } from "./authorization";
+import { getProductViewAccess } from "./authorization";
 import WarehouseToast from "@/components/shared/WarehouseToast";
 import AutoSearchForm from "@/components/shared/AutoSearchForm";
+import DynamicPageSizeSelect from "@/components/shared/DynamicPageSizeSelect";
+import SortableTableHeader from "@/components/shared/SortableTableHeader";
+import { parseSortBy, parseSortOrder } from "@/lib/table-sorting";
+import { PERMISSION } from "@/lib/permissions";
 
 export const metadata: Metadata = {
   title: "Products",
   description: "Manage inventory products",
 };
 
-const pageSizeOptions = [10, 25, 50] as const;
 const searchQuerySchema = z.string().trim().max(120);
 const filterIdSchema = z.string().trim().min(1).max(191);
 const productStockStatusSchema = z.enum(["Received", "Pending", "Ordered"]);
 const pageSchema = z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive());
 const pageSizeSchema = z.enum(["10", "25", "50"]).transform(Number);
+const sortFields = ["name", "code", "brand", "price", "createdAt"] as const;
+const sortOptions = [
+  { value: "name", label: "Name" },
+  { value: "code", label: "Code" },
+  { value: "brand", label: "Brand" },
+  { value: "price", label: "Price" },
+  { value: "createdAt", label: "Created On" },
+] as const;
 
 type ProductsPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -56,9 +67,10 @@ export default function ProductsPage({ searchParams }: ProductsPageProps) {
 
 async function ProductList({ searchParams }: ProductsPageProps) {
   await connection();
-  const access = await getProductAccess();
+  const access = await getProductViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
+  const canManageProducts = access.user.permissions.includes(PERMISSION.manageProducts);
 
   const rawSearchParams = await searchParams;
   const parsedQuery = searchQuerySchema.safeParse(rawSearchParams.q);
@@ -68,6 +80,8 @@ async function ProductList({ searchParams }: ProductsPageProps) {
   const query = parsedQuery.success ? parsedQuery.data : "";
   const requestedPage = parsedPage.success ? parsedPage.data : 1;
   const pageSize = parsedPageSize.success ? parsedPageSize.data : 10;
+  const sortBy = parseSortBy(rawSearchParams.sortBy, sortFields, "createdAt");
+  const sortOrder = parseSortOrder(rawSearchParams.sortOrder);
 
   const [filterOptions, user] = await Promise.all([
     Promise.all([
@@ -109,6 +123,8 @@ async function ProductList({ searchParams }: ProductsPageProps) {
     status,
     requestedPage,
     pageSize,
+    sortBy,
+    sortOrder,
   });
   const { totalCount, totalPages, currentPage, products, stockByProduct } = productList;
   const displayName = `${user.firstName} ${user.lastName}`.trim() || user.email;
@@ -151,11 +167,16 @@ async function ProductList({ searchParams }: ProductsPageProps) {
             warehouseId={warehouseId}
             supplierId={supplierId}
             status={status}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            sortOptions={sortOptions}
           />
-          <Link className="gg-btn gg-btn--primary" href="/products/create">
-            <Plus aria-hidden="true" />
-            Create Product
-          </Link>
+          {canManageProducts && (
+            <Link className="gg-btn gg-btn--primary" href="/products/create">
+              <Plus aria-hidden="true" />
+              Create Product
+            </Link>
+          )}
         </div>
 
         <div className="gg-card gg-card-pad">
@@ -164,13 +185,13 @@ async function ProductList({ searchParams }: ProductsPageProps) {
               <thead>
                 <tr>
                   <th scope="col">Product</th>
-                  <th scope="col">Name</th>
-                  <th scope="col">Code</th>
-                  <th scope="col">Brand</th>
-                  <th scope="col" className="gg-num">Price</th>
+                  <SortableTableHeader label="Name" sortKey="name" sortBy={sortBy} sortOrder={sortOrder} pathname="/products" searchParams={rawSearchParams} />
+                  <SortableTableHeader label="Code" sortKey="code" sortBy={sortBy} sortOrder={sortOrder} pathname="/products" searchParams={rawSearchParams} />
+                  <SortableTableHeader label="Brand" sortKey="brand" sortBy={sortBy} sortOrder={sortOrder} pathname="/products" searchParams={rawSearchParams} />
+                  <SortableTableHeader label="Price" sortKey="price" sortBy={sortBy} sortOrder={sortOrder} pathname="/products" searchParams={rawSearchParams} className="gg-num" />
                   <th scope="col">Product Unit</th>
                   <th scope="col" className="gg-num">In Stock</th>
-                  <th scope="col">Created On</th>
+                  <SortableTableHeader label="Created On" sortKey="createdAt" sortBy={sortBy} sortOrder={sortOrder} pathname="/products" searchParams={rawSearchParams} />
                   <th scope="col" className="product-actions-heading">Action</th>
                 </tr>
               </thead>
@@ -205,15 +226,15 @@ async function ProductList({ searchParams }: ProductsPageProps) {
                           >
                             <Eye aria-hidden="true" />
                           </Link>
-                          <Link
+                          {canManageProducts && <Link
                             className="act-edit"
                             href={`/products/${encodeURIComponent(product.id)}/edit`}
                             aria-label={`Edit ${product.name}`}
                             title="Edit"
                           >
                             <Pencil aria-hidden="true" />
-                          </Link>
-                          <ProductDeleteButton productId={product.id} productName={product.name} />
+                          </Link>}
+                          {canManageProducts && <ProductDeleteButton productId={product.id} productName={product.name} />}
                         </div>
                       </td>
                     </tr>
@@ -239,9 +260,9 @@ async function ProductList({ searchParams }: ProductsPageProps) {
                         }).toString()}`}>Clear filters</Link>
                       ) : query ? (
                         <Link className="gg-btn gg-btn--secondary" href="/products">Clear search</Link>
-                      ) : (
+                      ) : canManageProducts ? (
                         <Link className="gg-btn gg-btn--primary" href="/products/create"><Plus aria-hidden="true" />Create Product</Link>
-                      )}
+                      ) : null}
                     </td>
                   </tr>
                 )}
@@ -250,31 +271,19 @@ async function ProductList({ searchParams }: ProductsPageProps) {
           </div>
 
           <div className="gg-pagination">
-            <form className="gg-perpage" action="/products">
-              <label className="gg-muted" htmlFor="product-page-size">Records per page</label>
-              <select className="gg-select" id="product-page-size" name="pageSize" defaultValue={String(pageSize)}>
-                {pageSizeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-              </select>
-              {query && <input type="hidden" name="q" value={query} />}
-              {warehouseId && <input type="hidden" name="warehouseId" value={warehouseId} />}
-              {supplierId && <input type="hidden" name="supplierId" value={supplierId} />}
-              {status && <input type="hidden" name="status" value={status} />}
-              <button className="gg-page-btn warehouse-page-size-submit" type="submit" aria-label="Apply page size">
-                <ChevronRight aria-hidden="true" />
-              </button>
-            </form>
+            <DynamicPageSizeSelect id="product-page-size" pageSize={pageSize} />
             <span className="gg-muted gg-num" aria-live="polite">{firstRecord}–{lastRecord} of {totalCount}</span>
             <div className="gg-spacer" />
-            <PaginationLink page={1} currentPage={currentPage} totalPages={totalPages} query={query} warehouseId={warehouseId} supplierId={supplierId} status={status} pageSize={pageSize} label="First page">
+            <PaginationLink page={1} currentPage={currentPage} totalPages={totalPages} query={query} warehouseId={warehouseId} supplierId={supplierId} status={status} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="First page">
               <ChevronFirst aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.max(1, currentPage - 1)} currentPage={currentPage} totalPages={totalPages} query={query} warehouseId={warehouseId} supplierId={supplierId} status={status} pageSize={pageSize} label="Previous page">
+            <PaginationLink page={Math.max(1, currentPage - 1)} currentPage={currentPage} totalPages={totalPages} query={query} warehouseId={warehouseId} supplierId={supplierId} status={status} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Previous page">
               <ChevronLeft aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.min(totalPages, currentPage + 1)} currentPage={currentPage} totalPages={totalPages} query={query} warehouseId={warehouseId} supplierId={supplierId} status={status} pageSize={pageSize} label="Next page">
+            <PaginationLink page={Math.min(totalPages, currentPage + 1)} currentPage={currentPage} totalPages={totalPages} query={query} warehouseId={warehouseId} supplierId={supplierId} status={status} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Next page">
               <ChevronRight aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={totalPages} currentPage={currentPage} totalPages={totalPages} query={query} warehouseId={warehouseId} supplierId={supplierId} status={status} pageSize={pageSize} label="Last page">
+            <PaginationLink page={totalPages} currentPage={currentPage} totalPages={totalPages} query={query} warehouseId={warehouseId} supplierId={supplierId} status={status} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Last page">
               <ChevronLast aria-hidden="true" />
             </PaginationLink>
           </div>
@@ -293,6 +302,8 @@ function PaginationLink({
   supplierId,
   status,
   pageSize,
+  sortBy,
+  sortOrder,
   label,
   children,
 }: {
@@ -304,6 +315,8 @@ function PaginationLink({
   supplierId?: string;
   status?: "Received" | "Pending" | "Ordered";
   pageSize: number;
+  sortBy: string;
+  sortOrder: "asc" | "desc";
   label: string;
   children: React.ReactNode;
 }) {
@@ -313,6 +326,8 @@ function PaginationLink({
   if (warehouseId) params.set("warehouseId", warehouseId);
   if (supplierId) params.set("supplierId", supplierId);
   if (status) params.set("status", status);
+  params.set("sortBy", sortBy);
+  params.set("sortOrder", sortOrder);
 
   if (isDisabled) {
     return <span className="gg-page-btn is-disabled" aria-disabled="true" aria-label={label}>{children}</span>;

@@ -26,6 +26,7 @@ export default function DashboardShell({
   headerContent,
   appName,
   faviconPath,
+  headerLogoPath,
 }: {
   children: ReactNode;
   user: { name: string; image: string | null };
@@ -35,6 +36,7 @@ export default function DashboardShell({
   headerContent?: ReactNode;
   appName: string;
   faviconPath: string;
+  headerLogoPath: string | null;
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [headerConfig, setHeaderConfig] = useState<DashboardHeaderConfig>({
@@ -57,6 +59,7 @@ export default function DashboardShell({
           isCollapsed={isCollapsed}
           appName={appName}
           faviconPath={faviconPath}
+          headerLogoPath={headerLogoPath}
         />
         <div className="gg-main">
           <Header

@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, Filter, Info, Upload } from "lucide-react";
+import { Download, Info, Upload } from "lucide-react";
+import Link from "next/link";
+import DynamicFilterControl from "@/components/shared/DynamicFilterControl";
+import TableFilterPopover from "@/components/shared/TableFilterPopover";
+import type { TableSortOption } from "@/lib/table-sorting";
 
 type FilterOption = {
   id: string;
@@ -16,6 +20,9 @@ type ProductListToolsProps = {
   warehouseId?: string;
   supplierId?: string;
   status?: "Received" | "Pending" | "Ordered";
+  sortBy: string;
+  sortOrder: "asc" | "desc";
+  sortOptions: readonly TableSortOption[];
 };
 
 export default function ProductListTools({
@@ -26,9 +33,11 @@ export default function ProductListTools({
   warehouseId,
   supplierId,
   status,
+  sortBy,
+  sortOrder,
+  sortOptions,
 }: ProductListToolsProps) {
   const [message, setMessage] = useState("");
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   useEffect(() => {
     if (!message) return;
@@ -39,69 +48,79 @@ export default function ProductListTools({
   const clearParams = new URLSearchParams();
   if (query) clearParams.set("q", query);
   clearParams.set("pageSize", String(pageSize));
+  clearParams.set("sortBy", sortBy);
+  clearParams.set("sortOrder", sortOrder);
   const clearHref = `/products?${clearParams.toString()}`;
 
   return (
     <>
-      <div className="product-filter-container">
-        <button
-          className="gg-icon-btn product-filter-button"
-          type="button"
-          aria-label="Filter products"
-          title="Filter products"
-          aria-expanded={isFilterOpen}
-          aria-controls="product-filter-popover"
-          onClick={() => setIsFilterOpen((open) => !open)}
-        >
-          <Filter aria-hidden="true" />
-        </button>
-        <div className="product-filter-popover" id="product-filter-popover" hidden={!isFilterOpen}>
-          <form action="/products" method="get">
-            {query && <input type="hidden" name="q" value={query} />}
-            <input type="hidden" name="pageSize" value={String(pageSize)} />
-            <label htmlFor="product-filter-warehouse">Warehouse</label>
-            <select
-              className="gg-select"
-              id="product-filter-warehouse"
-              name="warehouseId"
-              defaultValue={warehouseId ?? ""}
-            >
-              <option value="">All warehouses</option>
-              {warehouses.map((warehouse) => (
-                <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
-              ))}
-            </select>
-            <label htmlFor="product-filter-supplier">Supplier</label>
-            <select
-              className="gg-select"
-              id="product-filter-supplier"
-              name="supplierId"
-              defaultValue={supplierId ?? ""}
-            >
-              <option value="">All suppliers</option>
-              {suppliers.map((supplier) => (
-                <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
-              ))}
-            </select>
-            <label htmlFor="product-filter-status">Status</label>
-            <select
-              className="gg-select"
-              id="product-filter-status"
-              name="status"
-              defaultValue={status ?? ""}
-            >
-              <option value="">All statuses</option>
-              <option value="Received">Received</option>
-              <option value="Pending">Pending</option>
-              <option value="Ordered">Ordered</option>
-            </select>
-            <div className="product-filter-actions">
-              <a className="gg-btn gg-btn--secondary" href={clearHref}>Clear</a>
-              <button className="gg-btn gg-btn--primary" type="submit">Apply filters</button>
-            </div>
-          </form>
+      <TableFilterPopover label="Filter products">
+        <DynamicFilterControl
+          id="product-filter-warehouse"
+          name="warehouseId"
+          label="Warehouse"
+          value={warehouseId ?? ""}
+          options={[
+            { value: "", label: "All warehouses" },
+            ...warehouses.map((warehouse) => ({ value: warehouse.id, label: warehouse.name })),
+          ]}
+          visibleLabel
+          wrapperClassName="product-filter-control"
+        />
+        <DynamicFilterControl
+          id="product-filter-supplier"
+          name="supplierId"
+          label="Supplier"
+          value={supplierId ?? ""}
+          options={[
+            { value: "", label: "All suppliers" },
+            ...suppliers.map((supplier) => ({ value: supplier.id, label: supplier.name })),
+          ]}
+          visibleLabel
+          wrapperClassName="product-filter-control"
+        />
+        <DynamicFilterControl
+          id="product-filter-status"
+          name="status"
+          label="Status"
+          value={status ?? ""}
+          options={[
+            { value: "", label: "All statuses" },
+            { value: "Received", label: "Received" },
+            { value: "Pending", label: "Pending" },
+            { value: "Ordered", label: "Ordered" },
+          ]}
+          visibleLabel
+          wrapperClassName="product-filter-control"
+        />
+        <div className="table-filter-sort">
+          <span className="table-filter-sort-title">Sort</span>
+          <DynamicFilterControl
+            id="product-filter-sort-by"
+            name="sortBy"
+            label="Sort products by"
+            value={sortBy}
+            options={sortOptions}
+            visibleLabel
+            wrapperClassName="product-filter-control"
+          />
+          <DynamicFilterControl
+            id="product-filter-sort-order"
+            name="sortOrder"
+            label="Sort direction"
+            value={sortOrder}
+            options={[
+              { value: "asc", label: "Ascending" },
+              { value: "desc", label: "Descending" },
+            ]}
+            visibleLabel
+            wrapperClassName="product-filter-control"
+          />
         </div>
-      </div>
+        <div className="product-filter-actions">
+          <Link className="gg-btn gg-btn--secondary" href={clearHref}>Clear</Link>
+        </div>
+      </TableFilterPopover>
       <button
         className="gg-btn gg-btn--secondary"
         type="button"

@@ -45,6 +45,7 @@ async function AuthorizedPosPage() {
       initialProducts={products}
       defaultCustomerId={defaultCustomerId}
       initialWarehouseId={selectedWarehouseId}
+      canCreateCustomers={access.user.roleName === "admin" || access.user.permissions.includes(PERMISSION.manageCustomers)}
     />
   );
 }

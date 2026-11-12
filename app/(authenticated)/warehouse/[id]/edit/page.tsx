@@ -70,7 +70,9 @@ async function AuthorizedEditWarehouse({ params }: EditWarehousePageProps) {
           phoneNumber: warehouse.phoneNumber,
           country: warehouse.country,
           city: warehouse.city,
+          region: warehouse.region ?? "",
           zipCode: warehouse.zipCode,
+          address: warehouse.address,
         }}
       />
     </DashboardLayout>

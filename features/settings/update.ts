@@ -11,6 +11,12 @@ import {
   removeFavicon,
   saveFavicon,
 } from "./favicon-storage";
+import {
+  getHeaderLogoEntry,
+  getHeaderLogoFilePath,
+  removeHeaderLogo,
+  saveHeaderLogo,
+} from "./header-logo-storage";
 
 type SettingsUpdateResult =
   | { status: "success" }
@@ -19,6 +25,7 @@ type SettingsUpdateResult =
 export async function updateApplicationSettings(input: {
   appName: unknown;
   favicon: unknown;
+  headerLogo: unknown;
 }): Promise<SettingsUpdateResult> {
   const parsedName = applicationNameSchema.safeParse(input.appName);
   if (!parsedName.success) {
@@ -33,7 +40,13 @@ export async function updateApplicationSettings(input: {
     return { status: "error", message: "Choose an ICO or PNG favicon smaller than 2 MB." };
   }
 
+  const headerLogoEntry = getHeaderLogoEntry(input.headerLogo);
+  if (headerLogoEntry.status === "invalid") {
+    return { status: "error", message: "Choose a PNG, JPEG, or WebP header logo smaller than 2 MB." };
+  }
+
   let newFavicon: Awaited<ReturnType<typeof saveFavicon>> | null = null;
+  let newHeaderLogo: Awaited<ReturnType<typeof saveHeaderLogo>> | null = null;
   if (faviconEntry.file) {
     newFavicon = await saveFavicon(faviconEntry.file);
     if (newFavicon.status === "invalid") {
@@ -43,6 +56,17 @@ export async function updateApplicationSettings(input: {
       return { status: "error", message: "The favicon could not be saved. Please try again." };
     }
   }
+  if (headerLogoEntry.file) {
+    newHeaderLogo = await saveHeaderLogo(headerLogoEntry.file);
+    if (newHeaderLogo.status === "invalid") {
+      if (newFavicon?.status === "success") await removeFavicon(newFavicon.filePath);
+      return { status: "error", message: "The header logo must be a valid PNG, JPEG, or WebP image." };
+    }
+    if (newHeaderLogo.status === "error") {
+      if (newFavicon?.status === "success") await removeFavicon(newFavicon.filePath);
+      return { status: "error", message: "The header logo could not be saved. Please try again." };
+    }
+  }
 
   let currentSettings: Awaited<ReturnType<typeof readApplicationSettings>>;
   try {
@@ -50,12 +74,17 @@ export async function updateApplicationSettings(input: {
     const faviconPath = newFavicon?.status === "success"
       ? newFavicon.path
       : currentSettings.faviconPath;
+    const headerLogoPath = newHeaderLogo?.status === "success"
+      ? newHeaderLogo.path
+      : currentSettings.headerLogoPath;
     await saveApplicationSettings({
       appName: parsedName.data,
       faviconPath: faviconPath === "/favicon-default.ico" ? null : faviconPath,
+      headerLogoPath,
     });
   } catch (error) {
     if (newFavicon?.status === "success") await removeFavicon(newFavicon.filePath);
+    if (newHeaderLogo?.status === "success") await removeHeaderLogo(newHeaderLogo.filePath);
     throw error;
   }
 
@@ -63,6 +92,12 @@ export async function updateApplicationSettings(input: {
     const previousFavicon = getFaviconFilePath(currentSettings.faviconPath);
     if (previousFavicon && previousFavicon !== newFavicon.filePath) {
       await removeFavicon(previousFavicon);
+    }
+  }
+  if (newHeaderLogo?.status === "success") {
+    const previousHeaderLogo = getHeaderLogoFilePath(currentSettings.headerLogoPath);
+    if (previousHeaderLogo && previousHeaderLogo !== newHeaderLogo.filePath) {
+      await removeHeaderLogo(previousHeaderLogo);
     }
   }
 

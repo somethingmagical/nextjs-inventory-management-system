@@ -7,7 +7,7 @@ import { ArrowLeft, Download } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import WarehouseToast from "@/components/shared/WarehouseToast";
 import { calculatePurchaseTotals } from "@/lib/purchase-pricing";
-import { getSaleReturnAccess } from "../../authorization";
+import { getSaleReturnViewAccess } from "../../authorization";
 import { getSaleReturnDetails } from "../sale-return-details";
 import { saleReturnIdSchema } from "../sale-return-schema";
 
@@ -37,7 +37,7 @@ export default function SaleReturnDetailsPage(props: SaleReturnDetailsPageProps)
 
 async function AuthorizedSaleReturnDetails({ params, searchParams }: SaleReturnDetailsPageProps) {
   await connection();
-  const access = await getSaleReturnAccess();
+  const access = await getSaleReturnViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
 

@@ -240,9 +240,11 @@ export default function ProductReferenceCreateDialog({
               <CountryCityFields
                 countryError={fieldError("country")}
                 cityError={fieldError("city")}
+                regionError={fieldError("region")}
+                showRegion
                 postalError={fieldError("zipCode")}
                 disabled={isPending}
-                showPostalCode={isWarehouse}
+                showPostalCode
                 onCountryCodeChange={setCountryCode}
                 phoneCountrySelection={phoneCountrySelection}
               />
