@@ -27,13 +27,28 @@ export const metadata: Metadata = {
 };
 
 const querySchema = z.string().trim().max(120);
-const pageSchema = z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive());
+const pageSchema = z
+  .string()
+  .regex(/^\d+$/)
+  .transform(Number)
+  .pipe(z.number().int().positive());
 const pageSizeSchema = z.enum(["10", "25", "50"]).transform(Number);
-const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
-});
-const sortFields = ["reference", "supplier", "status", "grandTotal", "createdAt"] as const;
+const dateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine((value) => {
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return (
+      !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
+    );
+  });
+const sortFields = [
+  "reference",
+  "supplier",
+  "status",
+  "grandTotal",
+  "createdAt",
+] as const;
 const sortOptions = [
   { value: "reference", label: "Reference" },
   { value: "supplier", label: "Supplier" },
@@ -44,7 +59,11 @@ const sortOptions = [
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-export default function PurchaseReportsPage({ searchParams }: { searchParams: SearchParams }) {
+export default function PurchaseReportsPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
   return (
     <ReportPageSuspense>
       <PurchaseReportContent searchParams={searchParams} />
@@ -52,7 +71,11 @@ export default function PurchaseReportsPage({ searchParams }: { searchParams: Se
   );
 }
 
-async function PurchaseReportContent({ searchParams }: { searchParams: SearchParams }) {
+async function PurchaseReportContent({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
   await connection();
   const params = await searchParams;
   const parsedQuery = querySchema.safeParse(params.q);
@@ -72,10 +95,12 @@ async function PurchaseReportContent({ searchParams }: { searchParams: SearchPar
     fetchPurchases(where, requestedPage, pageSize, sortBy, sortOrder),
   ]);
   const totalPages = Math.ceil(totalCount / pageSize);
-  const currentPage = totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
-  const purchases = currentPage === requestedPage
-    ? requestedPurchases
-    : await fetchPurchases(where, currentPage, pageSize, sortBy, sortOrder);
+  const currentPage =
+    totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
+  const purchases =
+    currentPage === requestedPage
+      ? requestedPurchases
+      : await fetchPurchases(where, currentPage, pageSize, sortBy, sortOrder);
   const firstRecord = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const lastRecord = Math.min(currentPage * pageSize, totalCount);
   const paginationParams = { query, date, pageSize, sortBy, sortOrder };
@@ -84,33 +109,40 @@ async function PurchaseReportContent({ searchParams }: { searchParams: SearchPar
     <main className="gg-content reports-content">
       <div className="rpt-toolbar purchase-report-toolbar">
         <div className="report-toolbar-controls">
-          <AutoSearchForm
-            action="/reports/purchase"
-            className="purchase-report-search"
-            id="purchase-report-search"
-            label="Search purchases"
-            value={query}
-          />
-
-          <div className="gg-spacer" />
-
-          <TableSortFilter sortBy={sortBy} sortOrder={sortOrder} options={sortOptions}>
-            <div className="purchase-report-date-form">
-              <div className="purchase-report-date-field">
-              <DynamicFilterControl
-                id="purchase-report-date"
-                name="date"
-                label="Filter purchases by date"
-                type="date"
-                value={date}
-                className="gg-input"
-                visibleLabel
-                wrapperClassName="date-filter-control"
-              />
-              <CalendarDays aria-hidden="true" />
+          <div
+            className="table-search-filter-group"
+            role="group"
+            aria-label="Search and filters"
+          >
+            <AutoSearchForm
+              action="/reports/purchase"
+              className="purchase-report-search"
+              id="purchase-report-search"
+              label="Search purchases"
+              value={query}
+            />
+            <TableSortFilter
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              options={sortOptions}
+            >
+              <div className="purchase-report-date-form">
+                <div className="purchase-report-date-field">
+                  <DynamicFilterControl
+                    id="purchase-report-date"
+                    name="date"
+                    label="Filter purchases by date"
+                    type="date"
+                    value={date}
+                    className="gg-input"
+                    visibleLabel
+                    wrapperClassName="date-filter-control"
+                  />
+                  <CalendarDays aria-hidden="true" />
+                </div>
               </div>
-            </div>
-          </TableSortFilter>
+            </TableSortFilter>
+          </div>
           <div className="report-toolbar-export">
             <ExcelExportLink report="purchase" query={query} date={date} />
           </div>
@@ -121,33 +153,94 @@ async function PurchaseReportContent({ searchParams }: { searchParams: SearchPar
         <table className="gg-table gg-table--spaced purchase-report-table">
           <thead>
             <tr>
-              <SortableTableHeader label="Reference" sortKey="reference" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/purchase" searchParams={params} />
-              <SortableTableHeader label="Supplier" sortKey="supplier" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/purchase" searchParams={params} />
-              <SortableTableHeader label="Status" sortKey="status" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/purchase" searchParams={params} />
-              <SortableTableHeader label="Grand Total" sortKey="grandTotal" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/purchase" searchParams={params} className="gg-num" />
-              <th scope="col" className="gg-num">Paid</th>
-              <th scope="col" className="gg-num">Due</th>
+              <SortableTableHeader
+                label="Reference"
+                sortKey="reference"
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                pathname="/reports/purchase"
+                searchParams={params}
+              />
+              <SortableTableHeader
+                label="Supplier"
+                sortKey="supplier"
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                pathname="/reports/purchase"
+                searchParams={params}
+              />
+              <SortableTableHeader
+                label="Status"
+                sortKey="status"
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                pathname="/reports/purchase"
+                searchParams={params}
+              />
+              <SortableTableHeader
+                label="Grand Total"
+                sortKey="grandTotal"
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                pathname="/reports/purchase"
+                searchParams={params}
+                className="gg-num"
+              />
+              <th scope="col" className="gg-num">
+                Paid
+              </th>
+              <th scope="col" className="gg-num">
+                Due
+              </th>
               <th scope="col">Payment Type</th>
-              <SortableTableHeader label="Created On" sortKey="createdAt" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/purchase" searchParams={params} />
+              <SortableTableHeader
+                label="Created On"
+                sortKey="createdAt"
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                pathname="/reports/purchase"
+                searchParams={params}
+              />
             </tr>
           </thead>
           <tbody>
             {purchases.map((purchase) => (
               <tr key={purchase.id}>
-                <td><span className="gg-chip-code">{purchase.reference}</span></td>
+                <td>
+                  <span className="gg-chip-code">{purchase.reference}</span>
+                </td>
                 <td>{purchase.supplier.name}</td>
                 <td>
-                  <span className={`gg-badge ${purchase.status === "Received" ? "gg-badge--success" : "gg-badge--warning"}`}>
+                  <span
+                    className={`gg-badge ${purchase.status === "Received" ? "gg-badge--success" : "gg-badge--warning"}`}
+                  >
                     {purchase.status}
                   </span>
                 </td>
-                <td className="gg-num gg-td-strong">$ {purchase.grandTotal.toFixed(2)}</td>
-                <td className="gg-num" title="Purchase payments are not stored in the current data model">—</td>
-                <td className="gg-num" title="Purchase balances are not stored in the current data model">—</td>
-                <td><span className="gg-chip-unit">{purchase.paymentType}</span></td>
+                <td className="gg-num gg-td-strong">
+                  $ {purchase.grandTotal.toFixed(2)}
+                </td>
+                <td
+                  className="gg-num"
+                  title="Purchase payments are not stored in the current data model"
+                >
+                  —
+                </td>
+                <td
+                  className="gg-num"
+                  title="Purchase balances are not stored in the current data model"
+                >
+                  —
+                </td>
+                <td>
+                  <span className="gg-chip-unit">{purchase.paymentType}</span>
+                </td>
                 <td>
                   <span className="gg-chip-time gg-num">
-                    {purchase.createdAt.toLocaleTimeString("en", { hour: "numeric", minute: "2-digit" })}
+                    {purchase.createdAt.toLocaleTimeString("en", {
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
                     <time dateTime={purchase.createdAt.toISOString()}>
                       {purchase.createdAt.toLocaleDateString("en", {
                         year: "numeric",
@@ -162,7 +255,9 @@ async function PurchaseReportContent({ searchParams }: { searchParams: SearchPar
             {purchases.length === 0 && (
               <tr>
                 <td className="purchase-report-empty gg-muted" colSpan={8}>
-                  {query || date ? "No purchases match the selected filters." : "No purchases to display."}
+                  {query || date
+                    ? "No purchases match the selected filters."
+                    : "No purchases to display."}
                 </td>
               </tr>
             )}
@@ -171,12 +266,21 @@ async function PurchaseReportContent({ searchParams }: { searchParams: SearchPar
       </div>
 
       <div className="gg-pagination">
-        <DynamicPageSizeSelect id="purchase-report-page-size" pageSize={pageSize} />
+        <DynamicPageSizeSelect
+          id="purchase-report-page-size"
+          pageSize={pageSize}
+        />
         <span className="gg-muted gg-num" aria-live="polite">
           {firstRecord}–{lastRecord} of {totalCount}
         </span>
         <div className="gg-spacer" />
-        <PageLink page={1} currentPage={currentPage} totalPages={totalPages} params={paginationParams} label="First page">
+        <PageLink
+          page={1}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          params={paginationParams}
+          label="First page"
+        >
           <ChevronFirst aria-hidden="true" />
         </PageLink>
         <PageLink
@@ -197,7 +301,13 @@ async function PurchaseReportContent({ searchParams }: { searchParams: SearchPar
         >
           <ChevronRight aria-hidden="true" />
         </PageLink>
-        <PageLink page={totalPages} currentPage={currentPage} totalPages={totalPages} params={paginationParams} label="Last page">
+        <PageLink
+          page={totalPages}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          params={paginationParams}
+          label="Last page"
+        >
           <ChevronLast aria-hidden="true" />
         </PageLink>
       </div>
@@ -234,13 +344,20 @@ function fetchPurchases(
 }
 
 function buildHref(
-  params: { query: string; date: string; pageSize: number; sortBy: string; sortOrder: "asc" | "desc" },
+  params: {
+    query: string;
+    date: string;
+    pageSize: number;
+    sortBy: string;
+    sortOrder: "asc" | "desc";
+  },
   page: number,
 ) {
   const searchParams = new URLSearchParams();
   if (params.query) searchParams.set("q", params.query);
   if (params.date) searchParams.set("date", params.date);
-  if (params.pageSize !== 10) searchParams.set("pageSize", String(params.pageSize));
+  if (params.pageSize !== 10)
+    searchParams.set("pageSize", String(params.pageSize));
   searchParams.set("sortBy", params.sortBy);
   searchParams.set("sortOrder", params.sortOrder);
   if (page > 1) searchParams.set("page", String(page));
@@ -259,20 +376,34 @@ function PageLink({
   page: number;
   currentPage: number;
   totalPages: number;
-  params: { query: string; date: string; pageSize: number; sortBy: string; sortOrder: "asc" | "desc" };
+  params: {
+    query: string;
+    date: string;
+    pageSize: number;
+    sortBy: string;
+    sortOrder: "asc" | "desc";
+  };
   label: string;
   children: React.ReactNode;
 }) {
   if (totalPages === 0 || page === currentPage) {
     return (
-      <span className="gg-page-btn is-disabled" aria-disabled="true" aria-label={label}>
+      <span
+        className="gg-page-btn is-disabled"
+        aria-disabled="true"
+        aria-label={label}
+      >
         {children}
       </span>
     );
   }
 
   return (
-    <Link className="gg-page-btn" href={buildHref(params, page)} aria-label={label}>
+    <Link
+      className="gg-page-btn"
+      href={buildHref(params, page)}
+      aria-label={label}
+    >
       {children}
     </Link>
   );

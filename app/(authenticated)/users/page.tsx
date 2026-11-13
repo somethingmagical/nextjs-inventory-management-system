@@ -33,7 +33,11 @@ export const metadata: Metadata = {
 };
 
 const searchQuerySchema = z.string().trim().max(120);
-const pageSchema = z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive());
+const pageSchema = z
+  .string()
+  .regex(/^\d+$/)
+  .transform(Number)
+  .pipe(z.number().int().positive());
 const pageSizeSchema = z.enum(["10", "25", "50"]).transform(Number);
 const sortFields = ["lastName", "role", "phoneNumber", "createdAt"] as const;
 const sortOptions = [
@@ -67,7 +71,9 @@ async function UserList({ searchParams }: UsersPageProps) {
 
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
-  const canManageUsers = access.user.permissions.includes(PERMISSION.manageUsers);
+  const canManageUsers = access.user.permissions.includes(
+    PERMISSION.manageUsers,
+  );
 
   const rawSearchParams = await searchParams;
   const parsedQuery = searchQuerySchema.safeParse(rawSearchParams.q);
@@ -98,10 +104,15 @@ async function UserList({ searchParams }: UsersPageProps) {
 
   const totalCount = await db.user.count({ where });
   const totalPages = Math.ceil(totalCount / pageSize);
-  const currentPage = totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
+  const currentPage =
+    totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
   const orderBy: Prisma.UserOrderByWithRelationInput[] =
     sortBy === "role"
-      ? [{ roleRecord: { name: sortOrder } }, { lastName: sortOrder }, { firstName: sortOrder }]
+      ? [
+          { roleRecord: { name: sortOrder } },
+          { lastName: sortOrder },
+          { firstName: sortOrder },
+        ]
       : [{ [sortBy]: sortOrder }, { id: sortOrder }];
   const users = await db.user.findMany({
     where,
@@ -125,7 +136,9 @@ async function UserList({ searchParams }: UsersPageProps) {
     },
   });
 
-  const currentUserName = `${access.user.firstName} ${access.user.lastName}`.trim() || access.user.email;
+  const currentUserName =
+    `${access.user.firstName} ${access.user.lastName}`.trim() ||
+    access.user.email;
   const firstRecord = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const lastRecord = Math.min(currentPage * pageSize, totalCount);
 
@@ -147,21 +160,33 @@ async function UserList({ searchParams }: UsersPageProps) {
           />
         )}
         <div className="gg-table-toolbar">
-          <AutoSearchForm
-            action="/users"
-            className="warehouse-search-form"
-            iconClassName="gg-input-icon warehouse-search-control"
-            id="user-search"
-            label="Search users"
-            placeholder="Search users"
-            value={query}
-          />
-          <TableSortFilter sortBy={sortBy} sortOrder={sortOrder} options={sortOptions} />
+          <div
+            className="table-search-filter-group"
+            role="group"
+            aria-label="Search and filters"
+          >
+            <AutoSearchForm
+              action="/users"
+              className="warehouse-search-form"
+              iconClassName="gg-input-icon warehouse-search-control"
+              id="user-search"
+              label="Search users"
+              placeholder="Search users"
+              value={query}
+            />
+            <TableSortFilter
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              options={sortOptions}
+            />
+          </div>
           <div className="gg-spacer" />
-          {canManageUsers && <Link className="gg-btn gg-btn--primary" href="/users/create">
-            <Plus aria-hidden="true" />
-            Create User
-          </Link>}
+          {canManageUsers && (
+            <Link className="gg-btn gg-btn--primary" href="/users/create">
+              <Plus aria-hidden="true" />
+              Create User
+            </Link>
+          )}
         </div>
 
         <div className="gg-card gg-card-pad">
@@ -169,28 +194,78 @@ async function UserList({ searchParams }: UsersPageProps) {
             <table className="gg-table">
               <thead>
                 <tr>
-                  <SortableTableHeader label="User" sortKey="lastName" sortBy={sortBy} sortOrder={sortOrder} pathname="/users" searchParams={rawSearchParams} />
-                  <SortableTableHeader label="Role" sortKey="role" sortBy={sortBy} sortOrder={sortOrder} pathname="/users" searchParams={rawSearchParams} />
-                  <SortableTableHeader label="Phone Number" sortKey="phoneNumber" sortBy={sortBy} sortOrder={sortOrder} pathname="/users" searchParams={rawSearchParams} />
-                  <SortableTableHeader label="Created On" sortKey="createdAt" sortBy={sortBy} sortOrder={sortOrder} pathname="/users" searchParams={rawSearchParams} />
-                  {canManageUsers && <th className="user-actions-heading" scope="col">Action</th>}
+                  <SortableTableHeader
+                    label="User"
+                    sortKey="lastName"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/users"
+                    searchParams={rawSearchParams}
+                  />
+                  <SortableTableHeader
+                    label="Role"
+                    sortKey="role"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/users"
+                    searchParams={rawSearchParams}
+                  />
+                  <SortableTableHeader
+                    label="Phone Number"
+                    sortKey="phoneNumber"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/users"
+                    searchParams={rawSearchParams}
+                  />
+                  <SortableTableHeader
+                    label="Created On"
+                    sortKey="createdAt"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/users"
+                    searchParams={rawSearchParams}
+                  />
+                  {canManageUsers && (
+                    <th className="user-actions-heading" scope="col">
+                      Action
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {users.map((user) => {
                   const name = `${user.firstName} ${user.lastName}`.trim();
-                  const initials = `${user.firstName.slice(0, 1)}${user.lastName.slice(0, 1)}`.toUpperCase();
-                  const canManageUser = canManageUsers && canManageRoleInHierarchy(access.user, {
-                    name: user.roleRecord.name,
-                    permissions: user.roleRecord.permissions.map(({ permission }) => permission),
-                  });
+                  const initials =
+                    `${user.firstName.slice(0, 1)}${user.lastName.slice(0, 1)}`.toUpperCase();
+                  const canManageUser =
+                    canManageUsers &&
+                    canManageRoleInHierarchy(access.user, {
+                      name: user.roleRecord.name,
+                      permissions: user.roleRecord.permissions.map(
+                        ({ permission }) => permission,
+                      ),
+                    });
 
                   return (
                     <tr key={user.id}>
                       <td>
                         <div className="user-list-cell">
-                          <span className="gg-avatar user-list-avatar" aria-hidden="true">
-                            {user.image ? <Image src={user.image} alt="" width={32} height={32} unoptimized /> : initials}
+                          <span
+                            className="gg-avatar user-list-avatar"
+                            aria-hidden="true"
+                          >
+                            {user.image ? (
+                              <Image
+                                src={user.image}
+                                alt=""
+                                width={32}
+                                height={32}
+                                unoptimized
+                              />
+                            ) : (
+                              initials
+                            )}
                           </span>
                           <span className="ppl-cell">
                             <span className="nm">{name}</span>
@@ -198,10 +273,17 @@ async function UserList({ searchParams }: UsersPageProps) {
                           </span>
                         </div>
                       </td>
-                      <td><span className="user-role-badge">{user.roleRecord.name}</span></td>
+                      <td>
+                        <span className="user-role-badge">
+                          {user.roleRecord.name}
+                        </span>
+                      </td>
                       <td className="gg-num">{user.phoneNumber || "—"}</td>
                       <td>
-                        <time className="gg-chip-time gg-num" dateTime={user.createdAt.toISOString()}>
+                        <time
+                          className="gg-chip-time gg-num"
+                          dateTime={user.createdAt.toISOString()}
+                        >
                           {user.createdAt.toLocaleDateString("en", {
                             year: "numeric",
                             month: "short",
@@ -209,37 +291,50 @@ async function UserList({ searchParams }: UsersPageProps) {
                           })}
                         </time>
                       </td>
-                      {canManageUsers && <td className="user-actions-cell">
-                        {canManageUser ? (
-                          <div className="row-acts">
-                            <Link
-                              className="act-edit"
-                              href={`/users/${encodeURIComponent(user.id)}/edit`}
-                              aria-label={`Edit ${name}`}
-                              title="Edit"
-                            >
-                              <Pencil aria-hidden="true" />
-                            </Link>
-                            <UserDeleteButton userId={user.id} userName={name} />
-                          </div>
-                        ) : (
-                          <span className="gg-muted">Protected</span>
-                        )}
-                      </td>}
+                      {canManageUsers && (
+                        <td className="user-actions-cell">
+                          {canManageUser ? (
+                            <div className="row-acts">
+                              <Link
+                                className="act-edit"
+                                href={`/users/${encodeURIComponent(user.id)}/edit`}
+                                aria-label={`Edit ${name}`}
+                                title="Edit"
+                              >
+                                <Pencil aria-hidden="true" />
+                              </Link>
+                              <UserDeleteButton
+                                userId={user.id}
+                                userName={name}
+                              />
+                            </div>
+                          ) : (
+                            <span className="gg-muted">Protected</span>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
                 {users.length === 0 && (
                   <tr>
-                    <td className="user-empty-cell" colSpan={canManageUsers ? 5 : 4}>
+                    <td
+                      className="user-empty-cell"
+                      colSpan={canManageUsers ? 5 : 4}
+                    >
                       <p className="warehouse-empty-title">
                         {query ? "No users match your search" : "No users yet"}
                       </p>
                       <p className="gg-muted">
-                        {query ? "Try another name, email, or role." : "Create a user account to add staff to your inventory system."}
+                        {query
+                          ? "Try another name, email, or role."
+                          : "Create a user account to add staff to your inventory system."}
                       </p>
                       {query && (
-                        <Link className="gg-btn gg-btn--secondary" href="/users">
+                        <Link
+                          className="gg-btn gg-btn--secondary"
+                          href="/users"
+                        >
                           Clear search
                         </Link>
                       )}
@@ -256,16 +351,52 @@ async function UserList({ searchParams }: UsersPageProps) {
               {firstRecord}–{lastRecord} of {totalCount}
             </span>
             <div className="gg-spacer" />
-            <PaginationLink page={1} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="First page">
+            <PaginationLink
+              page={1}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="First page"
+            >
               <ChevronFirst aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.max(1, currentPage - 1)} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Previous page">
+            <PaginationLink
+              page={Math.max(1, currentPage - 1)}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="Previous page"
+            >
               <ChevronLeft aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.min(totalPages, currentPage + 1)} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Next page">
+            <PaginationLink
+              page={Math.min(totalPages, currentPage + 1)}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="Next page"
+            >
               <ChevronRight aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={totalPages} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Last page">
+            <PaginationLink
+              page={totalPages}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="Last page"
+            >
               <ChevronLast aria-hidden="true" />
             </PaginationLink>
           </div>
@@ -297,21 +428,32 @@ function PaginationLink({
   children: React.ReactNode;
 }) {
   const isDisabled = totalPages === 0 || page === currentPage;
-  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
   if (query) params.set("q", query);
   params.set("sortBy", sortBy);
   params.set("sortOrder", sortOrder);
 
   if (isDisabled) {
     return (
-      <span className="gg-page-btn is-disabled" aria-disabled="true" aria-label={label}>
+      <span
+        className="gg-page-btn is-disabled"
+        aria-disabled="true"
+        aria-label={label}
+      >
         {children}
       </span>
     );
   }
 
   return (
-    <Link className="gg-page-btn" href={`/users?${params.toString()}`} aria-label={label}>
+    <Link
+      className="gg-page-btn"
+      href={`/users?${params.toString()}`}
+      aria-label={label}
+    >
       {children}
     </Link>
   );

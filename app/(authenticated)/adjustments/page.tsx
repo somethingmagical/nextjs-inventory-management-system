@@ -30,7 +30,11 @@ export const metadata: Metadata = {
 };
 
 const searchQuerySchema = z.string().trim().max(120);
-const pageSchema = z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive());
+const pageSchema = z
+  .string()
+  .regex(/^\d+$/)
+  .transform(Number)
+  .pipe(z.number().int().positive());
 const pageSizeSchema = z.enum(["10", "25", "50"]).transform(Number);
 const sortFields = ["reference", "date"] as const;
 const sortOptions = [
@@ -42,7 +46,9 @@ type AdjustmentsPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default function AdjustmentsPage({ searchParams }: AdjustmentsPageProps) {
+export default function AdjustmentsPage({
+  searchParams,
+}: AdjustmentsPageProps) {
   return (
     <Suspense
       fallback={
@@ -61,7 +67,9 @@ async function AdjustmentList({ searchParams }: AdjustmentsPageProps) {
   const access = await getAdjustmentViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
-  const canManageAdjustments = access.user.permissions.includes(PERMISSION.manageAdjustments);
+  const canManageAdjustments = access.user.permissions.includes(
+    PERMISSION.manageAdjustments,
+  );
 
   const rawSearchParams = await searchParams;
   const parsedQuery = searchQuerySchema.safeParse(rawSearchParams.q);
@@ -98,30 +106,33 @@ async function AdjustmentList({ searchParams }: AdjustmentsPageProps) {
         }
       : {}),
   };
-  const fetchPage = (page: number) => db.adjustment.findMany({
-    where,
-    orderBy: [{ [sortBy]: sortOrder }, { createdAt: sortOrder }],
-    skip: (page - 1) * pageSize,
-    take: pageSize,
-    select: {
-      id: true,
-      reference: true,
-      date: true,
-      createdAt: true,
-      warehouse: { select: { name: true } },
-      _count: { select: { items: true } },
-    },
-  });
+  const fetchPage = (page: number) =>
+    db.adjustment.findMany({
+      where,
+      orderBy: [{ [sortBy]: sortOrder }, { createdAt: sortOrder }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        reference: true,
+        date: true,
+        createdAt: true,
+        warehouse: { select: { name: true } },
+        _count: { select: { items: true } },
+      },
+    });
   const [totalCount, requestedAdjustments] = await Promise.all([
     db.adjustment.count({ where }),
     fetchPage(requestedPage),
   ]);
 
   const totalPages = Math.ceil(totalCount / pageSize);
-  const currentPage = totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
-  const adjustments = currentPage === requestedPage
-    ? requestedAdjustments
-    : await fetchPage(currentPage);
+  const currentPage =
+    totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
+  const adjustments =
+    currentPage === requestedPage
+      ? requestedAdjustments
+      : await fetchPage(currentPage);
 
   const { user } = access;
   const displayName = `${user.firstName} ${user.lastName}`.trim() || user.email;
@@ -131,29 +142,48 @@ async function AdjustmentList({ searchParams }: AdjustmentsPageProps) {
   const deleted = rawSearchParams.deleted === "1";
 
   return (
-    <DashboardLayout user={{ name: displayName, image: user.image }} pageTitle="Adjustments">
+    <DashboardLayout
+      user={{ name: displayName, image: user.image }}
+      pageTitle="Adjustments"
+    >
       <main className="gg-content">
         {(created || deleted) && (
           <WarehouseToast
-            message={created ? "Adjustment created successfully." : "Adjustment deleted successfully."}
+            message={
+              created
+                ? "Adjustment created successfully."
+                : "Adjustment deleted successfully."
+            }
           />
         )}
         <div className="gg-table-toolbar product-toolbar">
-          <AutoSearchForm
-            action="/adjustments"
-            className="warehouse-search-form"
-            iconClassName="gg-input-icon warehouse-search-control"
-            id="adjustment-search"
-            label="Search adjustments"
-            placeholder="Search reference, warehouse, or product"
-            value={query}
-          />
-          <TableSortFilter sortBy={sortBy} sortOrder={sortOrder} options={sortOptions} />
+          <div
+            className="table-search-filter-group"
+            role="group"
+            aria-label="Search and filters"
+          >
+            <AutoSearchForm
+              action="/adjustments"
+              className="warehouse-search-form"
+              iconClassName="gg-input-icon warehouse-search-control"
+              id="adjustment-search"
+              label="Search adjustments"
+              placeholder="Search reference, warehouse, or product"
+              value={query}
+            />
+            <TableSortFilter
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              options={sortOptions}
+            />
+          </div>
           <div className="gg-spacer" />
-          {canManageAdjustments && <Link className="gg-btn gg-btn--primary" href="/adjustments/create">
-            <Plus aria-hidden="true" />
-            Create Adjustment
-          </Link>}
+          {canManageAdjustments && (
+            <Link className="gg-btn gg-btn--primary" href="/adjustments/create">
+              <Plus aria-hidden="true" />
+              Create Adjustment
+            </Link>
+          )}
         </div>
 
         <div className="gg-card gg-card-pad">
@@ -161,18 +191,42 @@ async function AdjustmentList({ searchParams }: AdjustmentsPageProps) {
             <table className="gg-table">
               <thead>
                 <tr>
-                  <SortableTableHeader label="Reference" sortKey="reference" sortBy={sortBy} sortOrder={sortOrder} pathname="/adjustments" searchParams={rawSearchParams} />
+                  <SortableTableHeader
+                    label="Reference"
+                    sortKey="reference"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/adjustments"
+                    searchParams={rawSearchParams}
+                  />
                   <th scope="col">Warehouse</th>
-                  <SortableTableHeader label="Date / Created On" sortKey="date" sortBy={sortBy} sortOrder={sortOrder} pathname="/adjustments" searchParams={rawSearchParams} />
-                  <th scope="col" className="gg-num">Items</th>
-                  <th scope="col" className="product-actions-heading">Action</th>
+                  <SortableTableHeader
+                    label="Date / Created On"
+                    sortKey="date"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/adjustments"
+                    searchParams={rawSearchParams}
+                  />
+                  <th scope="col" className="gg-num">
+                    Items
+                  </th>
+                  <th scope="col" className="product-actions-heading">
+                    Action
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {adjustments.map((adjustment) => (
                   <tr key={adjustment.id}>
-                    <td><span className="gg-chip-code">{adjustment.reference}</span></td>
-                    <td className="gg-td-strong">{adjustment.warehouse?.name ?? "Warehouse unavailable"}</td>
+                    <td>
+                      <span className="gg-chip-code">
+                        {adjustment.reference}
+                      </span>
+                    </td>
+                    <td className="gg-td-strong">
+                      {adjustment.warehouse?.name ?? "Warehouse unavailable"}
+                    </td>
                     <td>
                       <div className="warehouse-detail-cell">
                         <time dateTime={adjustment.date.toISOString()}>
@@ -183,7 +237,10 @@ async function AdjustmentList({ searchParams }: AdjustmentsPageProps) {
                             timeZone: "UTC",
                           })}
                         </time>
-                        <time className="gg-muted" dateTime={adjustment.createdAt.toISOString()}>
+                        <time
+                          className="gg-muted"
+                          dateTime={adjustment.createdAt.toISOString()}
+                        >
                           Created {adjustment.createdAt.toLocaleDateString()}
                         </time>
                       </div>
@@ -199,10 +256,12 @@ async function AdjustmentList({ searchParams }: AdjustmentsPageProps) {
                         >
                           <Eye aria-hidden="true" />
                         </Link>
-                        {canManageAdjustments && <AdjustmentDeleteButton
-                          adjustmentId={adjustment.id}
-                          reference={adjustment.reference}
-                        />}
+                        {canManageAdjustments && (
+                          <AdjustmentDeleteButton
+                            adjustmentId={adjustment.id}
+                            reference={adjustment.reference}
+                          />
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -211,7 +270,9 @@ async function AdjustmentList({ searchParams }: AdjustmentsPageProps) {
                   <tr>
                     <td className="product-empty-cell" colSpan={5}>
                       <p className="warehouse-empty-title">
-                        {query ? "No adjustments match your search" : "No adjustments yet"}
+                        {query
+                          ? "No adjustments match your search"
+                          : "No adjustments yet"}
                       </p>
                       <p className="gg-muted">
                         {query
@@ -221,10 +282,19 @@ async function AdjustmentList({ searchParams }: AdjustmentsPageProps) {
                             : "No adjustments are available."}
                       </p>
                       {query ? (
-                        <Link className="gg-btn gg-btn--secondary" href="/adjustments">Clear search</Link>
+                        <Link
+                          className="gg-btn gg-btn--secondary"
+                          href="/adjustments"
+                        >
+                          Clear search
+                        </Link>
                       ) : canManageAdjustments ? (
-                        <Link className="gg-btn gg-btn--primary" href="/adjustments/create">
-                          <Plus aria-hidden="true" />Create Adjustment
+                        <Link
+                          className="gg-btn gg-btn--primary"
+                          href="/adjustments/create"
+                        >
+                          <Plus aria-hidden="true" />
+                          Create Adjustment
                         </Link>
                       ) : null}
                     </td>
@@ -235,21 +305,60 @@ async function AdjustmentList({ searchParams }: AdjustmentsPageProps) {
           </div>
 
           <div className="gg-pagination">
-            <DynamicPageSizeSelect id="adjustment-page-size" pageSize={pageSize} />
+            <DynamicPageSizeSelect
+              id="adjustment-page-size"
+              pageSize={pageSize}
+            />
             <span className="gg-muted gg-num" aria-live="polite">
               {firstRecord}–{lastRecord} of {totalCount}
             </span>
             <div className="gg-spacer" />
-            <PaginationLink page={1} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="First page">
+            <PaginationLink
+              page={1}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="First page"
+            >
               <ChevronFirst aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.max(1, currentPage - 1)} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Previous page">
+            <PaginationLink
+              page={Math.max(1, currentPage - 1)}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="Previous page"
+            >
               <ChevronLeft aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.min(totalPages, currentPage + 1)} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Next page">
+            <PaginationLink
+              page={Math.min(totalPages, currentPage + 1)}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="Next page"
+            >
               <ChevronRight aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={totalPages} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Last page">
+            <PaginationLink
+              page={totalPages}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="Last page"
+            >
               <ChevronLast aria-hidden="true" />
             </PaginationLink>
           </div>
@@ -281,13 +390,32 @@ function PaginationLink({
   children: React.ReactNode;
 }) {
   const isDisabled = totalPages === 0 || page === currentPage;
-  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
   if (query) params.set("q", query);
   params.set("sortBy", sortBy);
   params.set("sortOrder", sortOrder);
 
   if (isDisabled) {
-    return <span className="gg-page-btn is-disabled" aria-disabled="true" aria-label={label}>{children}</span>;
+    return (
+      <span
+        className="gg-page-btn is-disabled"
+        aria-disabled="true"
+        aria-label={label}
+      >
+        {children}
+      </span>
+    );
   }
-  return <Link className="gg-page-btn" href={`/adjustments?${params.toString()}`} aria-label={label}>{children}</Link>;
+  return (
+    <Link
+      className="gg-page-btn"
+      href={`/adjustments?${params.toString()}`}
+      aria-label={label}
+    >
+      {children}
+    </Link>
+  );
 }

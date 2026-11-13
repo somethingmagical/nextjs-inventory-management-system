@@ -2,7 +2,15 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import {
   AlertTriangle,
   Check,
@@ -56,7 +64,8 @@ export default function MasterDataManager({
   const [deleteTarget, setDeleteTarget] = useState<MasterDataItem | null>(null);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<MasterDataActionState["fieldErrors"]>();
+  const [fieldErrors, setFieldErrors] =
+    useState<MasterDataActionState["fieldErrors"]>();
   const [preview, setPreview] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const editorFormRef = useRef<HTMLFormElement>(null);
@@ -65,16 +74,19 @@ export default function MasterDataManager({
   const objectUrlRef = useRef<string | null>(null);
   const deleteDialogRef = useRef<HTMLDialogElement>(null);
 
-  const closeEditor = useCallback((force = false) => {
-    if (isPending && !force) return;
-    setEditor(null);
-    setFieldErrors(undefined);
-    if (objectUrlRef.current) {
-      URL.revokeObjectURL(objectUrlRef.current);
-      objectUrlRef.current = null;
-    }
-    window.setTimeout(() => restoreFocusRef.current?.focus(), 0);
-  }, [isPending]);
+  const closeEditor = useCallback(
+    (force = false) => {
+      if (isPending && !force) return;
+      setEditor(null);
+      setFieldErrors(undefined);
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
+      window.setTimeout(() => restoreFocusRef.current?.focus(), 0);
+    },
+    [isPending],
+  );
 
   useEffect(() => {
     if (!editor) return;
@@ -102,9 +114,12 @@ export default function MasterDataManager({
     return () => window.clearTimeout(timeout);
   }, [message]);
 
-  useEffect(() => () => {
-    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    },
+    [],
+  );
 
   function openEditor(nextEditor: EditorState, trigger: HTMLElement) {
     restoreFocusRef.current = trigger;
@@ -116,7 +131,10 @@ export default function MasterDataManager({
     const file = event.currentTarget.files?.[0];
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
     objectUrlRef.current = file ? URL.createObjectURL(file) : null;
-    setPreview(objectUrlRef.current ?? (editor?.mode === "edit" ? editor.item.logo : null));
+    setPreview(
+      objectUrlRef.current ??
+        (editor?.mode === "edit" ? editor.item.logo : null),
+    );
   }
 
   function handleSave(event: FormEvent<HTMLFormElement>) {
@@ -159,43 +177,69 @@ export default function MasterDataManager({
     });
   }
 
-  const editorTitle = editor?.mode === "edit" ? `Edit ${entity}` : `Create ${entity}`;
+  const editorTitle =
+    editor?.mode === "edit" ? `Edit ${entity}` : `Create ${entity}`;
   const hasLogo = entity !== "Expense Category";
-  const pluralEntity = entity === "Product Category"
-    ? "Product Categories"
-    : entity === "Brand"
-      ? "Brands"
-      : "Expense Categories";
+  const pluralEntity =
+    entity === "Product Category"
+      ? "Product Categories"
+      : entity === "Brand"
+        ? "Brands"
+        : "Expense Categories";
   const canManage = Boolean(createAction || updateAction || deleteAction);
 
   return (
     <>
       {message && (
-        <p className={`warehouse-toast${isError ? "" : " warehouse-toast-success"} is-visible`} role={isError ? "alert" : "status"}>
-          {isError ? <Info size={18} aria-hidden="true" /> : <Check size={18} aria-hidden="true" />}
+        <p
+          className={`warehouse-toast${isError ? "" : " warehouse-toast-success"} is-visible`}
+          role={isError ? "alert" : "status"}
+        >
+          {isError ? (
+            <Info size={18} aria-hidden="true" />
+          ) : (
+            <Check size={18} aria-hidden="true" />
+          )}
           <span>{message}</span>
-          <button className="master-data-toast-close" type="button" aria-label="Dismiss message" onClick={() => setMessage("")}>
+          <button
+            className="master-data-toast-close"
+            type="button"
+            aria-label="Dismiss message"
+            onClick={() => setMessage("")}
+          >
             <X size={16} aria-hidden="true" />
           </button>
         </p>
       )}
 
       <div className="gg-table-toolbar">
-        <AutoSearchForm
-          action={listPath}
-          className="warehouse-search-form"
-          iconClassName="gg-input-icon warehouse-search-control"
-          id={`${listPath}-search`}
-          label={`Search ${pluralEntity.toLowerCase()}`}
-          value={query}
-        />
-        <TableSortFilter sortBy="name" sortOrder={sortOrder} options={[{ value: "name", label: "Name" }]} />
+        <div
+          className="table-search-filter-group"
+          role="group"
+          aria-label="Search and filters"
+        >
+          <AutoSearchForm
+            action={listPath}
+            className="warehouse-search-form"
+            iconClassName="gg-input-icon warehouse-search-control"
+            id={`${listPath}-search`}
+            label={`Search ${pluralEntity.toLowerCase()}`}
+            value={query}
+          />
+          <TableSortFilter
+            sortBy="name"
+            sortOrder={sortOrder}
+            options={[{ value: "name", label: "Name" }]}
+          />
+        </div>
         <div className="gg-spacer" />
         {createAction && (
           <button
             className="gg-btn gg-btn--primary"
             type="button"
-            onClick={(event) => openEditor({ mode: "create" }, event.currentTarget)}
+            onClick={(event) =>
+              openEditor({ mode: "create" }, event.currentTarget)
+            }
           >
             <Plus aria-hidden="true" />
             Create {entity}
@@ -216,7 +260,11 @@ export default function MasterDataManager({
                   pathname={listPath}
                   searchParams={searchParams}
                 />
-                {canManage && <th scope="col" className="category-actions-heading">Action</th>}
+                {canManage && (
+                  <th scope="col" className="category-actions-heading">
+                    Action
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -227,7 +275,13 @@ export default function MasterDataManager({
                       <div className="category-list-cell">
                         <span className="cat-thumb" aria-hidden="true">
                           {item.logo ? (
-                            <Image src={item.logo} alt="" fill unoptimized sizes="42px" />
+                            <Image
+                              src={item.logo}
+                              alt=""
+                              fill
+                              unoptimized
+                              sizes="42px"
+                            />
                           ) : (
                             <ImageIcon aria-hidden="true" />
                           )}
@@ -247,7 +301,12 @@ export default function MasterDataManager({
                             type="button"
                             aria-label={`Edit ${item.name}`}
                             title="Edit"
-                            onClick={(event) => openEditor({ mode: "edit", item }, event.currentTarget)}
+                            onClick={(event) =>
+                              openEditor(
+                                { mode: "edit", item },
+                                event.currentTarget,
+                              )
+                            }
                           >
                             <Pencil aria-hidden="true" />
                           </button>
@@ -273,9 +332,14 @@ export default function MasterDataManager({
               ))}
               {items.length === 0 && (
                 <tr>
-                  <td className="category-empty-cell" colSpan={canManage ? 2 : 1}>
+                  <td
+                    className="category-empty-cell"
+                    colSpan={canManage ? 2 : 1}
+                  >
                     <p className="warehouse-empty-title">
-                      {query ? `No ${pluralEntity.toLowerCase()} match your search` : `No ${pluralEntity.toLowerCase()} yet`}
+                      {query
+                        ? `No ${pluralEntity.toLowerCase()} match your search`
+                        : `No ${pluralEntity.toLowerCase()} yet`}
                     </p>
                     <p className="gg-muted">
                       {query
@@ -288,7 +352,9 @@ export default function MasterDataManager({
                       <button
                         className="gg-btn gg-btn--primary"
                         type="button"
-                        onClick={(event) => openEditor({ mode: "create" }, event.currentTarget)}
+                        onClick={(event) =>
+                          openEditor({ mode: "create" }, event.currentTarget)
+                        }
                       >
                         <Plus aria-hidden="true" />
                         Create {entity}
@@ -320,7 +386,9 @@ export default function MasterDataManager({
             onSubmit={handleSave}
           >
             <div className="gg-modal-head">
-              <h2 className="gg-card-title" id="master-data-modal-title">{editorTitle}</h2>
+              <h2 className="gg-card-title" id="master-data-modal-title">
+                {editorTitle}
+              </h2>
               <button
                 className="gg-modal-close"
                 type="button"
@@ -346,55 +414,105 @@ export default function MasterDataManager({
                   required
                   autoFocus
                   aria-invalid={Boolean(fieldErrors?.name?.[0])}
-                  aria-describedby={fieldErrors?.name?.[0] ? "master-data-name-error" : undefined}
+                  aria-describedby={
+                    fieldErrors?.name?.[0]
+                      ? "master-data-name-error"
+                      : undefined
+                  }
                   disabled={isPending}
                 />
                 {fieldErrors?.name?.[0] && (
-                  <span className="profile-field-error" id="master-data-name-error">{fieldErrors.name[0]}</span>
+                  <span
+                    className="profile-field-error"
+                    id="master-data-name-error"
+                  >
+                    {fieldErrors.name[0]}
+                  </span>
                 )}
               </div>
 
-              {hasLogo && <div className="gg-field">
-                <label className="gg-label" htmlFor="master-data-logo">Change Logo</label>
-                <div className="logo-drop">
-                  {preview ? (
-                    <Image src={preview} alt="Logo preview" fill unoptimized sizes="116px" />
-                  ) : (
-                    <ImageIcon className="ph" aria-hidden="true" />
-                  )}
-                  <label className="logo-edit" htmlFor="master-data-logo" title="Choose logo">
-                    <Pencil aria-hidden="true" />
+              {hasLogo && (
+                <div className="gg-field">
+                  <label className="gg-label" htmlFor="master-data-logo">
+                    Change Logo
                   </label>
-                  <input
-                    className="profile-file-input"
-                    id="master-data-logo"
-                    name="logo"
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    ref={logoInputRef}
-                    onChange={handleLogoChange}
-                    disabled={isPending}
-                    aria-describedby={fieldErrors?.logo?.[0] ? "master-data-logo-error" : "master-data-logo-hint"}
-                  />
+                  <div className="logo-drop">
+                    {preview ? (
+                      <Image
+                        src={preview}
+                        alt="Logo preview"
+                        fill
+                        unoptimized
+                        sizes="116px"
+                      />
+                    ) : (
+                      <ImageIcon className="ph" aria-hidden="true" />
+                    )}
+                    <label
+                      className="logo-edit"
+                      htmlFor="master-data-logo"
+                      title="Choose logo"
+                    >
+                      <Pencil aria-hidden="true" />
+                    </label>
+                    <input
+                      className="profile-file-input"
+                      id="master-data-logo"
+                      name="logo"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      ref={logoInputRef}
+                      onChange={handleLogoChange}
+                      disabled={isPending}
+                      aria-describedby={
+                        fieldErrors?.logo?.[0]
+                          ? "master-data-logo-error"
+                          : "master-data-logo-hint"
+                      }
+                    />
+                  </div>
+                  <span className="gg-caption" id="master-data-logo-hint">
+                    PNG, JPEG, or WebP. Maximum file size: 2 MB.
+                  </span>
+                  {fieldErrors?.logo?.[0] && (
+                    <span
+                      className="profile-field-error"
+                      id="master-data-logo-error"
+                    >
+                      {fieldErrors.logo[0]}
+                    </span>
+                  )}
                 </div>
-                <span className="gg-caption" id="master-data-logo-hint">PNG, JPEG, or WebP. Maximum file size: 2 MB.</span>
-                {fieldErrors?.logo?.[0] && (
-                  <span className="profile-field-error" id="master-data-logo-error">{fieldErrors.logo[0]}</span>
-                )}
-              </div>}
-              {message && isError && <p className="profile-alert" role="alert">{message}</p>}
+              )}
+              {message && isError && (
+                <p className="profile-alert" role="alert">
+                  {message}
+                </p>
+              )}
             </div>
             <div className="gg-modal-foot">
               <button
                 className="gg-btn gg-btn--primary"
                 type="submit"
-                disabled={isPending || !(editor.mode === "create" ? createAction : updateAction)}
-                title={!(editor.mode === "create" ? createAction : updateAction) ? "Saving will be available in the next step." : undefined}
+                disabled={
+                  isPending ||
+                  !(editor.mode === "create" ? createAction : updateAction)
+                }
+                title={
+                  !(editor.mode === "create" ? createAction : updateAction)
+                    ? "Saving will be available in the next step."
+                    : undefined
+                }
               >
                 <Check aria-hidden="true" />
                 {isPending ? "Saving..." : "Save"}
               </button>
-              <button className="gg-btn gg-btn--secondary" type="button" onClick={() => closeEditor()} disabled={isPending}>
+              <button
+                className="gg-btn gg-btn--secondary"
+                type="button"
+                onClick={() => closeEditor()}
+                disabled={isPending}
+              >
                 Cancel
               </button>
             </div>
@@ -409,24 +527,40 @@ export default function MasterDataManager({
         aria-describedby="master-data-delete-description"
         onClose={() => setDeleteTarget(null)}
         onClick={(event) => {
-          if (event.target === event.currentTarget) deleteDialogRef.current?.close();
+          if (event.target === event.currentTarget)
+            deleteDialogRef.current?.close();
         }}
       >
         <div className="gg-modal-head">
-          <span className="warehouse-confirm-icon"><AlertTriangle aria-hidden="true" /></span>
-          <h2 className="gg-card-title" id="master-data-delete-title">Delete {entity.toLowerCase()}?</h2>
+          <span className="warehouse-confirm-icon">
+            <AlertTriangle aria-hidden="true" />
+          </span>
+          <h2 className="gg-card-title" id="master-data-delete-title">
+            Delete {entity.toLowerCase()}?
+          </h2>
         </div>
         <div className="gg-modal-body">
           <p id="master-data-delete-description">
-            Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? This item will be removed from
-            active lists.
+            Are you sure you want to delete{" "}
+            <strong>{deleteTarget?.name}</strong>? This item will be removed
+            from active lists.
           </p>
         </div>
         <div className="gg-modal-foot">
-          <button className="gg-btn gg-btn--secondary" type="button" onClick={() => deleteDialogRef.current?.close()} disabled={isPending}>
+          <button
+            className="gg-btn gg-btn--secondary"
+            type="button"
+            onClick={() => deleteDialogRef.current?.close()}
+            disabled={isPending}
+          >
             Cancel
           </button>
-          <button className="gg-btn gg-btn--danger" type="button" onClick={handleDelete} disabled={isPending}>
+          <button
+            className="gg-btn gg-btn--danger"
+            type="button"
+            onClick={handleDelete}
+            disabled={isPending}
+          >
             <Trash2 aria-hidden="true" />
             {isPending ? "Deleting..." : `Delete ${entity}`}
           </button>

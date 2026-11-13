@@ -13,7 +13,9 @@ import {
 import { Prisma, TransferStatus } from "@prisma/client";
 import { z } from "zod";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import TransferTable, { type TransferListRow } from "@/components/transfers/TransferTable";
+import TransferTable, {
+  type TransferListRow,
+} from "@/components/transfers/TransferTable";
 import WarehouseToast from "@/components/shared/WarehouseToast";
 import { db } from "@/lib/db";
 import { getTransferViewAccess } from "./authorization";
@@ -29,9 +31,20 @@ export const metadata: Metadata = {
 };
 
 const searchQuerySchema = z.string().trim().max(120);
-const pageSchema = z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive());
+const pageSchema = z
+  .string()
+  .regex(/^\d+$/)
+  .transform(Number)
+  .pipe(z.number().int().positive());
 const pageSizeSchema = z.enum(["10", "25", "50"]).transform(Number);
-const sortFields = ["reference", "fromWarehouse", "toWarehouse", "status", "grandTotal", "date"] as const;
+const sortFields = [
+  "reference",
+  "fromWarehouse",
+  "toWarehouse",
+  "status",
+  "grandTotal",
+  "date",
+] as const;
 const sortOptions = [
   { value: "reference", label: "Reference" },
   { value: "fromWarehouse", label: "From Warehouse" },
@@ -64,7 +77,9 @@ async function TransferList({ searchParams }: TransfersPageProps) {
   const access = await getTransferViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
-  const canManageTransfers = access.user.permissions.includes(PERMISSION.manageTransfers);
+  const canManageTransfers = access.user.permissions.includes(
+    PERMISSION.manageTransfers,
+  );
 
   const rawSearchParams = await searchParams;
   const parsedQuery = searchQuerySchema.safeParse(rawSearchParams.q);
@@ -76,8 +91,9 @@ async function TransferList({ searchParams }: TransfersPageProps) {
   const sortBy = parseSortBy(rawSearchParams.sortBy, sortFields, "date");
   const sortOrder = parseSortOrder(rawSearchParams.sortOrder);
 
-  const statusMatch = Object.values(TransferStatus)
-    .find((status) => status.toLowerCase() === query.toLowerCase());
+  const statusMatch = Object.values(TransferStatus).find(
+    (status) => status.toLowerCase() === query.toLowerCase(),
+  );
   const searchConditions: Prisma.TransferWhereInput[] = [
     { reference: { contains: query } },
     { fromWarehouse: { is: { name: { contains: query } } } },
@@ -109,32 +125,37 @@ async function TransferList({ searchParams }: TransfersPageProps) {
       : sortBy === "toWarehouse"
         ? [{ toWarehouse: { name: sortOrder } }, { createdAt: sortOrder }]
         : [{ [sortBy]: sortOrder }, { createdAt: sortOrder }];
-  const fetchPage = (page: number) => db.transfer.findMany({
-    where,
-    orderBy,
-    skip: (page - 1) * pageSize,
-    take: pageSize,
-    select: {
-      id: true,
-      reference: true,
-      status: true,
-      grandTotal: true,
-      createdAt: true,
-      fromWarehouse: { select: { name: true } },
-      toWarehouse: { select: { name: true } },
-      _count: { select: { items: true } },
-    },
-  });
+  const fetchPage = (page: number) =>
+    db.transfer.findMany({
+      where,
+      orderBy,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        reference: true,
+        status: true,
+        grandTotal: true,
+        createdAt: true,
+        fromWarehouse: { select: { name: true } },
+        toWarehouse: { select: { name: true } },
+        _count: { select: { items: true } },
+      },
+    });
   const [totalCount, requestedTransfers] = await Promise.all([
     db.transfer.count({ where }),
     fetchPage(requestedPage),
   ]);
   const totalPages = Math.ceil(totalCount / pageSize);
-  const currentPage = totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
-  const transfers = currentPage === requestedPage
-    ? requestedTransfers
-    : await fetchPage(currentPage);
-  const displayName = `${access.user.firstName} ${access.user.lastName}`.trim() || access.user.email;
+  const currentPage =
+    totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
+  const transfers =
+    currentPage === requestedPage
+      ? requestedTransfers
+      : await fetchPage(currentPage);
+  const displayName =
+    `${access.user.firstName} ${access.user.lastName}`.trim() ||
+    access.user.email;
   const firstRecord = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const lastRecord = Math.min(currentPage * pageSize, totalCount);
   const created = rawSearchParams.created === "1";
@@ -149,7 +170,10 @@ async function TransferList({ searchParams }: TransfersPageProps) {
     grandTotal: transfer.grandTotal.toFixed(2),
     status: transfer.status,
     createdAt: transfer.createdAt.toISOString(),
-    createdTime: transfer.createdAt.toLocaleTimeString("en", { hour: "numeric", minute: "2-digit" }),
+    createdTime: transfer.createdAt.toLocaleTimeString("en", {
+      hour: "numeric",
+      minute: "2-digit",
+    }),
     createdDate: transfer.createdAt.toLocaleDateString("en", {
       year: "numeric",
       month: "2-digit",
@@ -158,31 +182,48 @@ async function TransferList({ searchParams }: TransfersPageProps) {
   }));
 
   return (
-    <DashboardLayout user={{ name: displayName, image: access.user.image }} pageTitle="Transfers">
+    <DashboardLayout
+      user={{ name: displayName, image: access.user.image }}
+      pageTitle="Transfers"
+    >
       <main className="gg-content">
         {(created || updated || deleted) && (
           <WarehouseToast
-            message={created
-              ? "Transfer created successfully."
-              : updated
-                ? "Transfer updated successfully."
-                : "Transfer deleted successfully."}
+            message={
+              created
+                ? "Transfer created successfully."
+                : updated
+                  ? "Transfer updated successfully."
+                  : "Transfer deleted successfully."
+            }
           />
         )}
         <div className="gg-table-toolbar">
-          <AutoSearchForm
-            action="/transfers"
-            className="transfer-search-form"
-            id="transfer-search"
-            label="Search transfers"
-            value={query}
-          />
-          <TableSortFilter sortBy={sortBy} sortOrder={sortOrder} options={sortOptions} />
+          <div
+            className="table-search-filter-group"
+            role="group"
+            aria-label="Search and filters"
+          >
+            <AutoSearchForm
+              action="/transfers"
+              className="transfer-search-form"
+              id="transfer-search"
+              label="Search transfers"
+              value={query}
+            />
+            <TableSortFilter
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              options={sortOptions}
+            />
+          </div>
           <div className="gg-spacer" />
-          {canManageTransfers && <Link className="gg-btn gg-btn--primary" href="/transfers/create">
-            <Plus aria-hidden="true" />
-            Create Transfer
-          </Link>}
+          {canManageTransfers && (
+            <Link className="gg-btn gg-btn--primary" href="/transfers/create">
+              <Plus aria-hidden="true" />
+              Create Transfer
+            </Link>
+          )}
         </div>
 
         <div className="gg-card gg-card-pad">
@@ -197,21 +238,60 @@ async function TransferList({ searchParams }: TransfersPageProps) {
             />
           </div>
           <div className="gg-pagination">
-            <DynamicPageSizeSelect id="transfer-page-size" pageSize={pageSize} />
+            <DynamicPageSizeSelect
+              id="transfer-page-size"
+              pageSize={pageSize}
+            />
             <span className="gg-muted gg-num" aria-live="polite">
               {firstRecord}–{lastRecord} of {totalCount}
             </span>
             <div className="gg-spacer" />
-            <PaginationLink page={1} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="First page">
+            <PaginationLink
+              page={1}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="First page"
+            >
               <ChevronFirst aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.max(1, currentPage - 1)} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Previous page">
+            <PaginationLink
+              page={Math.max(1, currentPage - 1)}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="Previous page"
+            >
               <ChevronLeft aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.min(totalPages, currentPage + 1)} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Next page">
+            <PaginationLink
+              page={Math.min(totalPages, currentPage + 1)}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="Next page"
+            >
               <ChevronRight aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={totalPages} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Last page">
+            <PaginationLink
+              page={totalPages}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="Last page"
+            >
               <ChevronLast aria-hidden="true" />
             </PaginationLink>
           </div>
@@ -243,13 +323,32 @@ function PaginationLink({
   children: React.ReactNode;
 }) {
   const isDisabled = totalPages === 0 || page === currentPage;
-  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
   if (query) params.set("q", query);
   params.set("sortBy", sortBy);
   params.set("sortOrder", sortOrder);
 
   if (isDisabled) {
-    return <span className="gg-page-btn is-disabled" aria-disabled="true" aria-label={label}>{children}</span>;
+    return (
+      <span
+        className="gg-page-btn is-disabled"
+        aria-disabled="true"
+        aria-label={label}
+      >
+        {children}
+      </span>
+    );
   }
-  return <Link className="gg-page-btn" href={`/transfers?${params.toString()}`} aria-label={label}>{children}</Link>;
+  return (
+    <Link
+      className="gg-page-btn"
+      href={`/transfers?${params.toString()}`}
+      aria-label={label}
+    >
+      {children}
+    </Link>
+  );
 }

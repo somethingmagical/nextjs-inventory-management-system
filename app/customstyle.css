@@ -98,7 +98,6 @@
   --sidebar-w-collapsed: 76px;
   --topbar-h: 64px;
 }
-
 /* ------------------------------------------------------------------- BASE */
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -295,6 +294,11 @@ button { font-family: inherit; }
 }
 .sale-report-search .gg-input-icon, .purchase-report-search .gg-input-icon, .stock-report-search .gg-input-icon { width: 100%; }
 .sale-report-search .gg-input-icon, .purchase-report-search .gg-input-icon, .stock-report-search .gg-input-icon { flex: 1 1 auto; min-width: 0; }
+.table-search-filter-group .sale-report-search,
+.table-search-filter-group .purchase-report-search,
+.table-search-filter-group .stock-report-search,
+.table-search-filter-group .rpt-search { width: auto; flex: 1 1 auto; min-width: 0; }
+.table-search-filter-group .sale-report-search { gap: 0; }
 .sale-report-date-form, .purchase-report-date-form { display: flex; align-items: center; gap: var(--sp-2); }
 .dynamic-filter-control { display: inline-flex; min-width: 0; align-items: center; }
 .dynamic-filter-input-wrap { display: contents; }
@@ -326,7 +330,8 @@ button { font-family: inherit; }
 .stock-report-warehouse-filter .gg-select { width: 100%; min-width: 0; }
 .stock-report-toolbar { margin-bottom: var(--sp-6); }
 .stock-report-toolbar .report-toolbar-controls { width: 100%; align-items: center; }
-.stock-report-search { min-width: 280px; flex: 1 1 0; }
+.stock-report-toolbar .table-search-filter-group { width: auto; flex: 1 1 0; min-width: 280px; }
+.stock-report-search { min-width: 0; flex: 1 1 auto; }
 .stock-report-search .gg-input-icon { flex: 1 1 auto; }
 .stock-report-toolbar .report-toolbar-export { flex: 0 0 auto; margin-left: auto; }
 .sale-report-toolbar .report-toolbar-export { flex: 0 0 auto; margin-left: auto; }
@@ -368,7 +373,7 @@ button { font-family: inherit; }
 .stock-detail-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
 .stock-detail-heading .gg-muted { margin-top: 4px; }
 .stock-table-toolbar { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
-.stock-search-form { width: min(440px, 100%); }
+.stock-search-form { width: auto; }
 .stock-filter-form { display: flex; flex: 1 1 420px; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-2); }
 .stock-filter-form .dynamic-filter-control { flex: 1 1 155px; }
 .stock-filter-form .gg-select { width: 100%; min-width: 155px; }
@@ -793,6 +798,18 @@ button { font-family: inherit; }
 /* ================================================================== TABLE */
 .gg-table-toolbar { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-5); }
 .gg-table-toolbar .gg-spacer { flex: 1; }
+.table-search-filter-group {
+  display: flex; width: min(460px, 100%); flex: 0 1 460px; align-items: stretch; min-width: 0;
+}
+.table-search-filter-group > form { width: auto; flex: 1 1 auto; min-width: 0; }
+.table-search-filter-group .gg-input-icon { width: 100%; min-width: 0; }
+.table-search-filter-group .gg-input-icon .gg-input {
+  border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: 0;
+}
+.table-search-filter-group .table-filter-container { flex: 0 0 auto; }
+.table-search-filter-group .table-filter-button {
+  width: 46px; height: 46px; border-top-left-radius: 0; border-bottom-left-radius: 0;
+}
 .gg-table-wrap { width: 100%; overflow-x: auto; }
 .gg-table { width: 100%; border-collapse: collapse; font-size: var(--text-base); }
 .gg-table thead th {
@@ -937,7 +954,7 @@ button { font-family: inherit; }
   .transfer-item-modal-body { max-height: calc(100vh - var(--sp-6) - 120px); overflow-y: auto; }
 }
 .product-toolbar { flex-wrap: wrap; }
-.product-toolbar .warehouse-search-form { flex: 1 1 280px; }
+.product-toolbar .table-search-filter-group { width: auto; flex: 1 1 280px; }
 .table-filter-button { background: var(--gold-600); color: #fff; border-color: var(--gold-600); }
 .table-filter-container { position: relative; }
 .table-filter-popover {
@@ -1386,9 +1403,13 @@ button { font-family: inherit; }
 }
 .purchase-action-menu button:disabled { cursor: not-allowed; opacity: .6; }
 @media (max-width: 760px) {
+  .gg-table-toolbar { flex-wrap: wrap; align-items: stretch; }
+  .gg-table-toolbar .table-search-filter-group { width: 100%; flex: 1 1 100%; }
+  .gg-table-toolbar .gg-spacer { display: none; }
   .purchase-toolbar { align-items: stretch; }
   .purchase-toolbar > .gg-spacer { display: none; }
   .purchase-search-form { flex: 1 1 100%; }
+  .table-search-filter-group > .purchase-search-form { flex-basis: 0; }
   .purchase-date-form { flex: 1 1 auto; }
   .purchase-date-field { width: 100%; }
   .purchase-date-form .purchase-date-field { flex: 1 1 auto; }
@@ -1741,10 +1762,13 @@ button { font-family: inherit; }
   .gg-topbar--with-nav .rpt-tab { font-size: 12px; }
   .gg-topbar--with-nav .gg-avatar { width: 34px; height: 34px; }
   .rpt-subtabs { gap: var(--sp-6); }
+  .report-toolbar-controls > .table-search-filter-group { width: 100%; flex-basis: 100%; }
   .report-toolbar-controls > form { flex-basis: 100%; }
   .stock-report-toolbar .stock-report-warehouse-filter,
-  .stock-report-toolbar .stock-report-search { min-width: 0; flex-basis: 100%; }
+  .stock-report-toolbar .table-search-filter-group { min-width: 0; flex-basis: 100%; }
   .stock-report-toolbar .report-toolbar-export { width: 100%; }
+  .sale-report-toolbar .report-toolbar-export,
+  .purchase-report-toolbar .report-toolbar-export { width: 100%; }
   .warehouse-report-toolbar .report-toolbar-controls { flex-wrap: wrap; }
   .warehouse-report-toolbar .report-toolbar-export { flex-basis: 100%; }
   .sale-report-date-field,

@@ -26,7 +26,11 @@ import { saleIdSchema } from "./payment-schema";
 import { parseSortBy, parseSortOrder } from "@/lib/table-sorting";
 
 const querySchema = z.string().trim().max(120);
-const pageSchema = z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive());
+const pageSchema = z
+  .string()
+  .regex(/^\d+$/)
+  .transform(Number)
+  .pipe(z.number().int().positive());
 const pageSizeSchema = z.enum(["10", "25", "50"]).transform(Number);
 const sortFields = ["date", "amount", "paymentType", "createdAt"] as const;
 const sortOptions = [
@@ -60,12 +64,17 @@ export default function SalePaymentsPage(props: SalePaymentsPageProps) {
   );
 }
 
-async function AuthorizedSalePayments({ params, searchParams }: SalePaymentsPageProps) {
+async function AuthorizedSalePayments({
+  params,
+  searchParams,
+}: SalePaymentsPageProps) {
   await connection();
   const access = await getSaleViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
-  const canManageSales = access.user.permissions.includes(PERMISSION.manageSale);
+  const canManageSales = access.user.permissions.includes(
+    PERMISSION.manageSale,
+  );
 
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const parsedId = saleIdSchema.safeParse(id);
@@ -125,7 +134,9 @@ async function AuthorizedSalePayments({ params, searchParams }: SalePaymentsPage
     },
   });
 
-  const displayName = `${access.user.firstName} ${access.user.lastName}`.trim() || access.user.email;
+  const displayName =
+    `${access.user.firstName} ${access.user.lastName}`.trim() ||
+    access.user.email;
   const paymentAdded = query.added === "1";
   const firstRecord = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const lastRecord = Math.min(currentPage * pageSize, totalCount);
@@ -139,9 +150,14 @@ async function AuthorizedSalePayments({ params, searchParams }: SalePaymentsPage
   const basePath = `/sales/${encodeURIComponent(sale.id)}/payments`;
 
   return (
-    <DashboardLayout user={{ name: displayName, image: access.user.image }} pageTitle="Sales">
+    <DashboardLayout
+      user={{ name: displayName, image: access.user.image }}
+      pageTitle="Sales"
+    >
       <main className="gg-content">
-        {paymentAdded && <WarehouseToast message="Payment added successfully." />}
+        {paymentAdded && (
+          <WarehouseToast message="Payment added successfully." />
+        )}
         <div className="page-head">
           <div>
             <h1 className="gg-page-title">Sale Payments</h1>
@@ -153,10 +169,18 @@ async function AuthorizedSalePayments({ params, searchParams }: SalePaymentsPage
           </Link>
         </div>
 
-        <section className="gg-card gg-card-pad purchase-detail-card" aria-labelledby="sale-payment-summary-title">
-          <h2 className="gg-card-title" id="sale-payment-summary-title">Payment Summary</h2>
+        <section
+          className="gg-card gg-card-pad purchase-detail-card"
+          aria-labelledby="sale-payment-summary-title"
+        >
+          <h2 className="gg-card-title" id="sale-payment-summary-title">
+            Payment Summary
+          </h2>
           <dl className="purchase-detail-grid">
-            <Detail label="Grand Total" value={`$ ${sale.grandTotal.toFixed(2)}`} />
+            <Detail
+              label="Grand Total"
+              value={`$ ${sale.grandTotal.toFixed(2)}`}
+            />
             <Detail label="Paid" value={`$ ${sale.paid.toFixed(2)}`} />
             <Detail label="Due" value={`$ ${sale.due.toFixed(2)}`} />
             <Detail label="Payment Status" value={sale.paymentStatus} />
@@ -166,40 +190,92 @@ async function AuthorizedSalePayments({ params, searchParams }: SalePaymentsPage
         {canManageSales ? (
           <SalePaymentForm saleId={sale.id} />
         ) : (
-          <p className="gg-muted">You have view-only access to sale payments.</p>
+          <p className="gg-muted">
+            You have view-only access to sale payments.
+          </p>
         )}
 
-        <section className="gg-card gg-card-pad purchase-detail-card" aria-labelledby="sale-payment-history-title">
-          <h2 className="gg-card-title" id="sale-payment-history-title">Payment History</h2>
+        <section
+          className="gg-card gg-card-pad purchase-detail-card"
+          aria-labelledby="sale-payment-history-title"
+        >
+          <h2 className="gg-card-title" id="sale-payment-history-title">
+            Payment History
+          </h2>
           <div className="gg-table-toolbar">
-            <AutoSearchForm
-              action={basePath}
-              className="warehouse-search-form"
-              iconClassName="gg-input-icon warehouse-search-control"
-              id="sale-payment-search"
-              label="Search payments"
-              placeholder="Search payment type or notes"
-              value={search}
-            />
-            <TableSortFilter sortBy={sortBy} sortOrder={sortOrder} options={sortOptions} />
+            <div
+              className="table-search-filter-group"
+              role="group"
+              aria-label="Search and filters"
+            >
+              <AutoSearchForm
+                action={basePath}
+                className="warehouse-search-form"
+                iconClassName="gg-input-icon warehouse-search-control"
+                id="sale-payment-search"
+                label="Search payments"
+                placeholder="Search payment type or notes"
+                value={search}
+              />
+              <TableSortFilter
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                options={sortOptions}
+              />
+            </div>
           </div>
           <div className="gg-table-wrap">
             <table className="gg-table">
               <thead>
                 <tr>
-                  <SortableTableHeader label="Date" sortKey="date" sortBy={sortBy} sortOrder={sortOrder} pathname={basePath} searchParams={query} />
-                  <SortableTableHeader label="Amount" sortKey="amount" sortBy={sortBy} sortOrder={sortOrder} pathname={basePath} searchParams={query} className="gg-num" />
-                  <SortableTableHeader label="Payment Type" sortKey="paymentType" sortBy={sortBy} sortOrder={sortOrder} pathname={basePath} searchParams={query} />
+                  <SortableTableHeader
+                    label="Date"
+                    sortKey="date"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname={basePath}
+                    searchParams={query}
+                  />
+                  <SortableTableHeader
+                    label="Amount"
+                    sortKey="amount"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname={basePath}
+                    searchParams={query}
+                    className="gg-num"
+                  />
+                  <SortableTableHeader
+                    label="Payment Type"
+                    sortKey="paymentType"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname={basePath}
+                    searchParams={query}
+                  />
                   <th scope="col">Notes</th>
-                  <SortableTableHeader label="Recorded On" sortKey="createdAt" sortBy={sortBy} sortOrder={sortOrder} pathname={basePath} searchParams={query} />
+                  <SortableTableHeader
+                    label="Recorded On"
+                    sortKey="createdAt"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname={basePath}
+                    searchParams={query}
+                  />
                 </tr>
               </thead>
               <tbody>
                 {payments.map((payment) => (
                   <tr key={payment.id}>
                     <td>{formatDate(payment.date)}</td>
-                    <td className="gg-num gg-td-strong">$ {payment.amount.toFixed(2)}</td>
-                    <td><span className="gg-chip-unit">{payment.paymentType}</span></td>
+                    <td className="gg-num gg-td-strong">
+                      $ {payment.amount.toFixed(2)}
+                    </td>
+                    <td>
+                      <span className="gg-chip-unit">
+                        {payment.paymentType}
+                      </span>
+                    </td>
                     <td className="gg-muted">{payment.notes || "—"}</td>
                     <td>{payment.createdAt.toLocaleString()}</td>
                   </tr>
@@ -208,10 +284,14 @@ async function AuthorizedSalePayments({ params, searchParams }: SalePaymentsPage
                   <tr>
                     <td className="product-empty-cell" colSpan={5}>
                       <p className="warehouse-empty-title">
-                        {search ? "No payments match your search" : "No payments recorded"}
+                        {search
+                          ? "No payments match your search"
+                          : "No payments recorded"}
                       </p>
                       <p className="gg-muted">
-                        {search ? "Try another payment type or note." : "Add a payment to see it in this history."}
+                        {search
+                          ? "Try another payment type or note."
+                          : "Add a payment to see it in this history."}
                       </p>
                     </td>
                   </tr>
@@ -220,21 +300,52 @@ async function AuthorizedSalePayments({ params, searchParams }: SalePaymentsPage
             </table>
           </div>
           <div className="gg-pagination">
-            <DynamicPageSizeSelect id="sale-payment-page-size" pageSize={pageSize} />
+            <DynamicPageSizeSelect
+              id="sale-payment-page-size"
+              pageSize={pageSize}
+            />
             <span className="gg-muted gg-num" aria-live="polite">
               {firstRecord}–{lastRecord} of {totalCount}
             </span>
             <div className="gg-spacer" />
-            <PageLink page={1} currentPage={currentPage} totalPages={totalPages} basePath={basePath} params={paginationParams} label="First page">
+            <PageLink
+              page={1}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              basePath={basePath}
+              params={paginationParams}
+              label="First page"
+            >
               <ChevronFirst aria-hidden="true" />
             </PageLink>
-            <PageLink page={Math.max(1, currentPage - 1)} currentPage={currentPage} totalPages={totalPages} basePath={basePath} params={paginationParams} label="Previous page">
+            <PageLink
+              page={Math.max(1, currentPage - 1)}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              basePath={basePath}
+              params={paginationParams}
+              label="Previous page"
+            >
               <ChevronLeft aria-hidden="true" />
             </PageLink>
-            <PageLink page={Math.min(totalPages, currentPage + 1)} currentPage={currentPage} totalPages={totalPages} basePath={basePath} params={paginationParams} label="Next page">
+            <PageLink
+              page={Math.min(totalPages, currentPage + 1)}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              basePath={basePath}
+              params={paginationParams}
+              label="Next page"
+            >
               <ChevronRight aria-hidden="true" />
             </PageLink>
-            <PageLink page={totalPages} currentPage={currentPage} totalPages={totalPages} basePath={basePath} params={paginationParams} label="Last page">
+            <PageLink
+              page={totalPages}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              basePath={basePath}
+              params={paginationParams}
+              label="Last page"
+            >
               <ChevronLast aria-hidden="true" />
             </PageLink>
           </div>
@@ -269,10 +380,26 @@ function PageLink({
   searchParams.set("page", String(page));
 
   if (disabled) {
-    return <span aria-label={label} aria-disabled="true" className="gg-page-btn is-disabled">{children}</span>;
+    return (
+      <span
+        aria-label={label}
+        aria-disabled="true"
+        className="gg-page-btn is-disabled"
+      >
+        {children}
+      </span>
+    );
   }
 
-  return <Link aria-label={label} className="gg-page-btn" href={`${basePath}?${searchParams.toString()}`}>{children}</Link>;
+  return (
+    <Link
+      aria-label={label}
+      className="gg-page-btn"
+      href={`${basePath}?${searchParams.toString()}`}
+    >
+      {children}
+    </Link>
+  );
 }
 
 function Detail({ label, value }: { label: string; value: string }) {

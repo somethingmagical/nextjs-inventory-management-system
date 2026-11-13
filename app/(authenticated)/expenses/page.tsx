@@ -24,9 +24,19 @@ export const metadata: Metadata = {
 };
 
 const searchQuerySchema = z.string().trim().max(120);
-const pageSchema = z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive());
+const pageSchema = z
+  .string()
+  .regex(/^\d+$/)
+  .transform(Number)
+  .pipe(z.number().int().positive());
 const pageSizeSchema = z.enum(["10", "25", "50"]).transform(Number);
-const sortFields = ["reference", "title", "amount", "date", "category"] as const;
+const sortFields = [
+  "reference",
+  "title",
+  "amount",
+  "date",
+  "category",
+] as const;
 const sortOptions = [
   { value: "reference", label: "Reference" },
   { value: "title", label: "Expense Title" },
@@ -58,7 +68,9 @@ async function ExpenseList({ searchParams }: ExpensesPageProps) {
   const access = await getExpenseViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
-  const canManageExpenses = access.user.permissions.includes(PERMISSION.manageExpenses);
+  const canManageExpenses = access.user.permissions.includes(
+    PERMISSION.manageExpenses,
+  );
 
   const rawSearchParams = await searchParams;
   const parsedQuery = searchQuerySchema.safeParse(rawSearchParams.q);
@@ -84,63 +96,85 @@ async function ExpenseList({ searchParams }: ExpensesPageProps) {
     sortBy === "category"
       ? [{ expenseCategory: { name: sortOrder } }, { createdAt: sortOrder }]
       : [{ [sortBy]: sortOrder }, { createdAt: sortOrder }];
-  const fetchPage = (page: number) => db.expense.findMany({
-    where,
-    orderBy,
-    skip: (page - 1) * pageSize,
-    take: pageSize,
-    select: {
-      id: true,
-      reference: true,
-      title: true,
-      amount: true,
-      date: true,
-      createdAt: true,
-      warehouse: { select: { name: true } },
-      expenseCategory: { select: { name: true } },
-    },
-  });
+  const fetchPage = (page: number) =>
+    db.expense.findMany({
+      where,
+      orderBy,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        reference: true,
+        title: true,
+        amount: true,
+        date: true,
+        createdAt: true,
+        warehouse: { select: { name: true } },
+        expenseCategory: { select: { name: true } },
+      },
+    });
   const [totalCount, requestedExpenses] = await Promise.all([
     db.expense.count({ where }),
     fetchPage(requestedPage),
   ]);
   const totalPages = Math.ceil(totalCount / pageSize);
-  const currentPage = totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
-  const expenses = currentPage === requestedPage
-    ? requestedExpenses
-    : await fetchPage(currentPage);
-  const displayName = `${access.user.firstName} ${access.user.lastName}`.trim() || access.user.email;
+  const currentPage =
+    totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
+  const expenses =
+    currentPage === requestedPage
+      ? requestedExpenses
+      : await fetchPage(currentPage);
+  const displayName =
+    `${access.user.firstName} ${access.user.lastName}`.trim() ||
+    access.user.email;
   const created = rawSearchParams.created === "1";
   const updated = rawSearchParams.updated === "1";
   const deleted = rawSearchParams.deleted === "1";
 
   return (
-    <DashboardLayout user={{ name: displayName, image: access.user.image }} pageTitle="Expenses">
+    <DashboardLayout
+      user={{ name: displayName, image: access.user.image }}
+      pageTitle="Expenses"
+    >
       <main className="gg-content">
         {(created || updated || deleted) && (
           <WarehouseToast
-            message={created
-              ? "Expense created successfully."
-              : updated
-                ? "Expense updated successfully."
-                : "Expense deleted successfully."}
+            message={
+              created
+                ? "Expense created successfully."
+                : updated
+                  ? "Expense updated successfully."
+                  : "Expense deleted successfully."
+            }
           />
         )}
         <div className="gg-table-toolbar">
-          <AutoSearchForm
-            action="/expenses"
-            className="warehouse-search-form"
-            iconClassName="gg-input-icon warehouse-search-control"
-            id="expense-search"
-            label="Search expenses"
-            value={query}
-          />
-          <TableSortFilter sortBy={sortBy} sortOrder={sortOrder} options={sortOptions} />
+          <div
+            className="table-search-filter-group"
+            role="group"
+            aria-label="Search and filters"
+          >
+            <AutoSearchForm
+              action="/expenses"
+              className="warehouse-search-form"
+              iconClassName="gg-input-icon warehouse-search-control"
+              id="expense-search"
+              label="Search expenses"
+              value={query}
+            />
+            <TableSortFilter
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              options={sortOptions}
+            />
+          </div>
           <div className="gg-spacer" />
-          {canManageExpenses && <Link className="gg-btn gg-btn--primary" href="/expenses/create">
-            <Plus aria-hidden="true" />
-            Create Expense
-          </Link>}
+          {canManageExpenses && (
+            <Link className="gg-btn gg-btn--primary" href="/expenses/create">
+              <Plus aria-hidden="true" />
+              Create Expense
+            </Link>
+          )}
         </div>
 
         <div className="gg-card gg-card-pad">
@@ -148,26 +182,73 @@ async function ExpenseList({ searchParams }: ExpensesPageProps) {
             <table className="gg-table">
               <thead>
                 <tr>
-                  <SortableTableHeader label="Reference" sortKey="reference" sortBy={sortBy} sortOrder={sortOrder} pathname="/expenses" searchParams={rawSearchParams} />
-                  <SortableTableHeader label="Expense Title" sortKey="title" sortBy={sortBy} sortOrder={sortOrder} pathname="/expenses" searchParams={rawSearchParams} />
+                  <SortableTableHeader
+                    label="Reference"
+                    sortKey="reference"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/expenses"
+                    searchParams={rawSearchParams}
+                  />
+                  <SortableTableHeader
+                    label="Expense Title"
+                    sortKey="title"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/expenses"
+                    searchParams={rawSearchParams}
+                  />
                   <th scope="col">Warehouse</th>
-                  <SortableTableHeader label="Expense Category" sortKey="category" sortBy={sortBy} sortOrder={sortOrder} pathname="/expenses" searchParams={rawSearchParams} />
-                  <SortableTableHeader label="Amount" sortKey="amount" sortBy={sortBy} sortOrder={sortOrder} pathname="/expenses" searchParams={rawSearchParams} className="gg-num" />
-                  <SortableTableHeader label="Created On" sortKey="date" sortBy={sortBy} sortOrder={sortOrder} pathname="/expenses" searchParams={rawSearchParams} />
-                  {canManageExpenses && <th scope="col" className="product-actions-heading">Action</th>}
+                  <SortableTableHeader
+                    label="Expense Category"
+                    sortKey="category"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/expenses"
+                    searchParams={rawSearchParams}
+                  />
+                  <SortableTableHeader
+                    label="Amount"
+                    sortKey="amount"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/expenses"
+                    searchParams={rawSearchParams}
+                    className="gg-num"
+                  />
+                  <SortableTableHeader
+                    label="Created On"
+                    sortKey="date"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/expenses"
+                    searchParams={rawSearchParams}
+                  />
+                  {canManageExpenses && (
+                    <th scope="col" className="product-actions-heading">
+                      Action
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {expenses.map((expense) => (
                   <tr key={expense.id}>
-                    <td><span className="gg-chip-code">{expense.reference}</span></td>
+                    <td>
+                      <span className="gg-chip-code">{expense.reference}</span>
+                    </td>
                     <td className="gg-td-strong">{expense.title}</td>
                     <td>{expense.warehouse.name}</td>
                     <td>{expense.expenseCategory.name}</td>
-                    <td className="gg-num gg-td-strong">$ {expense.amount.toFixed(2)}</td>
+                    <td className="gg-num gg-td-strong">
+                      $ {expense.amount.toFixed(2)}
+                    </td>
                     <td>
                       <span className="gg-chip-time gg-num">
-                        {expense.createdAt.toLocaleTimeString("en", { hour: "numeric", minute: "2-digit" })}
+                        {expense.createdAt.toLocaleTimeString("en", {
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
                         <time dateTime={expense.createdAt.toISOString()}>
                           {expense.createdAt.toLocaleDateString("en", {
                             year: "numeric",
@@ -177,16 +258,23 @@ async function ExpenseList({ searchParams }: ExpensesPageProps) {
                         </time>
                       </span>
                     </td>
-                    {canManageExpenses && <td className="product-actions-cell">
-                      <ExpenseRowActions expenseId={expense.id} title={expense.title} />
-                    </td>}
+                    {canManageExpenses && (
+                      <td className="product-actions-cell">
+                        <ExpenseRowActions
+                          expenseId={expense.id}
+                          title={expense.title}
+                        />
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {expenses.length === 0 && (
                   <tr>
                     <td className="product-empty-cell" colSpan={7}>
                       <p className="warehouse-empty-title">
-                        {query ? "No expenses match your search" : "No expenses yet"}
+                        {query
+                          ? "No expenses match your search"
+                          : "No expenses yet"}
                       </p>
                       <p className="gg-muted">
                         {query
@@ -194,11 +282,17 @@ async function ExpenseList({ searchParams }: ExpensesPageProps) {
                           : "Create an expense to start tracking money out."}
                       </p>
                       {query ? (
-                        <Link className="gg-btn gg-btn--secondary" href="/expenses">
+                        <Link
+                          className="gg-btn gg-btn--secondary"
+                          href="/expenses"
+                        >
                           Clear search
                         </Link>
                       ) : (
-                        <Link className="gg-btn gg-btn--primary" href="/expenses/create">
+                        <Link
+                          className="gg-btn gg-btn--primary"
+                          href="/expenses/create"
+                        >
                           <Plus aria-hidden="true" />
                           Create Expense
                         </Link>

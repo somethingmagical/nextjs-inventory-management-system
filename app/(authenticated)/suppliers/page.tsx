@@ -31,7 +31,11 @@ export const metadata: Metadata = {
 };
 
 const searchQuerySchema = z.string().trim().max(120);
-const pageSchema = z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive());
+const pageSchema = z
+  .string()
+  .regex(/^\d+$/)
+  .transform(Number)
+  .pipe(z.number().int().positive());
 const pageSizeSchema = z.enum(["10", "25", "50"]).transform(Number);
 const sortFields = ["name", "phoneNumber", "createdAt"] as const;
 const sortOptions = [
@@ -63,7 +67,9 @@ async function SupplierList({ searchParams }: SuppliersPageProps) {
   const access = await getSupplierViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
-  const canManageSuppliers = access.user.permissions.includes(PERMISSION.manageSuppliers);
+  const canManageSuppliers = access.user.permissions.includes(
+    PERMISSION.manageSuppliers,
+  );
 
   const rawSearchParams = await searchParams;
   const parsedQuery = searchQuerySchema.safeParse(rawSearchParams.q);
@@ -78,17 +84,32 @@ async function SupplierList({ searchParams }: SuppliersPageProps) {
   const sortBy = parseSortBy(rawSearchParams.sortBy, sortFields, "createdAt");
   const sortOrder = parseSortOrder(rawSearchParams.sortOrder);
 
-  const supplierList = await getSupplierListData({ query, requestedPage, pageSize, sortBy, sortOrder });
+  const supplierList = await getSupplierListData({
+    query,
+    requestedPage,
+    pageSize,
+    sortBy,
+    sortOrder,
+  });
 
-  const { totalCount, totalPages, currentPage, items: suppliers } = supplierList;
+  const {
+    totalCount,
+    totalPages,
+    currentPage,
+    items: suppliers,
+  } = supplierList;
 
   const displayName =
-    `${access.user.firstName} ${access.user.lastName}`.trim() || access.user.email;
+    `${access.user.firstName} ${access.user.lastName}`.trim() ||
+    access.user.email;
   const firstRecord = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const lastRecord = Math.min(currentPage * pageSize, totalCount);
 
   return (
-    <DashboardLayout user={{ name: displayName, image: access.user.image }} pageTitle="Suppliers">
+    <DashboardLayout
+      user={{ name: displayName, image: access.user.image }}
+      pageTitle="Suppliers"
+    >
       <main className="gg-content">
         {(created || updated || deleted) && (
           <WarehouseToast
@@ -102,16 +123,26 @@ async function SupplierList({ searchParams }: SuppliersPageProps) {
           />
         )}
         <div className="gg-table-toolbar">
-          <AutoSearchForm
-            action="/suppliers"
-            className="warehouse-search-form"
-            iconClassName="gg-input-icon warehouse-search-control"
-            id="supplier-search"
-            label="Search suppliers"
-            placeholder="Search suppliers"
-            value={query}
-          />
-          <TableSortFilter sortBy={sortBy} sortOrder={sortOrder} options={sortOptions} />
+          <div
+            className="table-search-filter-group"
+            role="group"
+            aria-label="Search and filters"
+          >
+            <AutoSearchForm
+              action="/suppliers"
+              className="warehouse-search-form"
+              iconClassName="gg-input-icon warehouse-search-control"
+              id="supplier-search"
+              label="Search suppliers"
+              placeholder="Search suppliers"
+              value={query}
+            />
+            <TableSortFilter
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              options={sortOptions}
+            />
+          </div>
           <div className="gg-spacer" />
           {canManageSuppliers && <SupplierImportButton />}
           {canManageSuppliers && (
@@ -127,10 +158,35 @@ async function SupplierList({ searchParams }: SuppliersPageProps) {
             <table className="gg-table">
               <thead>
                 <tr>
-                  <SortableTableHeader label="Supplier" sortKey="name" sortBy={sortBy} sortOrder={sortOrder} pathname="/suppliers" searchParams={rawSearchParams} />
-                  <SortableTableHeader label="Phone Number" sortKey="phoneNumber" sortBy={sortBy} sortOrder={sortOrder} pathname="/suppliers" searchParams={rawSearchParams} />
-                  <SortableTableHeader label="Created On" sortKey="createdAt" sortBy={sortBy} sortOrder={sortOrder} pathname="/suppliers" searchParams={rawSearchParams} />
-                  {canManageSuppliers && <th className="supplier-actions-heading" scope="col">Action</th>}
+                  <SortableTableHeader
+                    label="Supplier"
+                    sortKey="name"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/suppliers"
+                    searchParams={rawSearchParams}
+                  />
+                  <SortableTableHeader
+                    label="Phone Number"
+                    sortKey="phoneNumber"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/suppliers"
+                    searchParams={rawSearchParams}
+                  />
+                  <SortableTableHeader
+                    label="Created On"
+                    sortKey="createdAt"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/suppliers"
+                    searchParams={rawSearchParams}
+                  />
+                  {canManageSuppliers && (
+                    <th className="supplier-actions-heading" scope="col">
+                      Action
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -144,7 +200,10 @@ async function SupplierList({ searchParams }: SuppliersPageProps) {
                     </td>
                     <td className="gg-num">{supplier.phoneNumber}</td>
                     <td>
-                      <time className="gg-chip-time gg-num" dateTime={supplier.createdAt.toISOString()}>
+                      <time
+                        className="gg-chip-time gg-num"
+                        dateTime={supplier.createdAt.toISOString()}
+                      >
                         {supplier.createdAt.toLocaleDateString("en", {
                           year: "numeric",
                           month: "short",
@@ -152,26 +211,36 @@ async function SupplierList({ searchParams }: SuppliersPageProps) {
                         })}
                       </time>
                     </td>
-                    {canManageSuppliers && <td className="supplier-actions-cell">
-                      <div className="row-acts">
-                        <Link
-                          className="act-edit"
-                          href={`/suppliers/${encodeURIComponent(supplier.id)}/edit`}
-                          aria-label={`Edit ${supplier.name}`}
-                          title="Edit"
-                        >
-                          <Pencil aria-hidden="true" />
-                        </Link>
-                        <SupplierDeleteButton supplierId={supplier.id} supplierName={supplier.name} />
-                      </div>
-                    </td>}
+                    {canManageSuppliers && (
+                      <td className="supplier-actions-cell">
+                        <div className="row-acts">
+                          <Link
+                            className="act-edit"
+                            href={`/suppliers/${encodeURIComponent(supplier.id)}/edit`}
+                            aria-label={`Edit ${supplier.name}`}
+                            title="Edit"
+                          >
+                            <Pencil aria-hidden="true" />
+                          </Link>
+                          <SupplierDeleteButton
+                            supplierId={supplier.id}
+                            supplierName={supplier.name}
+                          />
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {suppliers.length === 0 && (
                   <tr>
-                    <td className="supplier-empty-cell" colSpan={canManageSuppliers ? 4 : 3}>
+                    <td
+                      className="supplier-empty-cell"
+                      colSpan={canManageSuppliers ? 4 : 3}
+                    >
                       <p className="warehouse-empty-title">
-                        {query ? "No suppliers match your search" : "No suppliers yet"}
+                        {query
+                          ? "No suppliers match your search"
+                          : "No suppliers yet"}
                       </p>
                       <p className="gg-muted">
                         {query
@@ -181,7 +250,10 @@ async function SupplierList({ searchParams }: SuppliersPageProps) {
                             : "No suppliers are available."}
                       </p>
                       {query && (
-                        <Link className="gg-btn gg-btn--secondary" href="/suppliers">
+                        <Link
+                          className="gg-btn gg-btn--secondary"
+                          href="/suppliers"
+                        >
                           Clear search
                         </Link>
                       )}
@@ -193,21 +265,60 @@ async function SupplierList({ searchParams }: SuppliersPageProps) {
           </div>
 
           <div className="gg-pagination">
-            <DynamicPageSizeSelect id="supplier-page-size" pageSize={pageSize} />
+            <DynamicPageSizeSelect
+              id="supplier-page-size"
+              pageSize={pageSize}
+            />
             <span className="gg-muted gg-num" aria-live="polite">
               {firstRecord}–{lastRecord} of {totalCount}
             </span>
             <div className="gg-spacer" />
-            <PaginationLink page={1} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="First page">
+            <PaginationLink
+              page={1}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="First page"
+            >
               <ChevronFirst aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.max(1, currentPage - 1)} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Previous page">
+            <PaginationLink
+              page={Math.max(1, currentPage - 1)}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="Previous page"
+            >
               <ChevronLeft aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.min(totalPages, currentPage + 1)} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Next page">
+            <PaginationLink
+              page={Math.min(totalPages, currentPage + 1)}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="Next page"
+            >
               <ChevronRight aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={totalPages} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Last page">
+            <PaginationLink
+              page={totalPages}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="Last page"
+            >
               <ChevronLast aria-hidden="true" />
             </PaginationLink>
           </div>
@@ -239,21 +350,32 @@ function PaginationLink({
   children: React.ReactNode;
 }) {
   const isDisabled = totalPages === 0 || page === currentPage;
-  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
   if (query) params.set("q", query);
   params.set("sortBy", sortBy);
   params.set("sortOrder", sortOrder);
 
   if (isDisabled) {
     return (
-      <span className="gg-page-btn is-disabled" aria-disabled="true" aria-label={label}>
+      <span
+        className="gg-page-btn is-disabled"
+        aria-disabled="true"
+        aria-label={label}
+      >
         {children}
       </span>
     );
   }
 
   return (
-    <Link className="gg-page-btn" href={`/suppliers?${params.toString()}`} aria-label={label}>
+    <Link
+      className="gg-page-btn"
+      href={`/suppliers?${params.toString()}`}
+      aria-label={label}
+    >
       {children}
     </Link>
   );

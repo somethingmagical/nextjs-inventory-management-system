@@ -3,7 +3,14 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
-import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Pencil, Plus } from "lucide-react";
+import {
+  ChevronFirst,
+  ChevronLast,
+  ChevronLeft,
+  ChevronRight,
+  Pencil,
+  Plus,
+} from "lucide-react";
 import { z } from "zod";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { getWarehouseListData } from "@/features/warehouses/queries";
@@ -23,7 +30,11 @@ export const metadata: Metadata = {
 };
 
 const searchQuerySchema = z.string().trim().max(120);
-const pageSchema = z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive());
+const pageSchema = z
+  .string()
+  .regex(/^\d+$/)
+  .transform(Number)
+  .pipe(z.number().int().positive());
 const pageSizeSchema = z.enum(["10", "25", "50"]).transform(Number);
 const sortFields = ["name", "city", "createdAt"] as const;
 const sortOptions = [
@@ -55,7 +66,9 @@ async function WarehouseList({ searchParams }: WarehousePageProps) {
   const access = await getWarehouseViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
-  const canManageWarehouses = access.user.permissions.includes(PERMISSION.manageWarehouses);
+  const canManageWarehouses = access.user.permissions.includes(
+    PERMISSION.manageWarehouses,
+  );
 
   const rawSearchParams = await searchParams;
   const parsedQuery = searchQuerySchema.safeParse(rawSearchParams.q);
@@ -70,17 +83,32 @@ async function WarehouseList({ searchParams }: WarehousePageProps) {
   const sortBy = parseSortBy(rawSearchParams.sortBy, sortFields, "createdAt");
   const sortOrder = parseSortOrder(rawSearchParams.sortOrder);
 
-  const warehouseList = await getWarehouseListData({ query, requestedPage, pageSize, sortBy, sortOrder });
+  const warehouseList = await getWarehouseListData({
+    query,
+    requestedPage,
+    pageSize,
+    sortBy,
+    sortOrder,
+  });
 
-  const { totalCount, totalPages, currentPage, items: warehouses } = warehouseList;
+  const {
+    totalCount,
+    totalPages,
+    currentPage,
+    items: warehouses,
+  } = warehouseList;
 
   const displayName =
-    `${access.user.firstName} ${access.user.lastName}`.trim() || access.user.email;
+    `${access.user.firstName} ${access.user.lastName}`.trim() ||
+    access.user.email;
   const firstRecord = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const lastRecord = Math.min(currentPage * pageSize, totalCount);
 
   return (
-    <DashboardLayout user={{ name: displayName, image: access.user.image }} pageTitle="Warehouse">
+    <DashboardLayout
+      user={{ name: displayName, image: access.user.image }}
+      pageTitle="Warehouse"
+    >
       <main className="gg-content">
         {(created || updated || deleted) && (
           <WarehouseToast
@@ -94,16 +122,26 @@ async function WarehouseList({ searchParams }: WarehousePageProps) {
           />
         )}
         <div className="gg-table-toolbar">
-          <AutoSearchForm
-            action="/warehouse"
-            className="warehouse-search-form"
-            iconClassName="gg-input-icon warehouse-search-control"
-            id="warehouse-search"
-            label="Search warehouses"
-            placeholder="Search by name, email, or city"
-            value={query}
-          />
-          <TableSortFilter sortBy={sortBy} sortOrder={sortOrder} options={sortOptions} />
+          <div
+            className="table-search-filter-group"
+            role="group"
+            aria-label="Search and filters"
+          >
+            <AutoSearchForm
+              action="/warehouse"
+              className="warehouse-search-form"
+              iconClassName="gg-input-icon warehouse-search-control"
+              id="warehouse-search"
+              label="Search warehouses"
+              placeholder="Search by name, email, or city"
+              value={query}
+            />
+            <TableSortFilter
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              options={sortOptions}
+            />
+          </div>
           <div className="gg-spacer" />
           {canManageWarehouses && (
             <Link className="gg-btn gg-btn--primary" href="/warehouse/create">
@@ -118,11 +156,36 @@ async function WarehouseList({ searchParams }: WarehousePageProps) {
             <table className="gg-table">
               <thead>
                 <tr>
-                  <SortableTableHeader label="Name" sortKey="name" sortBy={sortBy} sortOrder={sortOrder} pathname="/warehouse" searchParams={rawSearchParams} />
+                  <SortableTableHeader
+                    label="Name"
+                    sortKey="name"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/warehouse"
+                    searchParams={rawSearchParams}
+                  />
                   <th scope="col">Email / Phone</th>
-                  <SortableTableHeader label="City / Country" sortKey="city" sortBy={sortBy} sortOrder={sortOrder} pathname="/warehouse" searchParams={rawSearchParams} />
-                  <SortableTableHeader label="Created On" sortKey="createdAt" sortBy={sortBy} sortOrder={sortOrder} pathname="/warehouse" searchParams={rawSearchParams} />
-                  {canManageWarehouses && <th className="warehouse-actions-heading" scope="col">Action</th>}
+                  <SortableTableHeader
+                    label="City / Country"
+                    sortKey="city"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/warehouse"
+                    searchParams={rawSearchParams}
+                  />
+                  <SortableTableHeader
+                    label="Created On"
+                    sortKey="createdAt"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/warehouse"
+                    searchParams={rawSearchParams}
+                  />
+                  {canManageWarehouses && (
+                    <th className="warehouse-actions-heading" scope="col">
+                      Action
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -147,7 +210,10 @@ async function WarehouseList({ searchParams }: WarehousePageProps) {
                       </div>
                     </td>
                     <td>
-                      <time className="gg-chip-time" dateTime={warehouse.createdAt.toISOString()}>
+                      <time
+                        className="gg-chip-time"
+                        dateTime={warehouse.createdAt.toISOString()}
+                      >
                         {warehouse.createdAt.toLocaleDateString("en", {
                           year: "numeric",
                           month: "short",
@@ -155,26 +221,36 @@ async function WarehouseList({ searchParams }: WarehousePageProps) {
                         })}
                       </time>
                     </td>
-                    {canManageWarehouses && <td className="warehouse-actions-cell">
-                      <div className="warehouse-row-actions">
-                        <Link
-                          className="act-edit"
-                          href={`/warehouse/${encodeURIComponent(warehouse.id)}/edit`}
-                          aria-label={`Edit ${warehouse.name}`}
-                          title="Edit"
-                        >
-                          <Pencil aria-hidden="true" />
-                        </Link>
-                        <WarehouseDeleteButton warehouseId={warehouse.id} warehouseName={warehouse.name} />
-                      </div>
-                    </td>}
+                    {canManageWarehouses && (
+                      <td className="warehouse-actions-cell">
+                        <div className="warehouse-row-actions">
+                          <Link
+                            className="act-edit"
+                            href={`/warehouse/${encodeURIComponent(warehouse.id)}/edit`}
+                            aria-label={`Edit ${warehouse.name}`}
+                            title="Edit"
+                          >
+                            <Pencil aria-hidden="true" />
+                          </Link>
+                          <WarehouseDeleteButton
+                            warehouseId={warehouse.id}
+                            warehouseName={warehouse.name}
+                          />
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {warehouses.length === 0 && (
                   <tr>
-                    <td className="warehouse-empty-cell" colSpan={canManageWarehouses ? 5 : 4}>
+                    <td
+                      className="warehouse-empty-cell"
+                      colSpan={canManageWarehouses ? 5 : 4}
+                    >
                       <p className="warehouse-empty-title">
-                        {query ? "No warehouses match your search" : "No warehouses yet"}
+                        {query
+                          ? "No warehouses match your search"
+                          : "No warehouses yet"}
                       </p>
                       <p className="gg-muted">
                         {query
@@ -184,7 +260,10 @@ async function WarehouseList({ searchParams }: WarehousePageProps) {
                             : "No warehouses are available."}
                       </p>
                       {query && (
-                        <Link className="gg-btn gg-btn--secondary" href="/warehouse">
+                        <Link
+                          className="gg-btn gg-btn--secondary"
+                          href="/warehouse"
+                        >
                           Clear search
                         </Link>
                       )}
@@ -196,21 +275,60 @@ async function WarehouseList({ searchParams }: WarehousePageProps) {
           </div>
 
           <div className="gg-pagination">
-            <DynamicPageSizeSelect id="warehouse-page-size" pageSize={pageSize} />
+            <DynamicPageSizeSelect
+              id="warehouse-page-size"
+              pageSize={pageSize}
+            />
             <span className="gg-muted gg-num" aria-live="polite">
               {firstRecord}–{lastRecord} of {totalCount}
             </span>
             <div className="gg-spacer" />
-            <PaginationLink page={1} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="First page">
+            <PaginationLink
+              page={1}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="First page"
+            >
               <ChevronFirst aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.max(1, currentPage - 1)} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Previous page">
+            <PaginationLink
+              page={Math.max(1, currentPage - 1)}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="Previous page"
+            >
               <ChevronLeft aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.min(totalPages, currentPage + 1)} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Next page">
+            <PaginationLink
+              page={Math.min(totalPages, currentPage + 1)}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="Next page"
+            >
               <ChevronRight aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={totalPages} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Last page">
+            <PaginationLink
+              page={totalPages}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="Last page"
+            >
               <ChevronLast aria-hidden="true" />
             </PaginationLink>
           </div>
@@ -242,21 +360,32 @@ function PaginationLink({
   children: React.ReactNode;
 }) {
   const isDisabled = totalPages === 0 || page === currentPage;
-  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
   if (query) params.set("q", query);
   params.set("sortBy", sortBy);
   params.set("sortOrder", sortOrder);
 
   if (isDisabled) {
     return (
-      <span className="gg-page-btn is-disabled" aria-disabled="true" aria-label={label}>
+      <span
+        className="gg-page-btn is-disabled"
+        aria-disabled="true"
+        aria-label={label}
+      >
         {children}
       </span>
     );
   }
 
   return (
-    <Link className="gg-page-btn" href={`/warehouse?${params.toString()}`} aria-label={label}>
+    <Link
+      className="gg-page-btn"
+      href={`/warehouse?${params.toString()}`}
+      aria-label={label}
+    >
       {children}
     </Link>
   );

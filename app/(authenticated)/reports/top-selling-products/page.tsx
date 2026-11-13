@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { CalendarDays, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  CalendarDays,
+  ChevronFirst,
+  ChevronLast,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import type { ReactNode } from "react";
@@ -20,19 +26,34 @@ export const metadata: Metadata = {
 };
 
 const querySchema = z.string().trim().max(120);
-const yearSchema = z.string().regex(/^\d{4}$/).transform(Number).pipe(z.number().int().min(2000).max(2100));
-const monthSchema = z.string().regex(/^(0?[1-9]|1[0-2])$/).transform(Number).pipe(z.number().int().min(1).max(12));
-const yearMonthSchema = z.string()
+const yearSchema = z
+  .string()
+  .regex(/^\d{4}$/)
+  .transform(Number)
+  .pipe(z.number().int().min(2000).max(2100));
+const monthSchema = z
+  .string()
+  .regex(/^(0?[1-9]|1[0-2])$/)
+  .transform(Number)
+  .pipe(z.number().int().min(1).max(12));
+const yearMonthSchema = z
+  .string()
   .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
   .transform((value) => {
     const [year, month] = value.split("-").map(Number);
     return { year, month };
   })
-  .pipe(z.object({
-    year: z.number().int().min(2000).max(2100),
-    month: z.number().int().min(1).max(12),
-  }));
-const pageSchema = z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive());
+  .pipe(
+    z.object({
+      year: z.number().int().min(2000).max(2100),
+      month: z.number().int().min(1).max(12),
+    }),
+  );
+const pageSchema = z
+  .string()
+  .regex(/^\d+$/)
+  .transform(Number)
+  .pipe(z.number().int().positive());
 const pageSizeSchema = z.enum(["10", "25", "50"]).transform(Number);
 const sortFields = ["name", "quantity", "grandTotal"] as const;
 const sortOptions = [
@@ -124,7 +145,9 @@ async function TopSellingProductsReportContent({
     INNER JOIN \`Product\` p ON p.\`id\` = si.\`productId\`
     WHERE ${Prisma.join(where, " AND ")}
   `;
-  const countRows = await db.$queryRaw<Array<{ totalCount: bigint }>>(Prisma.sql`
+  const countRows = await db.$queryRaw<
+    Array<{ totalCount: bigint }>
+  >(Prisma.sql`
     SELECT COUNT(*) AS \`totalCount\`
     FROM (
       SELECT si.\`productId\`
@@ -140,9 +163,12 @@ async function TopSellingProductsReportContent({
     quantity: Prisma.sql`SUM(si.\`quantity\`)`,
     grandTotal: Prisma.sql`SUM(si.\`subtotal\`)`,
   }[sortBy];
-  const sortDirection = sortOrder === "asc" ? Prisma.sql`ASC` : Prisma.sql`DESC`;
+  const sortDirection =
+    sortOrder === "asc" ? Prisma.sql`ASC` : Prisma.sql`DESC`;
   const [pageRows, maxRows] = await Promise.all([
-    db.$queryRaw<Array<{ id: string; name: string; quantity: string; grandTotal: string }>>(Prisma.sql`
+    db.$queryRaw<
+      Array<{ id: string; name: string; quantity: string; grandTotal: string }>
+    >(Prisma.sql`
       SELECT
         p.\`id\`,
         p.\`name\`,
@@ -171,41 +197,55 @@ async function TopSellingProductsReportContent({
   const maxTotal = Number(maxRows[0]?.maxTotal ?? 0);
   const firstRecord = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const lastRecord = Math.min(currentPage * pageSize, totalCount);
-  const paginationParams = { q: query, year: String(year), month: String(month), pageSize, sortBy, sortOrder };
+  const paginationParams = {
+    q: query,
+    year: String(year),
+    month: String(month),
+    pageSize,
+    sortBy,
+    sortOrder,
+  };
 
   return (
     <main className="gg-content reports-content">
       <div className="rpt-toolbar">
         <div className="report-toolbar-controls">
-          <AutoSearchForm
-            action="/reports/top-selling-products"
-            className="rpt-search"
-            id="top-products-search"
-            label="Search products"
-            placeholder="Search products"
-            value={query}
-          />
-
-          <div className="gg-spacer" />
-
-          <TableSortFilter sortBy={sortBy} sortOrder={sortOrder} options={sortOptions}>
-            <div className="sale-report-date-form">
-              <div className="sale-report-date-field">
-              <DynamicFilterControl
-                id="top-products-month"
-                name="month"
-                label="Filter by month"
-                type="month"
-                value={`${year}-${String(month).padStart(2, "0")}`}
-                className="gg-input"
-                visibleLabel
-                wrapperClassName="date-filter-control"
-                clearParams={["year"]}
-              />
-              <CalendarDays aria-hidden="true" />
+          <div
+            className="table-search-filter-group"
+            role="group"
+            aria-label="Search and filters"
+          >
+            <AutoSearchForm
+              action="/reports/top-selling-products"
+              className="rpt-search"
+              id="top-products-search"
+              label="Search products"
+              placeholder="Search products"
+              value={query}
+            />
+            <TableSortFilter
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              options={sortOptions}
+            >
+              <div className="sale-report-date-form">
+                <div className="sale-report-date-field">
+                  <DynamicFilterControl
+                    id="top-products-month"
+                    name="month"
+                    label="Filter by month"
+                    type="month"
+                    value={`${year}-${String(month).padStart(2, "0")}`}
+                    className="gg-input"
+                    visibleLabel
+                    wrapperClassName="date-filter-control"
+                    clearParams={["year"]}
+                  />
+                  <CalendarDays aria-hidden="true" />
+                </div>
               </div>
-            </div>
-          </TableSortFilter>
+            </TableSortFilter>
+          </div>
         </div>
       </div>
 
@@ -242,9 +282,32 @@ async function TopSellingProductsReportContent({
         <table className="gg-table gg-table--spaced sale-report-table">
           <thead>
             <tr>
-              <SortableTableHeader label="Product" sortKey="name" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/top-selling-products" searchParams={params} />
-              <SortableTableHeader label="Quantity" sortKey="quantity" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/top-selling-products" searchParams={params} className="gg-num" />
-              <SortableTableHeader label="Grand Total" sortKey="grandTotal" sortBy={sortBy} sortOrder={sortOrder} pathname="/reports/top-selling-products" searchParams={params} className="gg-num" />
+              <SortableTableHeader
+                label="Product"
+                sortKey="name"
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                pathname="/reports/top-selling-products"
+                searchParams={params}
+              />
+              <SortableTableHeader
+                label="Quantity"
+                sortKey="quantity"
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                pathname="/reports/top-selling-products"
+                searchParams={params}
+                className="gg-num"
+              />
+              <SortableTableHeader
+                label="Grand Total"
+                sortKey="grandTotal"
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                pathname="/reports/top-selling-products"
+                searchParams={params}
+                className="gg-num"
+              />
             </tr>
           </thead>
           <tbody>
@@ -267,22 +330,49 @@ async function TopSellingProductsReportContent({
       </div>
 
       <div className="gg-pagination top-selling-pagination">
-        <DynamicPageSizeSelect id="top-product-report-page-size" pageSize={pageSize} />
+        <DynamicPageSizeSelect
+          id="top-product-report-page-size"
+          pageSize={pageSize}
+        />
         <span className="gg-muted gg-num" aria-live="polite">
           {firstRecord}–{lastRecord} of {totalCount}
         </span>
         <div className="gg-spacer" />
 
-        <PageLink page={1} currentPage={currentPage} totalPages={totalPages} params={paginationParams} label="First page">
+        <PageLink
+          page={1}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          params={paginationParams}
+          label="First page"
+        >
           <ChevronFirst aria-hidden="true" />
         </PageLink>
-        <PageLink page={Math.max(1, currentPage - 1)} currentPage={currentPage} totalPages={totalPages} params={paginationParams} label="Previous page">
+        <PageLink
+          page={Math.max(1, currentPage - 1)}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          params={paginationParams}
+          label="Previous page"
+        >
           <ChevronLeft aria-hidden="true" />
         </PageLink>
-        <PageLink page={Math.min(totalPages, currentPage + 1)} currentPage={currentPage} totalPages={totalPages} params={paginationParams} label="Next page">
+        <PageLink
+          page={Math.min(totalPages, currentPage + 1)}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          params={paginationParams}
+          label="Next page"
+        >
           <ChevronRight aria-hidden="true" />
         </PageLink>
-        <PageLink page={totalPages} currentPage={currentPage} totalPages={totalPages} params={paginationParams} label="Last page">
+        <PageLink
+          page={totalPages}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          params={paginationParams}
+          label="Last page"
+        >
           <ChevronLast aria-hidden="true" />
         </PageLink>
       </div>
@@ -316,14 +406,22 @@ function PageLink({
 
   if (disabled) {
     return (
-      <span aria-label={label} aria-disabled="true" className="gg-page-btn is-disabled">
+      <span
+        aria-label={label}
+        aria-disabled="true"
+        className="gg-page-btn is-disabled"
+      >
         {children}
       </span>
     );
   }
 
   return (
-    <Link aria-label={label} className="gg-page-btn" href={`/reports/top-selling-products?${query.toString()}`}>
+    <Link
+      aria-label={label}
+      className="gg-page-btn"
+      href={`/reports/top-selling-products?${query.toString()}`}
+    >
       {children}
     </Link>
   );

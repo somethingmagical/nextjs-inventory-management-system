@@ -31,7 +31,11 @@ export const metadata: Metadata = {
 };
 
 const searchQuerySchema = z.string().trim().max(120);
-const pageSchema = z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive());
+const pageSchema = z
+  .string()
+  .regex(/^\d+$/)
+  .transform(Number)
+  .pipe(z.number().int().positive());
 const pageSizeSchema = z.enum(["10", "25", "50"]).transform(Number);
 const sortFields = ["name", "phoneNumber", "createdAt"] as const;
 const sortOptions = [
@@ -63,7 +67,9 @@ async function CustomerList({ searchParams }: CustomersPageProps) {
   const access = await getCustomerViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
-  const canManageCustomers = access.user.permissions.includes(PERMISSION.manageCustomers);
+  const canManageCustomers = access.user.permissions.includes(
+    PERMISSION.manageCustomers,
+  );
 
   const rawSearchParams = await searchParams;
   const parsedQuery = searchQuerySchema.safeParse(rawSearchParams.q);
@@ -78,16 +84,32 @@ async function CustomerList({ searchParams }: CustomersPageProps) {
   const sortBy = parseSortBy(rawSearchParams.sortBy, sortFields, "createdAt");
   const sortOrder = parseSortOrder(rawSearchParams.sortOrder);
 
-  const customerList = await getCustomerListData({ query, requestedPage, pageSize, sortBy, sortOrder });
+  const customerList = await getCustomerListData({
+    query,
+    requestedPage,
+    pageSize,
+    sortBy,
+    sortOrder,
+  });
 
-  const { totalCount, totalPages, currentPage, items: customers } = customerList;
+  const {
+    totalCount,
+    totalPages,
+    currentPage,
+    items: customers,
+  } = customerList;
 
-  const displayName = `${access.user.firstName} ${access.user.lastName}`.trim() || access.user.email;
+  const displayName =
+    `${access.user.firstName} ${access.user.lastName}`.trim() ||
+    access.user.email;
   const firstRecord = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const lastRecord = Math.min(currentPage * pageSize, totalCount);
 
   return (
-    <DashboardLayout user={{ name: displayName, image: access.user.image }} pageTitle="Customers">
+    <DashboardLayout
+      user={{ name: displayName, image: access.user.image }}
+      pageTitle="Customers"
+    >
       <main className="gg-content">
         {(created || updated || deleted) && (
           <WarehouseToast
@@ -101,16 +123,26 @@ async function CustomerList({ searchParams }: CustomersPageProps) {
           />
         )}
         <div className="gg-table-toolbar">
-          <AutoSearchForm
-            action="/customers"
-            className="warehouse-search-form"
-            iconClassName="gg-input-icon warehouse-search-control"
-            id="customer-search"
-            label="Search customers"
-            placeholder="Search customers"
-            value={query}
-          />
-          <TableSortFilter sortBy={sortBy} sortOrder={sortOrder} options={sortOptions} />
+          <div
+            className="table-search-filter-group"
+            role="group"
+            aria-label="Search and filters"
+          >
+            <AutoSearchForm
+              action="/customers"
+              className="warehouse-search-form"
+              iconClassName="gg-input-icon warehouse-search-control"
+              id="customer-search"
+              label="Search customers"
+              placeholder="Search customers"
+              value={query}
+            />
+            <TableSortFilter
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              options={sortOptions}
+            />
+          </div>
           <div className="gg-spacer" />
           {canManageCustomers && <CustomerImportButton />}
           {canManageCustomers && (
@@ -126,10 +158,35 @@ async function CustomerList({ searchParams }: CustomersPageProps) {
             <table className="gg-table">
               <thead>
                 <tr>
-                  <SortableTableHeader label="Customer" sortKey="name" sortBy={sortBy} sortOrder={sortOrder} pathname="/customers" searchParams={rawSearchParams} />
-                  <SortableTableHeader label="Phone Number" sortKey="phoneNumber" sortBy={sortBy} sortOrder={sortOrder} pathname="/customers" searchParams={rawSearchParams} />
-                  <SortableTableHeader label="Created On" sortKey="createdAt" sortBy={sortBy} sortOrder={sortOrder} pathname="/customers" searchParams={rawSearchParams} />
-                  {canManageCustomers && <th className="supplier-actions-heading" scope="col">Action</th>}
+                  <SortableTableHeader
+                    label="Customer"
+                    sortKey="name"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/customers"
+                    searchParams={rawSearchParams}
+                  />
+                  <SortableTableHeader
+                    label="Phone Number"
+                    sortKey="phoneNumber"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/customers"
+                    searchParams={rawSearchParams}
+                  />
+                  <SortableTableHeader
+                    label="Created On"
+                    sortKey="createdAt"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/customers"
+                    searchParams={rawSearchParams}
+                  />
+                  {canManageCustomers && (
+                    <th className="supplier-actions-heading" scope="col">
+                      Action
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -146,7 +203,10 @@ async function CustomerList({ searchParams }: CustomersPageProps) {
                       </td>
                       <td className="gg-num">{customer.phoneNumber}</td>
                       <td>
-                        <time className="gg-chip-time gg-num" dateTime={customer.createdAt.toISOString()}>
+                        <time
+                          className="gg-chip-time gg-num"
+                          dateTime={customer.createdAt.toISOString()}
+                        >
                           {customer.createdAt.toLocaleDateString("en", {
                             year: "numeric",
                             month: "short",
@@ -154,31 +214,41 @@ async function CustomerList({ searchParams }: CustomersPageProps) {
                           })}
                         </time>
                       </td>
-                      {canManageCustomers && <td className="supplier-actions-cell">
-                        <div className="row-acts">
-                          {!isDirectCustomer && (
-                            <Link
-                              className="act-edit"
-                              href={`/customers/${encodeURIComponent(customer.id)}/edit`}
-                              aria-label={`Edit ${customer.name}`}
-                              title="Edit"
-                            >
-                              <Pencil aria-hidden="true" />
-                            </Link>
-                          )}
-                          {!isDirectCustomer && (
-                            <CustomerDeleteButton customerId={customer.id} customerName={customer.name} />
-                          )}
-                        </div>
-                      </td>}
+                      {canManageCustomers && (
+                        <td className="supplier-actions-cell">
+                          <div className="row-acts">
+                            {!isDirectCustomer && (
+                              <Link
+                                className="act-edit"
+                                href={`/customers/${encodeURIComponent(customer.id)}/edit`}
+                                aria-label={`Edit ${customer.name}`}
+                                title="Edit"
+                              >
+                                <Pencil aria-hidden="true" />
+                              </Link>
+                            )}
+                            {!isDirectCustomer && (
+                              <CustomerDeleteButton
+                                customerId={customer.id}
+                                customerName={customer.name}
+                              />
+                            )}
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
                 {customers.length === 0 && (
                   <tr>
-                    <td className="supplier-empty-cell" colSpan={canManageCustomers ? 4 : 3}>
+                    <td
+                      className="supplier-empty-cell"
+                      colSpan={canManageCustomers ? 4 : 3}
+                    >
                       <p className="warehouse-empty-title">
-                        {query ? "No customers match your search" : "No customers yet"}
+                        {query
+                          ? "No customers match your search"
+                          : "No customers yet"}
                       </p>
                       <p className="gg-muted">
                         {query
@@ -188,7 +258,10 @@ async function CustomerList({ searchParams }: CustomersPageProps) {
                             : "No customers are available."}
                       </p>
                       {query && (
-                        <Link className="gg-btn gg-btn--secondary" href="/customers">
+                        <Link
+                          className="gg-btn gg-btn--secondary"
+                          href="/customers"
+                        >
                           Clear search
                         </Link>
                       )}
@@ -200,21 +273,60 @@ async function CustomerList({ searchParams }: CustomersPageProps) {
           </div>
 
           <div className="gg-pagination">
-            <DynamicPageSizeSelect id="customer-page-size" pageSize={pageSize} />
+            <DynamicPageSizeSelect
+              id="customer-page-size"
+              pageSize={pageSize}
+            />
             <span className="gg-muted gg-num" aria-live="polite">
               {firstRecord}–{lastRecord} of {totalCount}
             </span>
             <div className="gg-spacer" />
-            <PaginationLink page={1} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="First page">
+            <PaginationLink
+              page={1}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="First page"
+            >
               <ChevronFirst aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.max(1, currentPage - 1)} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Previous page">
+            <PaginationLink
+              page={Math.max(1, currentPage - 1)}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="Previous page"
+            >
               <ChevronLeft aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.min(totalPages, currentPage + 1)} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Next page">
+            <PaginationLink
+              page={Math.min(totalPages, currentPage + 1)}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="Next page"
+            >
               <ChevronRight aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={totalPages} currentPage={currentPage} totalPages={totalPages} query={query} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Last page">
+            <PaginationLink
+              page={totalPages}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="Last page"
+            >
               <ChevronLast aria-hidden="true" />
             </PaginationLink>
           </div>
@@ -246,21 +358,32 @@ function PaginationLink({
   children: React.ReactNode;
 }) {
   const isDisabled = totalPages === 0 || page === currentPage;
-  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
   if (query) params.set("q", query);
   params.set("sortBy", sortBy);
   params.set("sortOrder", sortOrder);
 
   if (isDisabled) {
     return (
-      <span className="gg-page-btn is-disabled" aria-disabled="true" aria-label={label}>
+      <span
+        className="gg-page-btn is-disabled"
+        aria-disabled="true"
+        aria-label={label}
+      >
         {children}
       </span>
     );
   }
 
   return (
-    <Link className="gg-page-btn" href={`/customers?${params.toString()}`} aria-label={label}>
+    <Link
+      className="gg-page-btn"
+      href={`/customers?${params.toString()}`}
+      aria-label={label}
+    >
       {children}
     </Link>
   );

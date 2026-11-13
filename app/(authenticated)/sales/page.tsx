@@ -32,13 +32,31 @@ export const metadata: Metadata = {
 };
 
 const searchQuerySchema = z.string().trim().max(120);
-const pageSchema = z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive());
+const pageSchema = z
+  .string()
+  .regex(/^\d+$/)
+  .transform(Number)
+  .pipe(z.number().int().positive());
 const pageSizeSchema = z.enum(["10", "25", "50"]).transform(Number);
-const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
-});
-const sortFields = ["reference", "customer", "warehouse", "status", "grandTotal", "paid", "paymentStatus", "date"] as const;
+const dateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine((value) => {
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return (
+      !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
+    );
+  });
+const sortFields = [
+  "reference",
+  "customer",
+  "warehouse",
+  "status",
+  "grandTotal",
+  "paid",
+  "paymentStatus",
+  "date",
+] as const;
 const sortOptions = [
   { value: "reference", label: "Reference" },
   { value: "customer", label: "Customer" },
@@ -73,7 +91,9 @@ async function SaleList({ searchParams }: SalesPageProps) {
   const access = await getSaleViewAccess();
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
-  const canManageSales = access.user.permissions.includes(PERMISSION.manageSale);
+  const canManageSales = access.user.permissions.includes(
+    PERMISSION.manageSale,
+  );
 
   const rawSearchParams = await searchParams;
   const parsedQuery = searchQuerySchema.safeParse(rawSearchParams.q);
@@ -87,10 +107,12 @@ async function SaleList({ searchParams }: SalesPageProps) {
   const sortBy = parseSortBy(rawSearchParams.sortBy, sortFields, "date");
   const sortOrder = parseSortOrder(rawSearchParams.sortOrder);
 
-  const statusMatch = (["Pending", "Ordered", "Received"] as const)
-    .find((status) => status.toLowerCase() === query.toLowerCase());
-  const paymentStatusMatch = (["Paid", "Unpaid", "Partial"] as const)
-    .find((status) => status.toLowerCase() === query.toLowerCase());
+  const statusMatch = (["Pending", "Ordered", "Received"] as const).find(
+    (status) => status.toLowerCase() === query.toLowerCase(),
+  );
+  const paymentStatusMatch = (["Paid", "Unpaid", "Partial"] as const).find(
+    (status) => status.toLowerCase() === query.toLowerCase(),
+  );
   const searchConditions: Prisma.SaleWhereInput[] = [
     { reference: { contains: query } },
     { customer: { is: { name: { contains: query } } } },
@@ -98,7 +120,8 @@ async function SaleList({ searchParams }: SalesPageProps) {
     { paymentType: { contains: query } },
   ];
   if (statusMatch) searchConditions.push({ status: statusMatch });
-  if (paymentStatusMatch) searchConditions.push({ paymentStatus: paymentStatusMatch });
+  if (paymentStatusMatch)
+    searchConditions.push({ paymentStatus: paymentStatusMatch });
 
   const where: Prisma.SaleWhereInput = {
     deletedAt: null,
@@ -111,24 +134,25 @@ async function SaleList({ searchParams }: SalesPageProps) {
       : sortBy === "warehouse"
         ? [{ warehouse: { name: sortOrder } }, { createdAt: sortOrder }]
         : [{ [sortBy]: sortOrder }, { createdAt: sortOrder }];
-  const fetchPage = (page: number) => db.sale.findMany({
-    where,
-    orderBy,
-    skip: (page - 1) * pageSize,
-    take: pageSize,
-    select: {
-      id: true,
-      reference: true,
-      status: true,
-      grandTotal: true,
-      paid: true,
-      paymentStatus: true,
-      paymentType: true,
-      createdAt: true,
-      customer: { select: { name: true } },
-      warehouse: { select: { name: true } },
-    },
-  });
+  const fetchPage = (page: number) =>
+    db.sale.findMany({
+      where,
+      orderBy,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        reference: true,
+        status: true,
+        grandTotal: true,
+        paid: true,
+        paymentStatus: true,
+        paymentType: true,
+        createdAt: true,
+        customer: { select: { name: true } },
+        warehouse: { select: { name: true } },
+      },
+    });
   const [totalCount, totals, requestedSales] = await Promise.all([
     db.sale.count({ where }),
     db.sale.aggregate({
@@ -138,10 +162,12 @@ async function SaleList({ searchParams }: SalesPageProps) {
     fetchPage(requestedPage),
   ]);
   const totalPages = Math.ceil(totalCount / pageSize);
-  const currentPage = totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
-  const sales = currentPage === requestedPage
-    ? requestedSales
-    : await fetchPage(currentPage);
+  const currentPage =
+    totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
+  const sales =
+    currentPage === requestedPage
+      ? requestedSales
+      : await fetchPage(currentPage);
   const { user } = access;
   const displayName = `${user.firstName} ${user.lastName}`.trim() || user.email;
   const firstRecord = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
@@ -151,7 +177,10 @@ async function SaleList({ searchParams }: SalesPageProps) {
   const deleted = rawSearchParams.deleted === "1";
 
   return (
-    <DashboardLayout user={{ name: displayName, image: user.image }} pageTitle="Sales">
+    <DashboardLayout
+      user={{ name: displayName, image: user.image }}
+      pageTitle="Sales"
+    >
       <main className="gg-content">
         {(created || updated || deleted) && (
           <WarehouseToast
@@ -165,35 +194,46 @@ async function SaleList({ searchParams }: SalesPageProps) {
           />
         )}
         <div className="gg-table-toolbar purchase-toolbar">
-          <AutoSearchForm
-            action="/sales"
-            className="purchase-search-form"
-            id="sale-search"
-            label="Search sales"
-            value={query}
-          />
-          <div className="gg-spacer" />
-          <TableSortFilter sortBy={sortBy} sortOrder={sortOrder} options={sortOptions}>
-            <div className="purchase-date-form">
-              <div className="purchase-date-field">
-              <DynamicFilterControl
-                id="sale-date-filter"
-                name="date"
-                label="Filter sales by date"
-                type="date"
-                value={date}
-                className="gg-input"
-                visibleLabel
-                wrapperClassName="date-filter-control"
-              />
-              <CalendarDays aria-hidden="true" />
+          <div
+            className="table-search-filter-group"
+            role="group"
+            aria-label="Search and filters"
+          >
+            <AutoSearchForm
+              action="/sales"
+              className="purchase-search-form"
+              id="sale-search"
+              label="Search sales"
+              value={query}
+            />
+            <TableSortFilter
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              options={sortOptions}
+            >
+              <div className="purchase-date-form">
+                <div className="purchase-date-field">
+                  <DynamicFilterControl
+                    id="sale-date-filter"
+                    name="date"
+                    label="Filter sales by date"
+                    type="date"
+                    value={date}
+                    className="gg-input"
+                    visibleLabel
+                    wrapperClassName="date-filter-control"
+                  />
+                  <CalendarDays aria-hidden="true" />
+                </div>
               </div>
-            </div>
-          </TableSortFilter>
-          {canManageSales && <Link className="gg-btn gg-btn--primary" href="/sales/create">
-            <Plus aria-hidden="true" />
-            Create Sale
-          </Link>}
+            </TableSortFilter>
+          </div>
+          {canManageSales && (
+            <Link className="gg-btn gg-btn--primary" href="/sales/create">
+              <Plus aria-hidden="true" />
+              Create Sale
+            </Link>
+          )}
         </div>
 
         <div className="gg-card gg-card-pad">
@@ -201,40 +241,120 @@ async function SaleList({ searchParams }: SalesPageProps) {
             <table className="gg-table">
               <thead>
                 <tr>
-                  <SortableTableHeader label="Reference" sortKey="reference" sortBy={sortBy} sortOrder={sortOrder} pathname="/sales" searchParams={rawSearchParams} />
-                  <SortableTableHeader label="Customer" sortKey="customer" sortBy={sortBy} sortOrder={sortOrder} pathname="/sales" searchParams={rawSearchParams} />
-                  <SortableTableHeader label="Warehouse" sortKey="warehouse" sortBy={sortBy} sortOrder={sortOrder} pathname="/sales" searchParams={rawSearchParams} />
-                  <SortableTableHeader label="Status" sortKey="status" sortBy={sortBy} sortOrder={sortOrder} pathname="/sales" searchParams={rawSearchParams} />
-                  <SortableTableHeader label="Grand Total" sortKey="grandTotal" sortBy={sortBy} sortOrder={sortOrder} pathname="/sales" searchParams={rawSearchParams} className="gg-num" />
-                  <SortableTableHeader label="Paid" sortKey="paid" sortBy={sortBy} sortOrder={sortOrder} pathname="/sales" searchParams={rawSearchParams} className="gg-num" />
-                  <SortableTableHeader label="Payment Status" sortKey="paymentStatus" sortBy={sortBy} sortOrder={sortOrder} pathname="/sales" searchParams={rawSearchParams} />
+                  <SortableTableHeader
+                    label="Reference"
+                    sortKey="reference"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/sales"
+                    searchParams={rawSearchParams}
+                  />
+                  <SortableTableHeader
+                    label="Customer"
+                    sortKey="customer"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/sales"
+                    searchParams={rawSearchParams}
+                  />
+                  <SortableTableHeader
+                    label="Warehouse"
+                    sortKey="warehouse"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/sales"
+                    searchParams={rawSearchParams}
+                  />
+                  <SortableTableHeader
+                    label="Status"
+                    sortKey="status"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/sales"
+                    searchParams={rawSearchParams}
+                  />
+                  <SortableTableHeader
+                    label="Grand Total"
+                    sortKey="grandTotal"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/sales"
+                    searchParams={rawSearchParams}
+                    className="gg-num"
+                  />
+                  <SortableTableHeader
+                    label="Paid"
+                    sortKey="paid"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/sales"
+                    searchParams={rawSearchParams}
+                    className="gg-num"
+                  />
+                  <SortableTableHeader
+                    label="Payment Status"
+                    sortKey="paymentStatus"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/sales"
+                    searchParams={rawSearchParams}
+                  />
                   <th scope="col">Payment Type</th>
-                  <SortableTableHeader label="Created On" sortKey="date" sortBy={sortBy} sortOrder={sortOrder} pathname="/sales" searchParams={rawSearchParams} />
-                  {canManageSales && <th scope="col" className="purchase-actions-heading">Action</th>}
+                  <SortableTableHeader
+                    label="Created On"
+                    sortKey="date"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/sales"
+                    searchParams={rawSearchParams}
+                  />
+                  {canManageSales && (
+                    <th scope="col" className="purchase-actions-heading">
+                      Action
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {sales.map((sale) => (
                   <tr key={sale.id}>
-                    <td><Link className="gg-chip-code" href={`/sales/${encodeURIComponent(sale.id)}`}>{sale.reference}</Link></td>
+                    <td>
+                      <Link
+                        className="gg-chip-code"
+                        href={`/sales/${encodeURIComponent(sale.id)}`}
+                      >
+                        {sale.reference}
+                      </Link>
+                    </td>
                     <td className="gg-muted">{sale.customer.name}</td>
                     <td>{sale.warehouse?.name ?? "Warehouse unavailable"}</td>
                     <td>
-                      <span className={`gg-badge ${sale.status === "Received" ? "gg-badge--success" : "gg-badge--warning"}`}>
+                      <span
+                        className={`gg-badge ${sale.status === "Received" ? "gg-badge--success" : "gg-badge--warning"}`}
+                      >
                         {sale.status}
                       </span>
                     </td>
-                    <td className="gg-num gg-td-strong">$ {sale.grandTotal.toFixed(2)}</td>
+                    <td className="gg-num gg-td-strong">
+                      $ {sale.grandTotal.toFixed(2)}
+                    </td>
                     <td className="gg-num">$ {sale.paid.toFixed(2)}</td>
                     <td>
-                      <span className={`gg-badge ${sale.paymentStatus === "Paid" ? "gg-badge--success" : "gg-badge--warning"}`}>
+                      <span
+                        className={`gg-badge ${sale.paymentStatus === "Paid" ? "gg-badge--success" : "gg-badge--warning"}`}
+                      >
                         {sale.paymentStatus}
                       </span>
                     </td>
-                    <td><span className="gg-chip-unit">{sale.paymentType}</span></td>
+                    <td>
+                      <span className="gg-chip-unit">{sale.paymentType}</span>
+                    </td>
                     <td>
                       <span className="gg-chip-time gg-num">
-                        {sale.createdAt.toLocaleTimeString("en", { hour: "numeric", minute: "2-digit" })}
+                        {sale.createdAt.toLocaleTimeString("en", {
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
                         <time dateTime={sale.createdAt.toISOString()}>
                           {sale.createdAt.toLocaleDateString("en", {
                             year: "numeric",
@@ -244,16 +364,26 @@ async function SaleList({ searchParams }: SalesPageProps) {
                         </time>
                       </span>
                     </td>
-                    {canManageSales && <td className="purchase-actions-cell">
-                      <SaleRowActions saleId={sale.id} reference={sale.reference} />
-                    </td>}
+                    {canManageSales && (
+                      <td className="purchase-actions-cell">
+                        <SaleRowActions
+                          saleId={sale.id}
+                          reference={sale.reference}
+                        />
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {sales.length === 0 && (
                   <tr>
-                    <td className="product-empty-cell" colSpan={canManageSales ? 10 : 9}>
+                    <td
+                      className="product-empty-cell"
+                      colSpan={canManageSales ? 10 : 9}
+                    >
                       <p className="warehouse-empty-title">
-                        {query || date ? "No sales match your filters" : "No sales yet"}
+                        {query || date
+                          ? "No sales match your filters"
+                          : "No sales yet"}
                       </p>
                       <p className="gg-muted">
                         {query || date
@@ -263,10 +393,19 @@ async function SaleList({ searchParams }: SalesPageProps) {
                             : "No sales are available."}
                       </p>
                       {query || date ? (
-                        <Link className="gg-btn gg-btn--secondary" href="/sales">Clear filters</Link>
+                        <Link
+                          className="gg-btn gg-btn--secondary"
+                          href="/sales"
+                        >
+                          Clear filters
+                        </Link>
                       ) : canManageSales ? (
-                        <Link className="gg-btn gg-btn--primary" href="/sales/create">
-                          <Plus aria-hidden="true" />Create Sale
+                        <Link
+                          className="gg-btn gg-btn--primary"
+                          href="/sales/create"
+                        >
+                          <Plus aria-hidden="true" />
+                          Create Sale
                         </Link>
                       ) : null}
                     </td>
@@ -279,8 +418,15 @@ async function SaleList({ searchParams }: SalesPageProps) {
                   <td />
                   <td />
                   <td />
-                  <td className="gg-num">$ {(totals._sum?.grandTotal ?? new Prisma.Decimal(0)).toFixed(2)}</td>
-                  <td className="gg-num">$ {(totals._sum?.paid ?? new Prisma.Decimal(0)).toFixed(2)}</td>
+                  <td className="gg-num">
+                    ${" "}
+                    {(totals._sum?.grandTotal ?? new Prisma.Decimal(0)).toFixed(
+                      2,
+                    )}
+                  </td>
+                  <td className="gg-num">
+                    $ {(totals._sum?.paid ?? new Prisma.Decimal(0)).toFixed(2)}
+                  </td>
                   <td />
                   <td />
                   <td />
@@ -296,16 +442,56 @@ async function SaleList({ searchParams }: SalesPageProps) {
               {firstRecord}–{lastRecord} of {totalCount}
             </span>
             <div className="gg-spacer" />
-            <PaginationLink page={1} currentPage={currentPage} totalPages={totalPages} query={query} date={date} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="First page">
+            <PaginationLink
+              page={1}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              date={date}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="First page"
+            >
               <ChevronFirst aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.max(1, currentPage - 1)} currentPage={currentPage} totalPages={totalPages} query={query} date={date} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Previous page">
+            <PaginationLink
+              page={Math.max(1, currentPage - 1)}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              date={date}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="Previous page"
+            >
               <ChevronLeft aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={Math.min(totalPages, currentPage + 1)} currentPage={currentPage} totalPages={totalPages} query={query} date={date} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Next page">
+            <PaginationLink
+              page={Math.min(totalPages, currentPage + 1)}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              date={date}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="Next page"
+            >
               <ChevronRight aria-hidden="true" />
             </PaginationLink>
-            <PaginationLink page={totalPages} currentPage={currentPage} totalPages={totalPages} query={query} date={date} pageSize={pageSize} sortBy={sortBy} sortOrder={sortOrder} label="Last page">
+            <PaginationLink
+              page={totalPages}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              query={query}
+              date={date}
+              pageSize={pageSize}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              label="Last page"
+            >
               <ChevronLast aria-hidden="true" />
             </PaginationLink>
           </div>
@@ -339,15 +525,34 @@ function PaginationLink({
   children: React.ReactNode;
 }) {
   const isDisabled = totalPages === 0 || page === currentPage;
-  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
   if (query) params.set("q", query);
   if (date) params.set("date", date);
   params.set("sortBy", sortBy);
   params.set("sortOrder", sortOrder);
 
   if (isDisabled) {
-    return <span className="gg-page-btn is-disabled" aria-disabled="true" aria-label={label}>{children}</span>;
+    return (
+      <span
+        className="gg-page-btn is-disabled"
+        aria-disabled="true"
+        aria-label={label}
+      >
+        {children}
+      </span>
+    );
   }
 
-  return <Link className="gg-page-btn" href={`/sales?${params.toString()}`} aria-label={label}>{children}</Link>;
+  return (
+    <Link
+      className="gg-page-btn"
+      href={`/sales?${params.toString()}`}
+      aria-label={label}
+    >
+      {children}
+    </Link>
+  );
 }

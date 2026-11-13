@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Download, Info, Upload } from "lucide-react";
 import Link from "next/link";
+import AutoSearchForm from "@/components/shared/AutoSearchForm";
 import DynamicFilterControl from "@/components/shared/DynamicFilterControl";
 import TableFilterPopover from "@/components/shared/TableFilterPopover";
 import type { TableSortOption } from "@/lib/table-sorting";
@@ -54,73 +55,96 @@ export default function ProductListTools({
 
   return (
     <>
-      <TableFilterPopover label="Filter products">
-        <DynamicFilterControl
-          id="product-filter-warehouse"
-          name="warehouseId"
-          label="Warehouse"
-          value={warehouseId ?? ""}
-          options={[
-            { value: "", label: "All warehouses" },
-            ...warehouses.map((warehouse) => ({ value: warehouse.id, label: warehouse.name })),
-          ]}
-          visibleLabel
-          wrapperClassName="product-filter-control"
+      <div
+        className="table-search-filter-group"
+        role="group"
+        aria-label="Search and filters"
+      >
+        <AutoSearchForm
+          action="/products"
+          className="warehouse-search-form"
+          iconClassName="gg-input-icon warehouse-search-control"
+          id="product-search"
+          label="Search products"
+          placeholder="Search products"
+          value={query}
         />
-        <DynamicFilterControl
-          id="product-filter-supplier"
-          name="supplierId"
-          label="Supplier"
-          value={supplierId ?? ""}
-          options={[
-            { value: "", label: "All suppliers" },
-            ...suppliers.map((supplier) => ({ value: supplier.id, label: supplier.name })),
-          ]}
-          visibleLabel
-          wrapperClassName="product-filter-control"
-        />
-        <DynamicFilterControl
-          id="product-filter-status"
-          name="status"
-          label="Status"
-          value={status ?? ""}
-          options={[
-            { value: "", label: "All statuses" },
-            { value: "Received", label: "Received" },
-            { value: "Pending", label: "Pending" },
-            { value: "Ordered", label: "Ordered" },
-          ]}
-          visibleLabel
-          wrapperClassName="product-filter-control"
-        />
-        <div className="table-filter-sort">
-          <span className="table-filter-sort-title">Sort</span>
+        <TableFilterPopover label="Filter products">
           <DynamicFilterControl
-            id="product-filter-sort-by"
-            name="sortBy"
-            label="Sort products by"
-            value={sortBy}
-            options={sortOptions}
-            visibleLabel
-            wrapperClassName="product-filter-control"
-          />
-          <DynamicFilterControl
-            id="product-filter-sort-order"
-            name="sortOrder"
-            label="Sort direction"
-            value={sortOrder}
+            id="product-filter-warehouse"
+            name="warehouseId"
+            label="Warehouse"
+            value={warehouseId ?? ""}
             options={[
-              { value: "asc", label: "Ascending" },
-              { value: "desc", label: "Descending" },
+              { value: "", label: "All warehouses" },
+              ...warehouses.map((warehouse) => ({
+                value: warehouse.id,
+                label: warehouse.name,
+              })),
             ]}
             visibleLabel
             wrapperClassName="product-filter-control"
           />
-        </div>
-        <div className="product-filter-actions">
-          <Link className="gg-btn gg-btn--secondary" href={clearHref}>Clear</Link>
-        </div>
-      </TableFilterPopover>
+          <DynamicFilterControl
+            id="product-filter-supplier"
+            name="supplierId"
+            label="Supplier"
+            value={supplierId ?? ""}
+            options={[
+              { value: "", label: "All suppliers" },
+              ...suppliers.map((supplier) => ({
+                value: supplier.id,
+                label: supplier.name,
+              })),
+            ]}
+            visibleLabel
+            wrapperClassName="product-filter-control"
+          />
+          <DynamicFilterControl
+            id="product-filter-status"
+            name="status"
+            label="Status"
+            value={status ?? ""}
+            options={[
+              { value: "", label: "All statuses" },
+              { value: "Received", label: "Received" },
+              { value: "Pending", label: "Pending" },
+              { value: "Ordered", label: "Ordered" },
+            ]}
+            visibleLabel
+            wrapperClassName="product-filter-control"
+          />
+          <div className="table-filter-sort">
+            <span className="table-filter-sort-title">Sort</span>
+            <DynamicFilterControl
+              id="product-filter-sort-by"
+              name="sortBy"
+              label="Sort products by"
+              value={sortBy}
+              options={sortOptions}
+              visibleLabel
+              wrapperClassName="product-filter-control"
+            />
+            <DynamicFilterControl
+              id="product-filter-sort-order"
+              name="sortOrder"
+              label="Sort direction"
+              value={sortOrder}
+              options={[
+                { value: "asc", label: "Ascending" },
+                { value: "desc", label: "Descending" },
+              ]}
+              visibleLabel
+              wrapperClassName="product-filter-control"
+            />
+          </div>
+          <div className="product-filter-actions">
+            <Link className="gg-btn gg-btn--secondary" href={clearHref}>
+              Clear
+            </Link>
+          </div>
+        </TableFilterPopover>
+      </div>
       <button
         className="gg-btn gg-btn--secondary"
         type="button"
@@ -138,7 +162,10 @@ export default function ProductListTools({
         Import Products
       </button>
       {message && (
-        <p className="warehouse-toast is-visible product-tools-toast" role="status">
+        <p
+          className="warehouse-toast is-visible product-tools-toast"
+          role="status"
+        >
           <Info size={18} aria-hidden="true" />
           <span>{message}</span>
         </p>
