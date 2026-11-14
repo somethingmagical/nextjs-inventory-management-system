@@ -68,6 +68,14 @@ Follow these steps to prepare a local development environment: install dependenc
 
    The seed script creates the walk-in customer and an `admin` role with all permissions, then upserts the administrator using `ADMIN_EMAIL`. It hashes `ADMIN_PASSWORD` with bcrypt before storing it. Rerunning the seed updates the matching administrator's details and password hash.
 
+   To also insert the optional standard demo preset, run:
+
+   ```bash
+   SEED_DEMO_DATA=true npx prisma db seed
+   ```
+
+   The standard preset creates or updates 256 demo records: 2 warehouses, 4 suppliers, 8 customers, 5 categories, 5 brands, 5 units, 20 products, 40 warehouse stock balances, 8 purchases with 16 items, 12 sales with 24 items and 8 payments, 1 purchase return with 2 items, 1 sale return with 2 items, 1 completed transfer with 2 items, 4 expense categories, 4 expenses, and 82 stock movements. Demo records use fixed `demo-` IDs/references so rerunning the preset does not duplicate them. The preset is opt-in and does not delete records. Apply the database migrations before using it, and verify that the configured database is the intended local or staging database before running the command.
+
 6. Start the development server:
 
    ```bash
@@ -95,6 +103,7 @@ configured, the fallback is 30 failed attempts per email. A threshold triggers a
 | `AUTH_TRUST_PROXY_IP` | No | Set to `true` only when a trusted reverse proxy overwrites `X-Forwarded-For`; enables per-IP login throttling. |
 | `ADMIN_EMAIL` | Yes, for seeding | Email address for the initial administrator account. |
 | `ADMIN_PASSWORD` | Yes, for seeding | Initial administrator password. |
+| `SEED_DEMO_DATA` | No | Set to `true` for one seed run to upsert the standard demo dataset. |
 | `ADMIN_FIRST_NAME` | No | Administrator first name; defaults to `Admin`. |
 | `ADMIN_LAST_NAME` | No | Administrator last name; defaults to `User`. |
 | `ADMIN_PHONE_NUMBER` | No | Administrator phone number. |

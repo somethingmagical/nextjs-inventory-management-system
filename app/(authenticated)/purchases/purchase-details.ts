@@ -8,6 +8,7 @@ export async function getPurchaseDetails(purchaseId: string) {
       reference: true,
       date: true,
       status: true,
+      deliveryStatus: true,
       orderTax: true,
       discount: true,
       shipping: true,

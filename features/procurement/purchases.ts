@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
 import { receivePurchaseStock } from "@/lib/product-stock";
+import { getInitialPurchaseDeliveryStatus } from "./purchase-delivery-status";
 
 type PurchaseItemInput = {
   productId: string;
@@ -78,6 +79,7 @@ export async function createPurchase(input: {
         supplierId: supplier.id,
         date: new Date(`${input.date}T00:00:00.000Z`),
         status: input.status,
+        deliveryStatus: getInitialPurchaseDeliveryStatus(input.status),
         orderTax: new Prisma.Decimal(input.orderTax),
         discount: input.discount,
         shipping: input.shipping,

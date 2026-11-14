@@ -7,7 +7,11 @@ import { db } from "@/lib/db";
 import { StockQuantityLimitError } from "@/lib/product-stock";
 import { createPurchase as createPurchaseRecord } from "@/features/procurement/purchases";
 import { getPurchaseAccess } from "./authorization";
-import { purchaseCreateSchema } from "./purchase-create-schema";
+import {
+  purchaseCreateSchema,
+  purchaseDeliveryStatusSchema,
+  purchaseIdSchema,
+} from "./purchase-create-schema";
 import { purchaseProductSearchSchema } from "./purchase-schema";
 import type { PurchaseCreateActionState } from "./create/action-state";
 import {
@@ -28,6 +32,44 @@ export type PurchaseProductSearchResult =
       }[];
     }
   | { status: "error"; message: string };
+
+export type PurchaseDeliveryStatusActionState = {
+  status: "idle" | "success" | "error";
+  message: string;
+};
+
+export async function updatePurchaseDeliveryStatus(
+  _previousState: PurchaseDeliveryStatusActionState,
+  formData: FormData,
+): Promise<PurchaseDeliveryStatusActionState> {
+  const access = await getPurchaseAccess();
+  if (access.status === "unauthenticated") {
+    return { status: "error", message: "Please sign in before updating a purchase." };
+  }
+  if (access.status === "forbidden") {
+    return { status: "error", message: "You do not have permission to manage purchases." };
+  }
+
+  const purchaseId = purchaseIdSchema.safeParse(formData.get("purchaseId"));
+  const deliveryStatus = purchaseDeliveryStatusSchema.safeParse(
+    formData.get("deliveryStatus"),
+  );
+  if (!purchaseId.success || !deliveryStatus.success) {
+    return { status: "error", message: "Choose a valid delivery status." };
+  }
+
+  const updated = await db.purchase.updateMany({
+    where: { id: purchaseId.data, deletedAt: null },
+    data: { deliveryStatus: deliveryStatus.data },
+  });
+  if (updated.count !== 1) {
+    return { status: "error", message: "This purchase is no longer available." };
+  }
+
+  revalidatePath("/purchases");
+  revalidatePath(`/purchases/${encodeURIComponent(purchaseId.data)}`);
+  return { status: "success", message: "Delivery status updated." };
+}
 
 export async function createPurchase(
   _previousState: PurchaseCreateActionState,

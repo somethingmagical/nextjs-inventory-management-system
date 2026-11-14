@@ -9,7 +9,9 @@ import {
   ChevronLast,
   ChevronLeft,
   ChevronRight,
+  Eye,
   MapPin,
+  Pencil,
 } from "lucide-react";
 import { Suspense } from "react";
 import { z } from "zod";
@@ -19,6 +21,7 @@ import DynamicPageSizeSelect from "@/components/shared/DynamicPageSizeSelect";
 import DynamicFilterControl from "@/components/shared/DynamicFilterControl";
 import SortableTableHeader from "@/components/shared/SortableTableHeader";
 import TableSortFilter from "@/components/shared/TableSortFilter";
+import WarehouseToast from "@/components/shared/WarehouseToast";
 import {
   getStockCategoryOptions,
   getStockWarehouseOverview,
@@ -32,6 +35,7 @@ import {
 import { requirePermission } from "@/lib/authorization";
 import { PERMISSION } from "@/lib/permissions";
 import { parseSortBy, parseSortOrder } from "@/lib/table-sorting";
+import StockClearButton from "./StockClearButton";
 
 export const metadata: Metadata = {
   title: "Stock",
@@ -89,6 +93,9 @@ async function StockContent({ searchParams }: { searchParams: SearchParams }) {
   if (access.status === "forbidden") redirect("/dashboard");
 
   const params = await searchParams;
+  const stockUpdated = params.updated === "1";
+  const stockCleared = params.cleared === "1";
+  const stockAlreadyZero = params.alreadyZero === "1";
   const parsedWarehouseId = idSchema.safeParse(params.warehouseId);
   const parsedQuery = querySchema.safeParse(params.q);
   const parsedCategoryId = idSchema.safeParse(params.categoryId);
@@ -134,9 +141,9 @@ async function StockContent({ searchParams }: { searchParams: SearchParams }) {
   const displayName =
     `${access.user.firstName} ${access.user.lastName}`.trim() ||
     access.user.email;
-  const canViewReports =
+  const canManageAdjustments =
     access.user.roleName === "admin" ||
-    access.user.permissions.includes(PERMISSION.manageReports);
+    access.user.permissions.includes(PERMISSION.manageAdjustments);
   const canManageWarehouses =
     access.user.roleName === "admin" ||
     access.user.permissions.includes(PERMISSION.manageWarehouses);
@@ -161,6 +168,18 @@ async function StockContent({ searchParams }: { searchParams: SearchParams }) {
             </Link>
           )}
         </div>
+
+        {(stockUpdated || stockCleared || stockAlreadyZero) && (
+          <WarehouseToast
+            message={
+              stockCleared
+                ? "Warehouse stock quantity set to zero; an adjustment was recorded."
+                : stockAlreadyZero
+                  ? "This warehouse stock quantity was already zero."
+                  : "Warehouse stock quantity updated successfully."
+            }
+          />
+        )}
 
         {warehouses.length === 0 ? (
           <section className="gg-card gg-card-pad stock-empty-state">
@@ -349,7 +368,9 @@ async function StockContent({ searchParams }: { searchParams: SearchParams }) {
                             className="gg-num"
                           />
                           <th scope="col">Status</th>
-                          {canViewReports && <th scope="col">History</th>}
+                          <th className="stock-action-heading" scope="col">
+                            Action
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
@@ -380,24 +401,44 @@ async function StockContent({ searchParams }: { searchParams: SearchParams }) {
                                 {stockStatusLabels[item.status]}
                               </span>
                             </td>
-                            {canViewReports && (
-                              <td>
+                            <td className="stock-action-cell">
+                              <div className="row-acts">
                                 <Link
-                                  className="stock-history-link"
-                                  href={`/reports/stock/${encodeURIComponent(item.id)}?${new URLSearchParams({ warehouseId: selectedWarehouse.id }).toString()}`}
-                                  aria-label={`View stock history for ${item.name}`}
+                                  className="act-view"
+                                  href={`/stock/${encodeURIComponent(item.id)}?warehouseId=${encodeURIComponent(selectedWarehouse.id)}`}
+                                  aria-label={`View stock for ${item.name}`}
+                                  title="View"
                                 >
-                                  View
+                                  <Eye aria-hidden="true" />
                                 </Link>
-                              </td>
-                            )}
+                                {canManageAdjustments && (
+                                  <Link
+                                    className="act-edit"
+                                    href={`/stock/${encodeURIComponent(item.id)}/edit?warehouseId=${encodeURIComponent(selectedWarehouse.id)}`}
+                                    aria-label={`Edit stock for ${item.name}`}
+                                    title="Edit"
+                                  >
+                                    <Pencil aria-hidden="true" />
+                                  </Link>
+                                )}
+                                {canManageAdjustments && (
+                                  <StockClearButton
+                                    productId={item.id}
+                                    productName={item.name}
+                                    warehouseId={selectedWarehouse.id}
+                                    warehouseName={selectedWarehouse.name}
+                                    quantity={item.quantity}
+                                  />
+                                )}
+                              </div>
+                            </td>
                           </tr>
                         ))}
                         {stockData.items.length === 0 && (
                           <tr>
                             <td
                               className="stock-table-empty gg-muted"
-                              colSpan={canViewReports ? 7 : 6}
+                              colSpan={7}
                             >
                               {query || categoryId || status !== "all"
                                 ? "No products match these filters."

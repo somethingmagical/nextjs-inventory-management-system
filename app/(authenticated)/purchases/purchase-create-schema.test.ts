@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { purchaseCreateSchema } from "./purchase-create-schema";
+import {
+  purchaseCreateSchema,
+  purchaseDeliveryStatusSchema,
+} from "./purchase-create-schema";
 
 const validPurchase = {
   warehouseId: "warehouse-1",
@@ -25,6 +28,13 @@ const validPurchase = {
 
 test("accepts valid purchase data with decimal quantities and prices", () => {
   assert.equal(purchaseCreateSchema.safeParse(validPurchase).success, true);
+});
+
+test("accepts only supported purchase delivery statuses", () => {
+  assert.equal(purchaseDeliveryStatusSchema.safeParse("Pending").success, true);
+  assert.equal(purchaseDeliveryStatusSchema.safeParse("InTransit").success, true);
+  assert.equal(purchaseDeliveryStatusSchema.safeParse("Delivered").success, true);
+  assert.equal(purchaseDeliveryStatusSchema.safeParse("Received").success, false);
 });
 
 test("requires at least one purchase item", () => {

@@ -2,6 +2,11 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 export const purchaseIdSchema = z.string().trim().min(1).max(191);
+export const purchaseDeliveryStatusSchema = z.enum([
+  "Pending",
+  "InTransit",
+  "Delivered",
+]);
 
 const decimalString = (scale: number, maxIntegerDigits: number, label: string) =>
   z.string()

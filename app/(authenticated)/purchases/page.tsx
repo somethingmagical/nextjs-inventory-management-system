@@ -25,6 +25,10 @@ import DynamicFilterControl from "@/components/shared/DynamicFilterControl";
 import SortableTableHeader from "@/components/shared/SortableTableHeader";
 import TableSortFilter from "@/components/shared/TableSortFilter";
 import { parseSortBy, parseSortOrder } from "@/lib/table-sorting";
+import {
+  formatPurchaseDeliveryStatus,
+  purchaseDeliveryStatusBadgeClass,
+} from "./purchase-delivery-status";
 
 export const metadata: Metadata = {
   title: "Purchases",
@@ -52,6 +56,7 @@ const sortFields = [
   "supplier",
   "warehouse",
   "status",
+  "deliveryStatus",
   "grandTotal",
   "date",
 ] as const;
@@ -60,6 +65,7 @@ const sortOptions = [
   { value: "supplier", label: "Supplier" },
   { value: "warehouse", label: "Warehouse" },
   { value: "status", label: "Status" },
+  { value: "deliveryStatus", label: "Delivery Status" },
   { value: "grandTotal", label: "Grand Total" },
   { value: "date", label: "Date" },
 ] as const;
@@ -106,6 +112,9 @@ async function PurchaseList({ searchParams }: PurchasesPageProps) {
   const statusMatch = (["Pending", "Ordered", "Received"] as const).find(
     (status) => status.toLowerCase() === query.toLowerCase(),
   );
+  const deliveryStatusMatch = (
+    ["Pending", "InTransit", "Delivered"] as const
+  ).find((status) => status.toLowerCase() === query.toLowerCase().replaceAll(" ", ""));
   const searchConditions: Prisma.PurchaseWhereInput[] = [
     { reference: { contains: query } },
     { supplier: { is: { name: { contains: query } } } },
@@ -113,6 +122,9 @@ async function PurchaseList({ searchParams }: PurchasesPageProps) {
     { paymentType: { contains: query } },
   ];
   if (statusMatch) searchConditions.push({ status: statusMatch });
+  if (deliveryStatusMatch) {
+    searchConditions.push({ deliveryStatus: deliveryStatusMatch });
+  }
 
   const where: Prisma.PurchaseWhereInput = {
     deletedAt: null,
@@ -135,6 +147,7 @@ async function PurchaseList({ searchParams }: PurchasesPageProps) {
         id: true,
         reference: true,
         status: true,
+        deliveryStatus: true,
         grandTotal: true,
         paymentType: true,
         createdAt: true,
@@ -262,6 +275,14 @@ async function PurchaseList({ searchParams }: PurchasesPageProps) {
                     searchParams={rawSearchParams}
                   />
                   <SortableTableHeader
+                    label="Delivery Status"
+                    sortKey="deliveryStatus"
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    pathname="/purchases"
+                    searchParams={rawSearchParams}
+                  />
+                  <SortableTableHeader
                     label="Grand Total"
                     sortKey="grandTotal"
                     sortBy={sortBy}
@@ -306,6 +327,11 @@ async function PurchaseList({ searchParams }: PurchasesPageProps) {
                         {purchase.status}
                       </span>
                     </td>
+                    <td>
+                      <span className={`gg-badge ${purchaseDeliveryStatusBadgeClass(purchase.deliveryStatus)}`}>
+                        {formatPurchaseDeliveryStatus(purchase.deliveryStatus)}
+                      </span>
+                    </td>
                     <td className="gg-num gg-td-strong">
                       $ {purchase.grandTotal.toFixed(2)}
                     </td>
@@ -343,7 +369,7 @@ async function PurchaseList({ searchParams }: PurchasesPageProps) {
                   <tr>
                     <td
                       className="product-empty-cell"
-                      colSpan={canManagePurchases ? 8 : 7}
+                      colSpan={canManagePurchases ? 9 : 8}
                     >
                       <p className="warehouse-empty-title">
                         {query || date
@@ -380,6 +406,7 @@ async function PurchaseList({ searchParams }: PurchasesPageProps) {
               <tfoot>
                 <tr>
                   <td className="gg-td-strong">Received Total</td>
+                  <td />
                   <td />
                   <td />
                   <td />

@@ -3,7 +3,14 @@ import "server-only";
 import { Prisma, type AdjustmentType } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
-import { applyStockAdjustment } from "@/lib/product-stock";
+import {
+  applyStockAdjustment,
+  StockBalanceChangedError,
+  StockQuantityLimitError,
+} from "@/lib/product-stock";
+import { calculateStockQuantityAdjustment } from "./stock/quantity-adjustment";
+
+export class WarehouseStockEditError extends Error {}
 
 export async function createAdjustment(input: {
   warehouseId: string;
@@ -66,6 +73,94 @@ export async function createAdjustment(input: {
         },
       });
     }
+
+    return adjustment.id;
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+}
+
+export async function setWarehouseStockQuantity(input: {
+  productId: string;
+  warehouseId: string;
+  expectedQuantity: Prisma.Decimal;
+  targetQuantity: Prisma.Decimal;
+  date: string;
+  actorId: string;
+}) {
+  const maxQuantity = new Prisma.Decimal("999999999.999");
+  if (
+    input.targetQuantity.isNegative()
+    || input.targetQuantity.greaterThan(maxQuantity)
+  ) {
+    throw new StockQuantityLimitError();
+  }
+
+  return db.$transaction(async (transaction) => {
+    const [product, warehouse] = await Promise.all([
+      transaction.product.findFirst({
+        where: { id: input.productId, deletedAt: null },
+        select: { id: true, name: true },
+      }),
+      transaction.warehouse.findFirst({
+        where: { id: input.warehouseId, deletedAt: null },
+        select: { id: true },
+      }),
+    ]);
+    if (!product || !warehouse) {
+      throw new WarehouseStockEditError(
+        "The product or warehouse is no longer available.",
+      );
+    }
+
+    const existingStock = await transaction.productStock.findUnique({
+      where: {
+        productId_warehouseId: {
+          productId: product.id,
+          warehouseId: warehouse.id,
+        },
+      },
+      select: { quantity: true },
+    });
+    const currentQuantity = existingStock?.quantity ?? new Prisma.Decimal(0);
+    if (!currentQuantity.equals(input.expectedQuantity)) {
+      throw new StockBalanceChangedError();
+    }
+
+    const adjustmentDelta = calculateStockQuantityAdjustment(
+      currentQuantity,
+      input.targetQuantity,
+    );
+    if (!adjustmentDelta) return null;
+
+    const adjustment = await transaction.adjustment.create({
+      data: {
+        reference: `ADJ_${randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase()}`,
+        warehouseId: warehouse.id,
+        date: new Date(`${input.date}T00:00:00.000Z`),
+        items: {
+          create: {
+            productId: product.id,
+            quantity: adjustmentDelta.quantity,
+            type: adjustmentDelta.type,
+          },
+        },
+      },
+      select: { id: true },
+    });
+
+    await applyStockAdjustment(transaction, {
+      productId: product.id,
+      productName: product.name,
+      warehouseId: warehouse.id,
+      quantity: adjustmentDelta.quantity.toString(),
+      type: adjustmentDelta.type,
+      expectedQuantity: currentQuantity,
+      movement: {
+        type: "Adjustment",
+        sourceType: "Adjustment",
+        sourceId: adjustment.id,
+        actorId: input.actorId,
+      },
+    });
 
     return adjustment.id;
   }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });

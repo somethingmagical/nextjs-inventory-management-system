@@ -6,9 +6,12 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Download } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { calculatePurchaseTotals } from "@/lib/purchase-pricing";
+import { PERMISSION } from "@/lib/permissions";
+import PurchaseDeliveryStatusForm from "@/components/purchases/PurchaseDeliveryStatusForm";
 import { getPurchaseViewAccess } from "../authorization";
 import { purchaseIdSchema } from "../purchase-create-schema";
 import { getPurchaseDetails } from "../purchase-details";
+import { formatPurchaseDeliveryStatus } from "../purchase-delivery-status";
 
 export const metadata: Metadata = {
   title: "Purchase Details",
@@ -53,6 +56,7 @@ async function AuthorizedPurchaseDetails({ params }: PurchaseDetailsPageProps) {
     shipping: purchase.shipping,
   });
   const displayName = `${access.user.firstName} ${access.user.lastName}`.trim() || access.user.email;
+  const canManagePurchases = access.user.permissions.includes(PERMISSION.managePurchase);
 
   return (
     <DashboardLayout user={{ name: displayName, image: access.user.image }} pageTitle="Purchases">
@@ -83,6 +87,7 @@ async function AuthorizedPurchaseDetails({ params }: PurchaseDetailsPageProps) {
             <Detail label="Reference" value={purchase.reference} />
             <Detail label="Date" value={formatDate(purchase.date)} />
             <Detail label="Status" value={purchase.status} />
+            <Detail label="Delivery Status" value={formatPurchaseDeliveryStatus(purchase.deliveryStatus)} />
             <Detail label="Created On" value={purchase.createdAt.toLocaleString()} />
             <Detail label="Supplier" value={purchase.supplier.name} />
             <Detail label="Supplier Email" value={purchase.supplier.email} />
@@ -102,6 +107,12 @@ async function AuthorizedPurchaseDetails({ params }: PurchaseDetailsPageProps) {
             <Detail label="Payment Status" value={purchase.paymentStatus} />
             <Detail label="Notes" value={purchase.notes || "—"} full />
           </dl>
+          {canManagePurchases && (
+            <PurchaseDeliveryStatusForm
+              purchaseId={purchase.id}
+              deliveryStatus={purchase.deliveryStatus}
+            />
+          )}
         </section>
 
         <section className="gg-card gg-card-pad purchase-detail-card" aria-labelledby="purchase-items-title">

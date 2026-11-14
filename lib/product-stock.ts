@@ -23,6 +23,13 @@ export class StockQuantityLimitError extends Error {
   }
 }
 
+export class StockBalanceChangedError extends Error {
+  constructor() {
+    super("Stock changed while saving. Refresh the page and try again.");
+    this.name = "StockBalanceChangedError";
+  }
+}
+
 async function increaseStockBalance(
   transaction: Prisma.TransactionClient,
   input: {
@@ -30,6 +37,7 @@ async function increaseStockBalance(
     warehouseId: string;
     supplierId: string | null;
     quantity: Prisma.Decimal;
+    expectedQuantity?: Prisma.Decimal;
   },
 ) {
   const unique = {
@@ -46,7 +54,10 @@ async function increaseStockBalance(
   const updated = await transaction.productStock.updateMany({
     where: {
       ...unique,
-      quantity: { lte: maxQuantity.minus(input.quantity) },
+      quantity: {
+        lte: maxQuantity.minus(input.quantity),
+        ...(input.expectedQuantity ? { equals: input.expectedQuantity } : {}),
+      },
     },
     data: { quantity: { increment: input.quantity } },
   });
@@ -58,6 +69,7 @@ async function increaseStockBalance(
     select: { quantity: true },
   });
   if (existing) {
+    if (input.expectedQuantity) throw new StockBalanceChangedError();
     throw new StockQuantityLimitError();
   }
 
@@ -79,6 +91,7 @@ export async function applyStockAdjustment(
     warehouseId: string;
     quantity: string;
     type: AdjustmentType;
+    expectedQuantity?: Prisma.Decimal;
     documentLabel?: string;
     movement: {
       type: StockMovementType;
@@ -98,10 +111,17 @@ export async function applyStockAdjustment(
 
   if (input.type === "Subtraction") {
     const updated = await transaction.productStock.updateMany({
-      where: { ...unique, quantity: { gte: quantity } },
+      where: {
+        ...unique,
+        quantity: {
+          gte: quantity,
+          ...(input.expectedQuantity ? { equals: input.expectedQuantity } : {}),
+        },
+      },
       data: { quantity: { decrement: quantity } },
     });
     if (updated.count !== 1) {
+      if (input.expectedQuantity) throw new StockBalanceChangedError();
       throw new InsufficientStockError(input.productName, input.documentLabel);
     }
     await transaction.stockMovement.create({
@@ -120,6 +140,7 @@ export async function applyStockAdjustment(
     warehouseId: input.warehouseId,
     supplierId: null,
     quantity,
+    expectedQuantity: input.expectedQuantity,
   });
   await transaction.stockMovement.create({
     data: {
