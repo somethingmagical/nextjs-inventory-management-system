@@ -5,7 +5,6 @@ import { WeeklySalesChart } from "@/components/dashboard/DashboardCharts";
 import RecentSalesTable from "@/components/dashboard/RecentSalesTable";
 import StockAlertTable from "@/components/dashboard/StockAlertTable";
 import TopProductsChart, { TopProductsTable } from "@/components/dashboard/TopProductsChart";
-import { Icon } from "@/components/layout/Sidebar";
 import { requirePermission } from "@/lib/authorization";
 import { db } from "@/lib/db";
 import { PERMISSION } from "@/lib/permissions";
@@ -323,11 +322,6 @@ async function DashboardData() {
           <div className="dash-col">
             <DashboardCard
               title="This Week Sales & Purchases"
-              action={
-                <button className="gg-icon-btn dashboard-more-button" type="button" aria-label="More chart options">
-                  <Icon name="menu" size={16} />
-                </button>
-              }
             >
               <WeeklySalesChart
                 labels={weekDays.map(({ label }) => label)}

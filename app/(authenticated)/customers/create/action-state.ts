@@ -6,8 +6,10 @@ export type CustomerField =
   | "country"
   | "region"
   | "city"
+  | "suburb"
   | "zipCode"
-  | "address";
+  | "address"
+  | "addressData";
 
 export type CustomerActionState = {
   status: "idle" | "error";

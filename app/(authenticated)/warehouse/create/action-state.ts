@@ -6,7 +6,9 @@ export type WarehouseField =
   | "country"
   | "city"
   | "region"
-  | "zipCode";
+  | "suburb"
+  | "zipCode"
+  | "addressData";
 
 export type WarehouseActionState = {
   status: "idle" | "error" | "success";

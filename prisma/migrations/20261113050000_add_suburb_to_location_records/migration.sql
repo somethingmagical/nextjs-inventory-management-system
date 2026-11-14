@@ -1,0 +1,8 @@
+ALTER TABLE `Warehouse`
+ADD COLUMN `suburb` VARCHAR(191) NULL;
+
+ALTER TABLE `Supplier`
+ADD COLUMN `suburb` VARCHAR(191) NULL;
+
+ALTER TABLE `Customer`
+ADD COLUMN `suburb` VARCHAR(191) NULL;

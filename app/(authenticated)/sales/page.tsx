@@ -237,7 +237,12 @@ async function SaleList({ searchParams }: SalesPageProps) {
         </div>
 
         <div className="gg-card gg-card-pad">
-          <div className="gg-table-wrap">
+          <div
+            className="gg-table-wrap sales-table-wrap"
+            role="region"
+            aria-label="Sales list. Scroll horizontally to view all columns."
+            tabIndex={0}
+          >
             <table className="gg-table">
               <thead>
                 <tr>
@@ -327,7 +332,7 @@ async function SaleList({ searchParams }: SalesPageProps) {
                       </Link>
                     </td>
                     <td className="gg-muted">{sale.customer.name}</td>
-                    <td>{sale.warehouse?.name ?? "Warehouse unavailable"}</td>
+                    <td>{sale.warehouse?.name ?? "No warehouse recorded"}</td>
                     <td>
                       <span
                         className={`gg-badge ${sale.status === "Received" ? "gg-badge--success" : "gg-badge--warning"}`}

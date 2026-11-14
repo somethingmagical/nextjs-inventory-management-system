@@ -107,7 +107,7 @@ const navigation: NavigationItem[] = [
     ],
   },
   {
-    label: "Peoples",
+    label: "People",
     icon: "users",
     children: [
       { label: "Customers", href: "/customers", permission: PERMISSION.viewCustomers, activePrefix: "/customers" },
@@ -156,12 +156,16 @@ export function getActiveNavigationIcon(pathname: string): string | null {
 export default function Sidebar({
   permissions,
   isCollapsed,
+  isMobileNavigationOpen,
+  onNavigate,
   appName,
   faviconPath,
   headerLogoPath,
 }: {
   permissions: Permission[];
   isCollapsed: boolean;
+  isMobileNavigationOpen: boolean;
+  onNavigate: () => void;
   appName: string;
   faviconPath: string;
   headerLogoPath: string | null;
@@ -276,7 +280,11 @@ export default function Sidebar({
 
   return (
     <>
-    <aside className="gg-sidebar">
+    <aside
+      className="gg-sidebar"
+      aria-hidden={isMobile && !isMobileNavigationOpen}
+      inert={isMobile && !isMobileNavigationOpen}
+    >
       <Link className={`gg-brand${headerLogoPath ? " has-logo" : ""}`} href="/dashboard" aria-label={`${appName} dashboard`} title="Dashboard">
         <Image className="gg-brand-favicon" src={faviconPath} alt="" width={30} height={30} aria-hidden="true" unoptimized />
         {headerLogoPath && (
@@ -306,7 +314,7 @@ export default function Sidebar({
           />
         </div>
       </div>
-      <nav className="gg-nav" aria-label="Main navigation">
+      <nav className="gg-nav" id="main-navigation" aria-label="Main navigation">
         {visibleNavigation.map((item) => {
           const children = item.children;
 
@@ -323,7 +331,7 @@ export default function Sidebar({
           );
           if (children) {
             const handleGroupClick = (event: MouseEvent<HTMLButtonElement>) => {
-              const isIconMode = isCollapsed || isMobile;
+              const isIconMode = isCollapsed || (isMobile && !isMobileNavigationOpen);
               if (isIconMode) {
                 if (isFlyoutOpen) {
                   setOpenFlyoutLabel(null);
@@ -363,7 +371,14 @@ export default function Sidebar({
                       : false;
                     const className = `gg-nav-item ${active ? "is-active" : ""}`;
                     return child.href ? (
-                      <Link className={className} href={child.href} key={child.label} title={child.label}>
+                      <Link
+                        className={className}
+                        href={child.href}
+                        key={child.label}
+                        title={child.label}
+                        aria-current={active ? "page" : undefined}
+                        onClick={onNavigate}
+                      >
                         <span className="gg-nav-label">{child.label}</span>
                       </Link>
                     ) : (
@@ -385,6 +400,8 @@ export default function Sidebar({
               className={`gg-nav-item ${active ? "is-active" : ""}`}
               href={item.href ?? "#"}
               title={item.label}
+              aria-current={active ? "page" : undefined}
+              onClick={onNavigate}
             >
               {content}
             </Link>
@@ -416,7 +433,10 @@ export default function Sidebar({
                   href={child.href}
                   key={child.label}
                   aria-current={active ? "page" : undefined}
-                  onClick={() => setOpenFlyoutLabel(null)}
+                  onClick={() => {
+                    setOpenFlyoutLabel(null);
+                    onNavigate();
+                  }}
                 >
                   {child.label}
                 </Link>

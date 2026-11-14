@@ -29,7 +29,7 @@ Chart.register(
   PointElement,
   Tooltip,
 );
-Chart.defaults.font.family = "'Hanken Grotesk', sans-serif";
+Chart.defaults.font.family = '"Geist", "Segoe UI", system-ui, sans-serif';
 Chart.defaults.font.size = 12;
 Chart.defaults.color = "#7A746A";
 
@@ -136,6 +136,21 @@ export function WeeklySalesChart({
   return (
     <div className="chart-box dashboard-line-wrap">
       <canvas ref={canvasRef} role="img" aria-label="Sales and purchases by day for the last seven days" />
+      <table className="sr-only">
+        <caption>Sales and purchases for the last seven days</caption>
+        <thead>
+          <tr><th scope="col">Date</th><th scope="col">Sales</th><th scope="col">Purchases</th></tr>
+        </thead>
+        <tbody>
+          {labels.map((label, index) => (
+            <tr key={label}>
+              <th scope="row">{label}</th>
+              <td>$ {Number(sales[index] ?? 0).toFixed(2)}</td>
+              <td>$ {Number(purchases[index] ?? 0).toFixed(2)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -200,7 +215,9 @@ export function ProductSalesChart({
                   aria-hidden="true"
                 />
                 <span className="dashboard-product-legend-name" title={label}>{label}</span>
-                <span className="dashboard-product-legend-percent">{percentage.toFixed(1)}%</span>
+                <span className="dashboard-product-legend-percent">
+                  $ {amounts[index].toFixed(2)} · {percentage.toFixed(1)}%
+                </span>
               </li>
             );
           })}
@@ -257,9 +274,25 @@ export function CustomerSalesChart({
   }, [amounts, hasData, labels, themeRevision]);
 
   return (
-    <div className="chart-box customer-chart">
-      <canvas ref={canvasRef} role="img" aria-label={hasData ? `Top five customers by sales: ${labels.join(", ")}` : "No customer sales data available"} />
-      {!hasData && <span className="dashboard-chart-empty">No data</span>}
-    </div>
+    <>
+      <div className="chart-box customer-chart">
+        <canvas ref={canvasRef} role="img" aria-label={hasData ? `Top five customers by sales: ${labels.join(", ")}` : "No customer sales data available"} />
+        {!hasData && <span className="dashboard-chart-empty">No data</span>}
+      </div>
+      {hasData && (
+        <table className="sr-only">
+          <caption>Top five customers by sales</caption>
+          <thead><tr><th scope="col">Customer</th><th scope="col">Sales</th></tr></thead>
+          <tbody>
+            {labels.map((label, index) => (
+              <tr key={`${label}-${index}`}>
+                <th scope="row">{label}</th>
+                <td>$ {Number(amounts[index] ?? 0).toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </>
   );
 }

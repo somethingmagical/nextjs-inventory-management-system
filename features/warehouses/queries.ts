@@ -53,10 +53,13 @@ export async function getWarehouseEditData(id: string) {
       email: true,
       phoneNumber: true,
       country: true,
+      countryCode: true,
       city: true,
       region: true,
+      suburb: true,
       zipCode: true,
       address: true,
+      addressData: true,
     },
   });
 }

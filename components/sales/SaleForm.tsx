@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Prisma } from "@prisma/client";
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   CalendarDays,
@@ -18,6 +18,7 @@ import {
   calculatePurchaseLineTotals,
   calculatePurchaseTotals,
 } from "@/lib/purchase-pricing";
+import useDialogFocus from "@/components/shared/useDialogFocus";
 import {
   createSale,
   searchSaleProducts,
@@ -656,6 +657,8 @@ function SaleItemEditModal({
   onSave: () => void;
   onClose: () => void;
 }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  useDialogFocus(dialogRef);
   if (!item) return null;
 
   return (
@@ -666,7 +669,7 @@ function SaleItemEditModal({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <section className="gg-modal purchase-item-modal" role="dialog" aria-modal="true" aria-labelledby="sale-item-modal-title">
+      <section ref={dialogRef} tabIndex={-1} className="gg-modal purchase-item-modal" role="dialog" aria-modal="true" aria-labelledby="sale-item-modal-title">
         <div className="gg-modal-head">
           <h2 className="gg-card-title" id="sale-item-modal-title">{item.name}</h2>
           <button className="gg-modal-close" type="button" aria-label="Close product details" onClick={onClose}>

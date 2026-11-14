@@ -132,10 +132,13 @@ model Warehouse {
   email           String
   phoneNumber     String
   country         String
+  countryCode     String?          @db.Char(2)
   city            String
   region          String?
-  zipCode         String
+  suburb          String?
+  zipCode         String?
   address         String
+  addressData     Json?
   deletedAt       DateTime?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
@@ -159,10 +162,13 @@ model Supplier {
   email           String
   phoneNumber     String
   country         String
+  countryCode     String?          @db.Char(2)
   region          String?
   city            String
+  suburb          String?
   zipCode         String?
   address         String
+  addressData     Json?
   deletedAt       DateTime?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
@@ -180,10 +186,13 @@ model Customer {
   phoneNumber String
   dateOfBirth DateTime?
   country     String
+  countryCode String?      @db.Char(2)
   region      String?
   city        String
+  suburb      String?
   zipCode     String?
   address     String
+  addressData Json?
   deletedAt   DateTime?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt

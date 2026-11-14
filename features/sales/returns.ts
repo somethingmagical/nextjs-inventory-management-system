@@ -59,7 +59,13 @@ export async function createSaleReturn(input: SaleReturnInput) {
         },
       },
     });
-    if (!sale || sale.customer.deletedAt || sale.warehouse.deletedAt) {
+    if (
+      !sale
+      || !sale.customer
+      || sale.customer.deletedAt
+      || !sale.warehouse
+      || sale.warehouse.deletedAt
+    ) {
       throw new SaleReturnCreateError("The original sale is no longer available.");
     }
 

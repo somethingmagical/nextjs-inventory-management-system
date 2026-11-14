@@ -7,6 +7,7 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { optionalPhoneNumberSchema } from "@/lib/phone-number";
 import type { ProfileActionState } from "./profile-state";
 import { z } from "zod";
 
@@ -14,7 +15,7 @@ const profileSchema = z.object({
   firstName: z.string().trim().min(1, "Enter your first name.").max(80),
   lastName: z.string().trim().min(1, "Enter your last name.").max(80),
   email: z.string().trim().email("Enter a valid email address.").max(254),
-  phoneNumber: z.string().trim().max(40, "Phone number must be 40 characters or fewer."),
+  phoneNumber: optionalPhoneNumberSchema,
 });
 
 const maxImageSize = 1024 * 1024;

@@ -1,5 +1,6 @@
 "use server";
 
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
@@ -32,10 +33,13 @@ export async function updateSupplier(
     email: formData.get("email"),
     phoneNumber: formData.get("phoneNumber"),
     country: formData.get("country"),
+    countryCode: formData.get("countryCode") ?? "",
     region: formData.get("region"),
     city: formData.get("city"),
+    suburb: formData.get("suburb") ?? "",
     zipCode: formData.get("zipCode"),
     address: formData.get("address"),
+    addressData: formData.get("addressData"),
   });
 
   if (!parsed.success) {
@@ -54,10 +58,13 @@ export async function updateSupplier(
       email: true,
       phoneNumber: true,
       country: true,
+      countryCode: true,
       region: true,
       city: true,
+      suburb: true,
       zipCode: true,
       address: true,
+      addressData: true,
     },
   });
 
@@ -70,18 +77,21 @@ export async function updateSupplier(
     supplier.email !== parsed.data.email ||
     supplier.phoneNumber !== parsed.data.phoneNumber ||
     supplier.country !== parsed.data.country ||
+    supplier.countryCode !== parsed.data.countryCode ||
     supplier.region !== parsed.data.region ||
     supplier.city !== parsed.data.city ||
+    supplier.suburb !== parsed.data.suburb ||
     supplier.zipCode !== parsed.data.zipCode ||
     supplier.address !== parsed.data.address;
+  const addressDataChanged = JSON.stringify(supplier.addressData) !== JSON.stringify(parsed.data.addressData);
 
-  if (!hasChanges) {
+  if (!hasChanges && !addressDataChanged) {
     redirect("/suppliers");
   }
 
   const updated = await db.supplier.updateMany({
     where: { id: supplier.id, deletedAt: null },
-    data: parsed.data,
+    data: { ...parsed.data, addressData: parsed.data.addressData ?? Prisma.DbNull },
   });
 
   if (updated.count !== 1) {

@@ -59,10 +59,13 @@ async function AuthorizedEditSupplier({ params }: EditSupplierPageProps) {
       email: true,
       phoneNumber: true,
       country: true,
+      countryCode: true,
       region: true,
       city: true,
+      suburb: true,
       zipCode: true,
       address: true,
+      addressData: true,
     },
   });
 
@@ -77,10 +80,13 @@ async function AuthorizedEditSupplier({ params }: EditSupplierPageProps) {
     email: supplier.email,
     phoneNumber: supplier.phoneNumber,
     country: supplier.country,
+    countryCode: supplier.countryCode ?? "",
     region: supplier.region ?? "",
     city: supplier.city,
+    suburb: supplier.suburb ?? "",
     zipCode: supplier.zipCode ?? "",
     address: supplier.address,
+    addressData: supplier.addressData ? JSON.stringify(supplier.addressData) : "",
   };
 
   return (

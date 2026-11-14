@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { optionalPhoneNumberSchema } from "@/lib/phone-number";
 
 export const userIdSchema = z.string().trim().min(1).max(191);
 
@@ -6,7 +7,7 @@ const userFields = {
   firstName: z.string().trim().min(1, "Enter a first name.").max(80, "First name must be 80 characters or fewer."),
   lastName: z.string().trim().min(1, "Enter a last name.").max(80, "Last name must be 80 characters or fewer."),
   email: z.string().trim().email("Enter a valid email address.").max(254, "Email must be 254 characters or fewer."),
-  phoneNumber: z.string().trim().max(40, "Phone number must be 40 characters or fewer."),
+  phoneNumber: optionalPhoneNumberSchema,
   role: z.string().trim().min(1, "Select a role.").max(191),
 };
 

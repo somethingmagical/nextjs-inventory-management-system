@@ -186,7 +186,12 @@ async function ProductList({ searchParams }: ProductsPageProps) {
         </div>
 
         <div className="gg-card gg-card-pad">
-          <div className="gg-table-wrap">
+          <div
+            className="gg-table-wrap product-table-wrap"
+            role="region"
+            aria-label="Product list. Scroll horizontally to view all columns."
+            tabIndex={0}
+          >
             <table className="gg-table">
               <thead>
                 <tr>

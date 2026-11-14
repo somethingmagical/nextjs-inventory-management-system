@@ -69,10 +69,13 @@ async function AuthorizedEditWarehouse({ params }: EditWarehousePageProps) {
           email: warehouse.email,
           phoneNumber: warehouse.phoneNumber,
           country: warehouse.country,
+          countryCode: warehouse.countryCode ?? "",
           city: warehouse.city,
           region: warehouse.region ?? "",
-          zipCode: warehouse.zipCode,
+          suburb: warehouse.suburb ?? "",
+          zipCode: warehouse.zipCode ?? "",
           address: warehouse.address,
+          addressData: warehouse.addressData ? JSON.stringify(warehouse.addressData) : "",
         }}
       />
     </DashboardLayout>

@@ -42,3 +42,6 @@ next-env.d.ts
 
 #design files
 /design
+
+# Local GeoNames data archives
+/.data/geonames/

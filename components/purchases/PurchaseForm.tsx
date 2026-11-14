@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, Minus, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import {
   calculatePurchaseLineTotals,
   calculatePurchaseTotals,
 } from "@/lib/purchase-pricing";
+import useDialogFocus from "@/components/shared/useDialogFocus";
 import { createPurchase, searchPurchaseProducts } from "@/app/(authenticated)/purchases/actions";
 import {
   initialPurchaseCreateActionState,
@@ -70,6 +71,8 @@ export default function PurchaseForm({
     PurchaseCreateActionState,
     FormData
   >(createPurchase, initialPurchaseCreateActionState);
+  const itemDialogRef = useRef<HTMLElement>(null);
+  useDialogFocus(itemDialogRef, Boolean(editingItemId && itemEdit));
 
   useEffect(() => {
     let cancelled = false;
@@ -566,6 +569,8 @@ export default function PurchaseForm({
           }}
         >
           <section
+            ref={itemDialogRef}
+            tabIndex={-1}
             className="gg-modal purchase-item-modal"
             role="dialog"
             aria-modal="true"

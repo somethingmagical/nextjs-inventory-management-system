@@ -7,6 +7,7 @@ import UserMenu from "./UserMenu";
 
 export default function Header({
   onToggleSidebar,
+  sidebarExpanded,
   user,
   pageTitle = "Dashboard",
   pageIcon = "dashboard",
@@ -14,6 +15,7 @@ export default function Header({
   headerContent,
 }: {
   onToggleSidebar: () => void;
+  sidebarExpanded: boolean;
   user: { name: string; image: string | null };
   pageTitle?: string;
   pageIcon?: "dashboard" | "plus" | "chart";
@@ -28,10 +30,19 @@ export default function Header({
 
   return (
     <header className={`gg-topbar${headerContent && !isDashboard ? " gg-topbar--with-nav" : ""}`}>
-      <button className="gg-icon-btn" type="button" onClick={onToggleSidebar} aria-label="Toggle sidebar"><Icon name="menu" /></button>
+      <button
+        className="gg-icon-btn"
+        type="button"
+        onClick={onToggleSidebar}
+        aria-label="Toggle navigation"
+        aria-expanded={sidebarExpanded}
+        aria-controls="main-navigation"
+      >
+        <Icon name="menu" />
+      </button>
       <div className="gg-topbar-title">
         <span className="gg-page-chip"><Icon name={isDashboard ? "dashboard" : activePageIcon ?? pageIcon} /></span>
-        {showBreadcrumb && <span className="gg-breadcrumb">{activePageTitle}</span>}
+        {showBreadcrumb && <h1 className="gg-breadcrumb">{activePageTitle}</h1>}
       </div>
       {!isDashboard && headerContent}
       <div className="gg-topbar-spacer" />

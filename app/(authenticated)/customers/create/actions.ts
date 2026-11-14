@@ -1,5 +1,6 @@
 "use server";
 
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
@@ -27,10 +28,13 @@ export async function createCustomer(
     phoneNumber: formData.get("phoneNumber"),
     dateOfBirth: formData.get("dateOfBirth") ?? "",
     country: formData.get("country"),
+    countryCode: formData.get("countryCode") ?? "",
     region: formData.get("region"),
     city: formData.get("city"),
+    suburb: formData.get("suburb") ?? "",
     zipCode: formData.get("zipCode"),
     address: formData.get("address"),
+    addressData: formData.get("addressData"),
   });
 
   if (!parsed.success) {
@@ -42,7 +46,7 @@ export async function createCustomer(
   }
 
   await db.customer.create({
-    data: parsed.data,
+    data: { ...parsed.data, addressData: parsed.data.addressData ?? Prisma.DbNull },
     select: { id: true },
   });
 

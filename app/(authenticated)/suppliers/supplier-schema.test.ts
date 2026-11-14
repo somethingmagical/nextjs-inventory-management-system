@@ -9,12 +9,23 @@ const validSupplier = {
   country: "New Zealand",
   region: "Auckland",
   city: "Auckland",
+  suburb: "",
   zipCode: "1010",
   address: "1 Sample Street",
 };
 
-test("requires region and postal code for suppliers", () => {
+test("allows administrative area and postal code to be omitted", () => {
   assert.equal(supplierSchema.safeParse(validSupplier).success, true);
-  assert.equal(supplierSchema.safeParse({ ...validSupplier, region: "" }).success, false);
-  assert.equal(supplierSchema.safeParse({ ...validSupplier, zipCode: "" }).success, false);
+  const parsed = supplierSchema.safeParse({ ...validSupplier, region: "", zipCode: "" });
+  assert.equal(parsed.success, true);
+  if (parsed.success) {
+    assert.equal(parsed.data.region, null);
+    assert.equal(parsed.data.zipCode, null);
+  }
+});
+
+test("allows an optional suburb and stores an empty selection as null", () => {
+  const parsed = supplierSchema.safeParse(validSupplier);
+  assert.equal(parsed.success, true);
+  if (parsed.success) assert.equal(parsed.data.suburb, null);
 });

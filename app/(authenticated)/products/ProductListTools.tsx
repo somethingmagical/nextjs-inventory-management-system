@@ -1,7 +1,3 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { Download, Info, Upload } from "lucide-react";
 import Link from "next/link";
 import AutoSearchForm from "@/components/shared/AutoSearchForm";
 import DynamicFilterControl from "@/components/shared/DynamicFilterControl";
@@ -38,14 +34,6 @@ export default function ProductListTools({
   sortOrder,
   sortOptions,
 }: ProductListToolsProps) {
-  const [message, setMessage] = useState("");
-
-  useEffect(() => {
-    if (!message) return;
-    const timeout = window.setTimeout(() => setMessage(""), 3500);
-    return () => window.clearTimeout(timeout);
-  }, [message]);
-
   const clearParams = new URLSearchParams();
   if (query) clearParams.set("q", query);
   clearParams.set("pageSize", String(pageSize));
@@ -145,31 +133,6 @@ export default function ProductListTools({
           </div>
         </TableFilterPopover>
       </div>
-      <button
-        className="gg-btn gg-btn--secondary"
-        type="button"
-        onClick={() => setMessage("Product export is coming soon.")}
-      >
-        <Upload aria-hidden="true" />
-        Export Products
-      </button>
-      <button
-        className="gg-btn gg-btn--secondary"
-        type="button"
-        onClick={() => setMessage("Product import is coming soon.")}
-      >
-        <Download aria-hidden="true" />
-        Import Products
-      </button>
-      {message && (
-        <p
-          className="warehouse-toast is-visible product-tools-toast"
-          role="status"
-        >
-          <Info size={18} aria-hidden="true" />
-          <span>{message}</span>
-        </p>
-      )}
     </>
   );
 }

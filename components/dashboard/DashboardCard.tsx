@@ -44,10 +44,10 @@ export type DashboardKpiValues = Record<
 >;
 
 const kpis: KpiCardData[] = [
-  { valueKey: "sales", tone: "gold", icon: "shoppingCart", label: "Sales" },
-  { valueKey: "purchases", tone: "emerald", icon: "shoppingBag", label: "Purchases" },
-  { valueKey: "salesReturns", tone: "blue", icon: "arrowRight", label: "Sales Returns" },
-  { valueKey: "purchaseReturns", tone: "orange", icon: "arrowLeft", label: "Purchases Returns" },
+  { valueKey: "sales", tone: "gold", icon: "shoppingCart", label: "All-time sales" },
+  { valueKey: "purchases", tone: "emerald", icon: "shoppingBag", label: "All-time purchases" },
+  { valueKey: "salesReturns", tone: "blue", icon: "arrowRight", label: "All-time sales returns" },
+  { valueKey: "purchaseReturns", tone: "orange", icon: "arrowLeft", label: "All-time purchase returns" },
   { valueKey: "todaySales", tone: "violet", icon: "dollar", label: "Today Total Sales" },
   { valueKey: "todayReceived", tone: "rose", icon: "banknote", label: "Today Total Received (Sales)" },
   { valueKey: "todayPurchases", tone: "cyan", icon: "shoppingCart", label: "Today Total Purchases" },

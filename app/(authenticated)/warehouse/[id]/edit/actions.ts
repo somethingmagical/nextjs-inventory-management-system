@@ -1,5 +1,6 @@
 "use server";
 
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
@@ -32,8 +33,10 @@ export async function updateWarehouse(
     email: formData.get("email"),
     phoneNumber: formData.get("phoneNumber"),
     country: formData.get("country"),
+    countryCode: formData.get("countryCode") ?? "",
     city: formData.get("city"),
     region: formData.get("region") ?? "",
+    suburb: formData.get("suburb") ?? "",
     zipCode: formData.get("zipCode"),
     address: formData.get("address"),
   });
@@ -54,10 +57,13 @@ export async function updateWarehouse(
       email: true,
       phoneNumber: true,
       country: true,
+      countryCode: true,
       city: true,
       region: true,
+      suburb: true,
       zipCode: true,
       address: true,
+      addressData: true,
     },
   });
 
@@ -70,18 +76,21 @@ export async function updateWarehouse(
     warehouse.email !== parsed.data.email ||
     warehouse.phoneNumber !== parsed.data.phoneNumber ||
     warehouse.country !== parsed.data.country ||
+    warehouse.countryCode !== parsed.data.countryCode ||
     warehouse.city !== parsed.data.city ||
     warehouse.region !== parsed.data.region ||
+    warehouse.suburb !== parsed.data.suburb ||
     warehouse.zipCode !== parsed.data.zipCode ||
     warehouse.address !== parsed.data.address;
+  const addressDataChanged = JSON.stringify(warehouse.addressData) !== JSON.stringify(parsed.data.addressData);
 
-  if (!hasChanges) {
+  if (!hasChanges && !addressDataChanged) {
     redirect("/warehouse");
   }
 
   const updated = await db.warehouse.updateMany({
     where: { id: warehouse.id, deletedAt: null },
-    data: parsed.data,
+    data: { ...parsed.data, addressData: parsed.data.addressData ?? Prisma.DbNull },
   });
 
   if (updated.count !== 1) {

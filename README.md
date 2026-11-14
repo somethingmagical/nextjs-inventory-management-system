@@ -101,7 +101,21 @@ configured, the fallback is 30 failed attempts per email. A threshold triggers a
 | `ADMIN_IMAGE` | No | Administrator avatar URL. |
 | `NEXT_PUBLIC_APP_NAME` | No | App name shown in the interface; defaults to `Inventory`. |
 | `NEXT_PUBLIC_APP_URL` | No | Absolute HTTP(S) public app URL used for metadata; defaults to `http://localhost:3000`. Invalid values are reported and omitted from metadata. |
-| `GEONAMES_USERNAME` | No | Server-only GeoNames username for loading postal-code options after city selection in warehouse, customer, and supplier forms. If unset or unavailable, the postal code can be entered manually. |
+| `COUNTRIES_API_BASE_URL` | No | Countries.dev API base URL. Country options use local phone metadata when unset; city and postal-code suggestions then remain unavailable and can be entered manually. Set this to `https://countries.dev` to enable those lookups. |
+| `GEOGRAPHY_DATA_DIR` | No | Directory for GeoNames archives; defaults to `.data/geonames`. Country and postal archives are downloaded on first use and cached locally for 30 days. |
+| `OSM_NOMINATIM_BASE_URL` | No | URL of a self-hosted Nominatim instance for the optional street-search endpoint. Public OpenStreetMap search servers are explicitly rejected. |
+
+### Global address data
+
+The shared warehouse, customer, supplier, POS customer, and product-reference forms use a flexible location hierarchy. Administrative levels appear only when GeoNames has child areas for the selected parent. City, suburb, and postal-code suggestions are optional; street, building, and unit details are entered manually in one **Address** field. The form shows a live address preview and stores structured address details plus per-location source/manual provenance. The existing `address` column remains populated for older sales, purchase, and PDF views.
+
+The implementation uses only these sources:
+
+- **Countries.dev** supplies country metadata, unscoped city suggestions, and supported postal-code matches. Its hosted API advertises free access without an API key, but public rate limits and uptime are not guaranteed. Its city results focus on major cities, and postal-code coverage is incomplete. No paid fallback is configured.
+- **GeoNames** country and postal-code archives are fetched from the official download site on first use, streamed and cached under `GEOGRAPHY_DATA_DIR`, and used for administrative areas, scoped cities, suburbs, and postal codes. The datasets are free under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) and require attribution. The separate GeoNames web API is not used; it requires a registered account and is limited to 10,000 credits per day and 1,000 per hour.
+- **OpenStreetMap** street search is available only through an operator-configured, self-hosted Nominatim endpoint; the shared forms use manual address entry instead. The public Nominatim service is not used for autocomplete. OSM data is licensed under the [ODbL](https://www.openstreetmap.org/copyright), which requires attribution and may require share-alike distribution of adapted databases. Nominatim is free software, but self-hosting requires operator-provided storage and compute resources; a full-planet deployment has substantial hardware requirements.
+
+No Google, Mapbox, commercial geocoder, subscription, trial, or usage-billed service is integrated. Location suggestions may be unavailable because of source coverage, connectivity, or a local service not being configured; the forms do not silently switch providers.
 
 ### Other useful commands
 

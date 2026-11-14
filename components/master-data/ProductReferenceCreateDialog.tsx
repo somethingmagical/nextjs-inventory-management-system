@@ -243,33 +243,13 @@ export default function ProductReferenceCreateDialog({
                 regionError={fieldError("region")}
                 showRegion
                 postalError={fieldError("zipCode")}
+                addressError={fieldError("address")}
+                addressDataError={fieldError("addressData")}
                 disabled={isPending}
                 showPostalCode
                 onCountryCodeChange={setCountryCode}
                 phoneCountrySelection={phoneCountrySelection}
               />
-              {isSupplier && (
-                <div className="gg-field">
-                  <label className="gg-label" htmlFor={`${prefix}-address`}>
-                    Address <span className="gg-req">*</span>
-                  </label>
-                  <input
-                    className="gg-input"
-                    id={`${prefix}-address`}
-                    name="address"
-                    autoComplete="street-address"
-                    placeholder="Enter Address"
-                    maxLength={191}
-                    required
-                    aria-invalid={Boolean(fieldError("address"))}
-                    aria-describedby={fieldError("address") ? `${prefix}-address-error` : undefined}
-                    disabled={isPending}
-                  />
-                  {fieldError("address") && (
-                    <span className="warehouse-field-error" id={`${prefix}-address-error`}>{fieldError("address")}</span>
-                  )}
-                </div>
-              )}
             </>
           )}
 

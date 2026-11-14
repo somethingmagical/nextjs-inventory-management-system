@@ -9,6 +9,7 @@ import {
   type SupplierActionState,
   type SupplierField,
 } from "./action-state";
+import type { SupplierValues } from "../supplier-schema";
 import { useRetainedFormValues } from "@/components/shared/useRetainedFormValues";
 import { CountryCityFields, PhoneNumberInput } from "@/components/shared/GeographyFields";
 
@@ -28,7 +29,6 @@ const fields: {
   { name: "name", label: "Name", type: "text", placeholder: "Enter Name", autoComplete: "organization", maxLength: 120 },
   { name: "email", label: "Email", type: "email", placeholder: "Enter Email", autoComplete: "email", maxLength: 191 },
   { name: "phoneNumber", label: "Phone Number", type: "tel", placeholder: "Phone Number", autoComplete: "tel", maxLength: 40 },
-  { name: "address", label: "Address", type: "text", placeholder: "Enter Address", autoComplete: "street-address", maxLength: 191 },
 ];
 
 export default function SupplierForm({
@@ -38,7 +38,7 @@ export default function SupplierForm({
 }: {
   mode: "create" | "edit";
   action: SupplierFormAction;
-  initialValues?: Partial<Record<SupplierField, string>>;
+  initialValues?: Partial<SupplierValues>;
 }) {
   const [state, formAction, isPending] = useActionState<SupplierActionState, FormData>(
     action,
@@ -141,10 +141,14 @@ export default function SupplierForm({
             initialRegion={initialValues?.region}
             initialCity={initialValues?.city}
             initialPostalCode={initialValues?.zipCode}
+            initialAddressData={initialValues?.addressData}
+            initialAddress={initialValues?.address}
             countryError={fieldError("country")}
             regionError={fieldError("region")}
             cityError={fieldError("city")}
             postalError={fieldError("zipCode")}
+            addressError={fieldError("address")}
+            addressDataError={fieldError("addressData")}
             disabled={isPending}
             showRegion
             showPostalCode

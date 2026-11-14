@@ -18,7 +18,7 @@ type CustomerFormAction = (
 ) => Promise<CustomerActionState>;
 
 const fields: {
-  name: Exclude<CustomerField, "dateOfBirth" | "address" | "country" | "region" | "city" | "zipCode">;
+  name: Exclude<CustomerField, "dateOfBirth" | "address" | "country" | "region" | "city" | "suburb" | "zipCode">;
   label: string;
   placeholder: string;
   autoComplete: string;
@@ -155,10 +155,14 @@ export default function CustomerForm({
             initialRegion={initialValues?.region}
             initialCity={initialValues?.city}
             initialPostalCode={initialValues?.zipCode}
+            initialAddressData={initialValues?.addressData}
+            initialAddress={initialValues?.address}
             countryError={fieldError("country")}
             regionError={fieldError("region")}
             cityError={fieldError("city")}
             postalError={fieldError("zipCode")}
+            addressError={fieldError("address")}
+            addressDataError={fieldError("addressData")}
             disabled={isPending}
             showRegion
             showPostalCode
@@ -166,26 +170,6 @@ export default function CustomerForm({
             phoneCountrySelection={phoneCountrySelection}
           />
 
-          <div className="gg-field">
-            <label className="gg-label" htmlFor="address">
-              Address <span className="gg-req">*</span>
-            </label>
-            <textarea
-              className="gg-textarea"
-              id="address"
-              name="address"
-              placeholder="Enter Address"
-              maxLength={191}
-              defaultValue={initialValues?.address ?? ""}
-              aria-invalid={Boolean(fieldError("address"))}
-              aria-describedby={fieldError("address") ? "address-error" : undefined}
-              disabled={isPending}
-              style={{ minHeight: 120 }}
-            />
-            {fieldError("address") && (
-              <span className="warehouse-field-error" id="address-error">{fieldError("address")}</span>
-            )}
-          </div>
         </div>
 
         <div className="gg-form-actions">

@@ -41,10 +41,13 @@ export async function createPosCustomer(
     phoneNumber: formData.get("phoneNumber"),
     dateOfBirth: formData.get("dateOfBirth") ?? "",
     country: formData.get("country"),
+    countryCode: formData.get("countryCode") ?? "",
     region: formData.get("region"),
     city: formData.get("city"),
+    suburb: formData.get("suburb") ?? "",
     zipCode: formData.get("zipCode"),
     address: formData.get("address"),
+    addressData: formData.get("addressData"),
   });
   if (!parsed.success) {
     return {
@@ -56,7 +59,7 @@ export async function createPosCustomer(
 
   try {
     const customer = await db.customer.create({
-      data: parsed.data,
+      data: { ...parsed.data, addressData: parsed.data.addressData ?? Prisma.DbNull },
       select: { id: true, name: true },
     });
     revalidatePath("/customers");

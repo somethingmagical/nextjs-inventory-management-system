@@ -71,7 +71,27 @@ async function AuthorizedCreateSaleReturnPage({ searchParams }: CreateSaleReturn
       },
     },
   });
-  if (!sale || sale.customer.deletedAt || sale.warehouse.deletedAt || sale.items.length === 0) notFound();
+  if (!sale || !sale.customer || sale.customer.deletedAt || sale.items.length === 0) notFound();
+  if (!sale.warehouse || sale.warehouse.deletedAt) {
+    const displayName = `${access.user.firstName} ${access.user.lastName}`.trim() || access.user.email;
+
+    return (
+      <DashboardLayout user={{ name: displayName, image: access.user.image }} pageTitle="Sales Returns">
+        <main className="gg-content">
+          <div className="page-head">
+            <h1 className="gg-page-title">Create Sale Return</h1>
+            <Link className="gg-btn gg-btn--secondary" href="/sales">
+              <ArrowLeft aria-hidden="true" />
+              Back
+            </Link>
+          </div>
+          <p className="warehouse-toast is-visible" role="alert">
+            This sale cannot be returned because its warehouse is unavailable.
+          </p>
+        </main>
+      </DashboardLayout>
+    );
+  }
 
   const [units, stocks] = await Promise.all([
     db.unit.findMany({
@@ -92,7 +112,7 @@ async function AuthorizedCreateSaleReturnPage({ searchParams }: CreateSaleReturn
     saleId: sale.id,
     saleReference: sale.reference,
     customerName: sale.customer.name,
-    warehouseName: sale.warehouse?.name ?? "Warehouse unavailable",
+    warehouseName: sale.warehouse.name,
     orderTax: sale.orderTax.toString(),
     items: sale.items.map((item) => ({
       id: item.productId,

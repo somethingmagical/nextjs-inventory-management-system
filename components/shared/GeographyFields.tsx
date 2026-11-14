@@ -1,6 +1,26 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { addressDataSchema, type AddressData } from "@/lib/geography/address-data";
+import {
+  compareCallingCodes,
+  compareGeographyNames,
+  comparePostalCodes,
+} from "@/lib/geography/sorting";
+import { normalizePhoneNumber, parseInternationalPhoneNumber } from "@/lib/phone-number";
+
+type SourceType = "external_api" | "external_dataset" | "local_dataset" | "local_metadata" | "manual";
+
+type LocationRecord = {
+  name: string;
+  type: "country" | "administrative_area" | "city" | "suburb" | "street" | "postal_code";
+  source: string;
+  sourceType: SourceType;
+  isManual: boolean;
+  code?: string;
+  level?: number;
+  externalId?: string;
+};
 
 type CountryOption = {
   name: string;
@@ -8,15 +28,44 @@ type CountryOption = {
   callingCodes: string[];
   nationalNumberMaxLength?: number;
   flag?: string;
+  source?: string;
+  sourceType?: SourceType;
+  isManual?: boolean;
 };
 
 type PostalCodeOption = {
   postalCode: string;
+  source?: string;
+  sourceType?: SourceType;
+  isManual?: boolean;
+  type?: string;
 };
 
 type RegionOption = {
+  id?: string;
   name: string;
   code: string;
+  level?: number;
+  admin1Code?: string;
+  admin2Code?: string;
+  admin3Code?: string;
+  admin4Code?: string;
+  source?: string;
+  sourceType?: SourceType;
+  isManual?: boolean;
+};
+
+type CityOption = {
+  name: string;
+  countryCode: string;
+  geonameId?: number;
+  featureCode?: string;
+  admin1Code?: string;
+  admin2Code?: string;
+  admin3Code?: string;
+  source?: string;
+  sourceType?: SourceType;
+  isManual?: boolean;
 };
 
 type CountryLoadStatus = "loading" | "ready" | "error";
@@ -40,7 +89,7 @@ function isCountryOption(value: unknown): value is CountryOption {
     && (!("flag" in value) || typeof value.flag === "string");
 }
 
-function isCityOption(value: unknown): value is { name: string; countryCode: string } {
+function isCityOption(value: unknown): value is CityOption {
   return typeof value === "object"
     && value !== null
     && "name" in value
@@ -65,6 +114,41 @@ function isPostalCodeOption(value: unknown): value is PostalCodeOption {
     && typeof value.postalCode === "string";
 }
 
+function readAddressData(value: string | null | undefined): AddressData | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    const result = addressDataSchema.safeParse(parsed);
+    return result.success ? result.data : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function manualLocationRecord(name: string, type: LocationRecord["type"]): LocationRecord | null {
+  const trimmedName = name.trim();
+  return trimmedName
+    ? { name: trimmedName, type, source: "manual", sourceType: "manual", isManual: true }
+    : null;
+}
+
+function uniqueAddressParts(values: string[]) {
+  const parts: string[] = [];
+  const seen = new Set<string>();
+  for (const value of values) {
+    const part = value.trim();
+    const key = part
+      .normalize("NFKC")
+      .toLocaleLowerCase()
+      .replace(/\s+(city|district|county|region|province|state|territory)$/i, "");
+    if (part && !seen.has(key)) {
+      seen.add(key);
+      parts.push(part);
+    }
+  }
+  return parts;
+}
+
 function limitPhoneNumberDigits(value: string, maximumDigits: number) {
   let digitCount = 0;
   return [...value].filter((character) => {
@@ -83,7 +167,7 @@ function loadCountryOptions() {
         if (!Array.isArray(data) || !data.every(isCountryOption)) {
           throw new Error("Country options returned an invalid response.");
         }
-        return data.sort((a, b) => a.name.localeCompare(b.name));
+        return data.sort((a, b) => compareGeographyNames(a.name, b.name));
       })
       .catch((error: unknown) => {
         countryOptionsRequest = undefined;
@@ -123,10 +207,14 @@ export function CountryCityFields({
   initialCity = "",
   initialRegion = "",
   initialPostalCode,
+  initialAddressData = "",
+  initialAddress = "",
   countryError,
   cityError,
   regionError,
   postalError,
+  addressError,
+  addressDataError,
   disabled = false,
   showRegion = false,
   showPostalCode = false,
@@ -137,10 +225,14 @@ export function CountryCityFields({
   initialCity?: string;
   initialRegion?: string;
   initialPostalCode?: string;
+  initialAddressData?: string | null;
+  initialAddress?: string;
   countryError?: string;
   cityError?: string;
   regionError?: string;
   postalError?: string;
+  addressError?: string;
+  addressDataError?: string;
   disabled?: boolean;
   showRegion?: boolean;
   showPostalCode?: boolean;
@@ -149,24 +241,57 @@ export function CountryCityFields({
 }) {
   const { countries, status } = useCountryOptions();
   const id = useId();
+  const savedAddressData = readAddressData(initialAddressData);
+  const savedAddressText = savedAddressData
+    ? uniqueAddressParts([
+        savedAddressData.unitNumber ? `Unit ${savedAddressData.unitNumber}` : "",
+        savedAddressData.houseNumber,
+        savedAddressData.street?.name ?? "",
+        savedAddressData.buildingName,
+        savedAddressData.additionalAddress,
+        ]).join(" ")
+    : initialAddress;
   const processedPhoneCountryVersion = useRef(0);
   const [country, setCountry] = useState(initialCountry);
-  const [countryCode, setCountryCode] = useState("");
+  const [countryCode, setCountryCode] = useState(savedAddressData?.countryCode ?? "");
+  const [countryMenuOpen, setCountryMenuOpen] = useState(false);
+  const [activeCountryIndex, setActiveCountryIndex] = useState(-1);
   const [city, setCity] = useState(initialCity);
+  const [cityRecord, setCityRecord] = useState<LocationRecord | null>(savedAddressData?.city ?? null);
   const [region, setRegion] = useState(initialRegion);
+  const [regionRecord, setRegionRecord] = useState<LocationRecord | null>(
+    savedAddressData?.administrativeAreas[0] ?? null,
+  );
   const [regions, setRegions] = useState<RegionOption[]>([]);
   const [regionLookupError, setRegionLookupError] = useState(false);
   const [regionLookupPending, setRegionLookupPending] = useState(false);
-  const [cityOptions, setCityOptions] = useState<string[]>([]);
+  const [regionMenuOpen, setRegionMenuOpen] = useState(false);
+  const [activeRegionIndex, setActiveRegionIndex] = useState(-1);
+  const [cityOptions, setCityOptions] = useState<CityOption[]>([]);
   const [cityLookupError, setCityLookupError] = useState(false);
   const [cityLookupPending, setCityLookupPending] = useState(false);
   const [cityMenuOpen, setCityMenuOpen] = useState(false);
   const [activeCityIndex, setActiveCityIndex] = useState(-1);
   const [postalCode, setPostalCode] = useState(initialPostalCode ?? "");
-  const [postalCodeOptions, setPostalCodeOptions] = useState<string[]>([]);
-  const [postalLookupError, setPostalLookupError] = useState(false);
+  const [postalCodeRecord, setPostalCodeRecord] = useState<LocationRecord | null>(savedAddressData?.postalCode ?? null);
+  const [postalCodeOptions, setPostalCodeOptions] = useState<PostalCodeOption[]>([]);
+  const [postalLookupPending, setPostalLookupPending] = useState(false);
   const [postalLookupMessage, setPostalLookupMessage] = useState("");
-  const cityQuery = showRegion ? "" : city.trim();
+  const [streetRecord, setStreetRecord] = useState<LocationRecord | null>(savedAddressData?.street ?? null);
+  const [additionalAddress, setAdditionalAddress] = useState(savedAddressText);
+  const cityQuery = city.trim();
+  const countryQuery = country.trim().toLocaleLowerCase();
+  const matchingCountries = countryQuery.length === 2
+    ? countries.filter((option) => option.alpha2Code.toLocaleLowerCase() === countryQuery)
+    : countries.filter((option) =>
+        option.name.toLocaleLowerCase().includes(countryQuery)
+        || option.alpha2Code.toLocaleLowerCase().includes(countryQuery),
+      );
+  const regionQuery = region.trim().toLocaleLowerCase();
+  const matchingRegions = regions.filter((option) =>
+    option.name.toLocaleLowerCase().includes(regionQuery),
+  );
+  const regionListboxId = `${id}-region-options`;
 
   useEffect(() => {
     if (status !== "ready") return;
@@ -196,11 +321,18 @@ export function CountryCityFields({
     if (!selected) return;
 
     setCountry(selected.name);
+    setCountryCode(selected.alpha2Code);
+    setCountryMenuOpen(false);
     setCity("");
+    setCityRecord(null);
     setRegion("");
+    setRegionRecord(null);
+    setRegionMenuOpen(false);
     setCityOptions([]);
     setCityMenuOpen(false);
     setPostalCode("");
+    setPostalCodeRecord(null);
+    clearAddressDetails();
   }, [countries, phoneCountrySelection, status]);
 
   useEffect(() => {
@@ -229,7 +361,7 @@ export function CountryCityFields({
         if (!Array.isArray(data) || !data.every(isRegionOption)) {
           throw new Error("Region options returned an invalid response.");
         }
-        return data.sort((a, b) => a.name.localeCompare(b.name));
+        return data.sort((a, b) => compareGeographyNames(a.name, b.name));
       })
       .then(setRegions)
       .catch(() => {
@@ -243,9 +375,7 @@ export function CountryCityFields({
   }, [country, countryCode, showRegion]);
 
   useEffect(() => {
-    const cityLookupIsReady = showRegion
-      ? Boolean(countryCode && country && region)
-      : Boolean(countryCode && cityQuery.length >= 2);
+    const cityLookupIsReady = Boolean(countryCode && cityQuery.length >= 2);
     if (!cityLookupIsReady) {
       setCityOptions([]);
       setCityLookupError(false);
@@ -260,12 +390,15 @@ export function CountryCityFields({
         const params = new URLSearchParams({
           type: "cities",
           country: countryCode,
+          q: cityQuery,
         });
         if (showRegion && region) {
-          params.set("countryName", country);
           params.set("region", region);
-        } else {
-          params.set("q", cityQuery);
+          const regionOption = regions.find(
+            (option) => option.name.toLocaleLowerCase() === region.toLocaleLowerCase(),
+          );
+          const firstAdminCode = regionOption?.code ?? regionRecord?.code;
+          if (firstAdminCode) params.set("admin1", firstAdminCode);
         }
         const response = await fetch(`/api/geography?${params}`, { signal: controller.signal });
         if (!response.ok) throw new Error("City suggestions are unavailable.");
@@ -273,7 +406,12 @@ export function CountryCityFields({
         if (!Array.isArray(data) || !data.every(isCityOption)) {
           throw new Error("City suggestions returned an invalid response.");
         }
-        setCityOptions([...new Set(data.map((item) => item.name))]);
+        const uniqueOptions = new Map<string, CityOption>();
+        for (const option of data) {
+          const key = option.name.normalize("NFKC").trim().toLocaleLowerCase();
+          if (key && !uniqueOptions.has(key)) uniqueOptions.set(key, option);
+        }
+        setCityOptions([...uniqueOptions.values()].sort((a, b) => compareGeographyNames(a.name, b.name)));
         setActiveCityIndex(-1);
         setCityLookupError(false);
       } catch {
@@ -290,19 +428,18 @@ export function CountryCityFields({
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [cityQuery, country, countryCode, region, showRegion]);
+  }, [cityQuery, countryCode, region, regionRecord, regions, showRegion]);
 
   useEffect(() => {
     if (!showPostalCode || !countryCode || !city) {
       setPostalCodeOptions([]);
-      setPostalLookupError(false);
+      setPostalLookupPending(false);
       setPostalLookupMessage("");
       return;
     }
-
     const controller = new AbortController();
     setPostalCodeOptions([]);
-    setPostalLookupError(false);
+    setPostalLookupPending(true);
     setPostalLookupMessage("");
 
     async function loadPostalCodes() {
@@ -313,33 +450,151 @@ export function CountryCityFields({
           city,
           region,
         });
+        if (regionRecord?.code) params.set("admin1", regionRecord.code);
         const response = await fetch(`/api/geography?${params}`, { signal: controller.signal });
         if (!response.ok) throw new Error("Postal code options are unavailable.");
         const data: unknown = await response.json();
         if (!Array.isArray(data) || !data.every(isPostalCodeOption)) {
           throw new Error("Postal code lookup returned an invalid response.");
         }
-        const options = [...new Set(data.map((item) => item.postalCode.trim()).filter(Boolean))];
+        const options = [...new Map(data
+          .filter((item) => item.postalCode.trim())
+          .map((item) => [item.postalCode.trim(), item]))
+          .values()]
+          .sort((a, b) => comparePostalCodes(a.postalCode, b.postalCode));
         setPostalCodeOptions(options);
         if (options.length === 0) {
-          setPostalLookupMessage("No postal codes found for this city. Enter the code manually.");
+          setPostalLookupMessage("No postal codes found for this city.");
         }
       } catch {
         if (!controller.signal.aborted) {
-          setPostalLookupError(true);
-          setPostalLookupMessage("Postal code options are unavailable. Enter the code manually.");
+          setPostalLookupMessage("Postal code options are unavailable.");
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setPostalLookupPending(false);
         }
       }
     }
 
     void loadPostalCodes();
-    return () => controller.abort();
-  }, [city, countryCode, region, showPostalCode]);
+    return () => {
+      controller.abort();
+    };
+  }, [city, countryCode, region, regionRecord, showPostalCode]);
 
-  function chooseCity(value: string) {
+  function chooseCity(option: CityOption) {
+    const value = option.name;
     setCity(value);
+    setCityRecord({
+      name: value,
+      type: "city",
+      source: option.source ?? "manual",
+      sourceType: option.sourceType ?? "manual",
+      isManual: option.isManual ?? true,
+      ...(option.geonameId === undefined ? {} : { externalId: String(option.geonameId) }),
+    });
+    setPostalCode("");
+    setPostalCodeRecord(null);
+    clearAddressDetails();
     setCityMenuOpen(false);
     setActiveCityIndex(-1);
+  }
+
+  function changeRegion(value: string, selectedOption?: RegionOption) {
+    const option = selectedOption ?? regions.find(
+      (item) => item.name.toLocaleLowerCase() === value.trim().toLocaleLowerCase(),
+    );
+    setRegion(value);
+    setRegionRecord(option
+      ? {
+          name: option.name,
+          type: "administrative_area",
+          code: option.code,
+          level: option.level ?? 1,
+          source: option.source ?? "GeoNames",
+          sourceType: option.sourceType ?? "external_dataset",
+          isManual: option.isManual ?? false,
+        }
+      : manualLocationRecord(value, "administrative_area"));
+    setCity("");
+    setCityRecord(null);
+    setPostalCode("");
+    setPostalCodeRecord(null);
+    setCityOptions([]);
+    setCityMenuOpen(false);
+    clearAddressDetails();
+    setActiveRegionIndex(-1);
+  }
+
+  function chooseRegion(option: RegionOption) {
+    changeRegion(option.name, option);
+    setRegionMenuOpen(false);
+  }
+
+  function handleRegionKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape") {
+      setRegionMenuOpen(false);
+      setActiveRegionIndex(-1);
+    } else if (event.key === "ArrowDown" && matchingRegions.length > 0) {
+      event.preventDefault();
+      setRegionMenuOpen(true);
+      setActiveRegionIndex((index) => (index + 1) % matchingRegions.length);
+    } else if (event.key === "ArrowUp" && matchingRegions.length > 0) {
+      event.preventDefault();
+      setRegionMenuOpen(true);
+      setActiveRegionIndex((index) => (index <= 0 ? matchingRegions.length - 1 : index - 1));
+    } else if (event.key === "Enter" && regionMenuOpen && activeRegionIndex >= 0) {
+      event.preventDefault();
+      chooseRegion(matchingRegions[activeRegionIndex]);
+    }
+  }
+
+  function changeCountry(nextCountry: string) {
+    const selected = countries.find((option) =>
+      option.name.toLocaleLowerCase() === nextCountry.trim().toLocaleLowerCase(),
+    );
+    setCountry(selected?.name ?? nextCountry);
+    setCountryCode(selected?.alpha2Code ?? "");
+    setActiveCountryIndex(-1);
+    setCity("");
+    setCityRecord(null);
+    setRegion("");
+    setRegionRecord(null);
+    setRegionMenuOpen(false);
+    setCityOptions([]);
+    setCityMenuOpen(false);
+    setPostalCode("");
+    setPostalCodeRecord(null);
+    clearAddressDetails();
+  }
+
+  function chooseCountry(option: CountryOption) {
+    changeCountry(option.name);
+    setCountryMenuOpen(false);
+  }
+
+  function handleCountryKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape") {
+      setCountryMenuOpen(false);
+      setActiveCountryIndex(-1);
+    } else if (event.key === "ArrowDown" && matchingCountries.length > 0) {
+      event.preventDefault();
+      setCountryMenuOpen(true);
+      setActiveCountryIndex((index) => (index + 1) % matchingCountries.length);
+    } else if (event.key === "ArrowUp" && matchingCountries.length > 0) {
+      event.preventDefault();
+      setCountryMenuOpen(true);
+      setActiveCountryIndex((index) => (index <= 0 ? matchingCountries.length - 1 : index - 1));
+    } else if (event.key === "Enter" && countryMenuOpen && activeCountryIndex >= 0) {
+      event.preventDefault();
+      chooseCountry(matchingCountries[activeCountryIndex]);
+    }
+  }
+
+  function clearAddressDetails() {
+    setStreetRecord(null);
+    setAdditionalAddress("");
   }
 
   function handleCityKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -360,67 +615,152 @@ export function CountryCityFields({
     }
   }
 
-  const currentCountryIsListed = countries.some((option) => option.name === country);
+  const selectedCountryOption = countries.find((option) => option.name === country);
+  const countryLocation: LocationRecord | null = country
+    ? {
+        name: country,
+        type: "country",
+        source: selectedCountryOption?.source ?? "manual",
+        sourceType: selectedCountryOption?.sourceType ?? "manual",
+        isManual: selectedCountryOption?.isManual ?? !selectedCountryOption,
+        ...(countryCode ? { code: countryCode } : {}),
+      }
+    : null;
+  const selectedRegionOption = regions.find(
+    (option) => option.name.toLocaleLowerCase() === region.toLocaleLowerCase(),
+  );
+  const currentRegionRecord: LocationRecord | null = region
+    ? selectedRegionOption
+      ? {
+          name: selectedRegionOption.name,
+          type: "administrative_area",
+          code: selectedRegionOption.code,
+          level: selectedRegionOption.level ?? 1,
+          source: selectedRegionOption.source ?? "GeoNames",
+          sourceType: selectedRegionOption.sourceType ?? "external_dataset",
+          isManual: selectedRegionOption.isManual ?? false,
+        }
+      : regionRecord?.name.toLocaleLowerCase() === region.toLocaleLowerCase()
+        ? regionRecord
+        : manualLocationRecord(region, "administrative_area")
+    : null;
+  const currentCityRecord = cityRecord?.name.toLocaleLowerCase() === city.trim().toLocaleLowerCase()
+    ? cityRecord
+    : manualLocationRecord(city, "city");
+  const currentPostalCodeRecord = postalCodeRecord?.name === postalCode.trim()
+    ? postalCodeRecord
+    : postalCode.trim()
+      ? (() => {
+          const option = postalCodeOptions.find((item) => item.postalCode === postalCode.trim());
+          return {
+            name: postalCode.trim(),
+            type: "postal_code" as const,
+            source: option?.source ?? "manual",
+            sourceType: option?.sourceType ?? "manual",
+            isManual: option?.isManual ?? !option,
+          };
+        })()
+      : null;
+  const addressData: AddressData = {
+    countryCode: countryCode || null,
+    country: countryLocation,
+    administrativeAreas: currentRegionRecord ? [currentRegionRecord] : [],
+    city: currentCityRecord,
+    suburb: null,
+    street: streetRecord,
+    postalCode: currentPostalCodeRecord,
+    houseNumber: "",
+    buildingName: "",
+    unitNumber: "",
+    additionalAddress,
+  };
+  const addressDataJson = JSON.stringify(addressData);
+  const addressPreview = uniqueAddressParts([
+    ...additionalAddress.split(/[,\n]/),
+    city,
+    region,
+    postalCode,
+    country,
+  ]).join(", ");
   const cityInputDisabled = disabled || (!country && status !== "error");
+  const countryListboxId = `${id}-country-options`;
   const cityListboxId = `${id}-city-options`;
-  const currentRegionIsListed = regions.some((option) => option.name === region);
 
   return (
     <>
+      <input type="hidden" name="countryCode" value={countryCode} />
+      <input type="hidden" name="addressData" value={addressDataJson} />
+      <input type="hidden" name="address" value={addressPreview} />
       <div className="gg-field">
         <label className="gg-label" htmlFor={`${id}-country`}>
           Country <span className="gg-req">*</span>
         </label>
-        {status === "error" ? (
+        <div className="geography-country-control">
           <input
             className="gg-input"
             id={`${id}-country`}
             name="country"
             type="text"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={countryMenuOpen}
+            aria-controls={countryMenuOpen ? countryListboxId : undefined}
+            aria-activedescendant={countryMenuOpen && activeCountryIndex >= 0
+              ? `${countryListboxId}-${activeCountryIndex}`
+              : undefined}
             autoComplete="country-name"
             maxLength={100}
             value={country}
+            placeholder={status === "loading" ? "Loading countries..." : "Search or enter a country"}
+            onFocus={() => setCountryMenuOpen(true)}
+            onBlur={() => setCountryMenuOpen(false)}
             onChange={(event) => {
-              setCountry(event.target.value);
-              setCountryCode("");
-              setCity("");
-              setRegion("");
-              setPostalCode("");
-              setCityOptions([]);
-              setCityMenuOpen(false);
+              changeCountry(event.target.value);
+              setCountryMenuOpen(true);
             }}
+            onKeyDown={handleCountryKeyDown}
             required
             aria-invalid={Boolean(countryError)}
-            aria-describedby={countryError ? `${id}-country-error` : `${id}-country-hint`}
+            aria-describedby={countryError ? `${id}-country-error` : status === "error" ? `${id}-country-hint` : undefined}
+            aria-busy={status === "loading"}
             disabled={disabled}
           />
-        ) : (
-          <select
-            className="gg-select"
-            id={`${id}-country`}
-            name="country"
-            value={country}
-            onChange={(event) => {
-              setCountry(event.target.value);
-              setCity("");
-              setRegion("");
-              setPostalCode("");
-              setCityOptions([]);
-              setCityMenuOpen(false);
-            }}
-            required
-            aria-invalid={Boolean(countryError)}
-            aria-describedby={countryError ? `${id}-country-error` : undefined}
-            disabled={disabled || status !== "ready"}
-          >
-            <option value="" disabled>{status === "ready" ? "Select a country" : "Loading countries..."}</option>
-            {country && !currentCountryIsListed && <option value={country}>{country} (saved value)</option>}
-            {countries.map((option) => (
-              <option key={option.alpha2Code} value={option.name}>
-                {option.flag ? `${option.flag} ` : ""}{option.name}
-              </option>
-            ))}
-          </select>
+          {countryMenuOpen && (
+            <div
+              className="geography-city-dropdown"
+              id={countryListboxId}
+              role="listbox"
+              aria-label="Country suggestions"
+            >
+              {status === "loading" ? (
+                <span className="geography-city-message" role="status">Loading countries...</span>
+              ) : matchingCountries.length === 0 ? (
+                <span className="geography-city-message">
+                  {status === "error"
+                    ? "Country options are unavailable. You can enter the country manually."
+                    : "No matching countries. You can enter the country manually."}
+                </span>
+              ) : (
+                matchingCountries.map((option, index) => (
+                  <button
+                    className="geography-city-option"
+                    id={`${countryListboxId}-${index}`}
+                    key={option.alpha2Code}
+                    type="button"
+                    role="option"
+                    aria-selected={activeCountryIndex === index}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => chooseCountry(option)}
+                  >
+                    {option.flag ? `${option.flag} ` : ""}{option.name} ({option.alpha2Code})
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+        {status === "loading" && !countryMenuOpen && (
+          <span className="gg-caption" role="status">Loading country options...</span>
         )}
         {status === "error" && (
           <span className="gg-caption" id={`${id}-country-hint`}>
@@ -430,212 +770,247 @@ export function CountryCityFields({
         {countryError && <span className="warehouse-field-error" id={`${id}-country-error`}>{countryError}</span>}
       </div>
 
-      {showRegion && (
+      {showRegion && countryCode && (
         <div className="gg-field">
           <label className="gg-label" htmlFor={`${id}-region`}>Region</label>
-          <select
-            className="gg-select"
-            id={`${id}-region`}
-            name="region"
-            value={region}
-            onChange={(event) => {
-              setRegion(event.target.value);
-              setCity("");
-              setPostalCode("");
-              setCityOptions([]);
-              setCityMenuOpen(false);
-            }}
-            required
-            aria-invalid={Boolean(regionError)}
-            aria-describedby={regionError ? `${id}-region-error` : regionLookupError ? `${id}-region-hint` : undefined}
-            disabled={disabled || !countryCode || regionLookupPending}
-          >
-            <option value="">
-              {!countryCode
-                ? "Select a country first"
-                : regionLookupPending
-                  ? "Loading regions..."
-                  : regions.length > 0
-                    ? "Select a region"
-                    : "No regions available"}
-            </option>
-            {region && !currentRegionIsListed && <option value={region}>{region} (saved value)</option>}
-            {regions.map((option) => (
-              <option key={`${option.name}-${option.code}`} value={option.name}>{option.name}</option>
-            ))}
-          </select>
-          {regionLookupError && (
-            <span className="gg-caption" id={`${id}-region-hint`} role="status">
-              Region options are unavailable, so a city cannot be selected.
-            </span>
-          )}
-          {regionError && <span className="warehouse-field-error" id={`${id}-region-error`}>{regionError}</span>}
-        </div>
-      )}
-
-      <div className="gg-field">
-        <label className="gg-label" htmlFor={`${id}-city`}>
-          City <span className="gg-req">*</span>
-        </label>
-        {showRegion ? (
-          <select
-            className="gg-select"
-            id={`${id}-city`}
-            name="city"
-            value={city}
-            onChange={(event) => {
-              setCity(event.target.value);
-              setPostalCode("");
-            }}
-            required
-            aria-invalid={Boolean(cityError)}
-            aria-describedby={cityError ? `${id}-city-error` : cityLookupError ? `${id}-city-hint` : undefined}
-            disabled={cityInputDisabled || !region || cityLookupPending || cityLookupError}
-          >
-            <option value="">
-              {!region
-                ? "Select a region first"
-                : cityLookupPending
-                  ? "Loading cities..."
-                  : cityLookupError
-                    ? "City options unavailable"
-                    : "Select a city"}
-            </option>
-            {city && !cityOptions.includes(city) && <option value={city}>{city} (saved value)</option>}
-            {cityOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-          </select>
-        ) : (
-          <div className="geography-city-control">
+          <div className="geography-region-control">
             <input
               className="gg-input"
-              id={`${id}-city`}
-              name="city"
+              id={`${id}-region`}
+              name="region"
               type="text"
               role="combobox"
               aria-autocomplete="list"
-              aria-expanded={Boolean(countryCode && cityMenuOpen)}
-              aria-controls={countryCode && cityMenuOpen ? cityListboxId : undefined}
-              aria-activedescendant={activeCityIndex >= 0 ? `${cityListboxId}-${activeCityIndex}` : undefined}
-              placeholder={country ? "Search or enter a city" : "Select a country first"}
-              autoComplete="address-level2"
+              aria-expanded={regionMenuOpen}
+              aria-controls={regionMenuOpen ? regionListboxId : undefined}
+              aria-activedescendant={activeRegionIndex >= 0 ? `${regionListboxId}-${activeRegionIndex}` : undefined}
+              autoComplete="address-level1"
               maxLength={100}
-              value={city}
-              onFocus={() => {
-                if (countryCode) setCityMenuOpen(true);
-              }}
-              onBlur={() => setCityMenuOpen(false)}
+              placeholder={regionLookupPending ? "Loading regions..." : "Search or enter a region"}
+              value={region}
+              onFocus={() => setRegionMenuOpen(true)}
+              onBlur={() => setRegionMenuOpen(false)}
               onChange={(event) => {
-                setCity(event.target.value);
-                setPostalCode("");
-                setCityMenuOpen(Boolean(countryCode));
-                setActiveCityIndex(-1);
+                changeRegion(event.target.value);
+                setRegionMenuOpen(true);
               }}
-              onKeyDown={handleCityKeyDown}
-              required
-              aria-invalid={Boolean(cityError)}
-              aria-describedby={cityError ? `${id}-city-error` : cityLookupError ? `${id}-city-hint` : undefined}
-              disabled={cityInputDisabled}
+              onKeyDown={handleRegionKeyDown}
+              disabled={disabled || !countryCode}
+              aria-invalid={Boolean(regionError)}
+              aria-describedby={regionError
+                ? `${id}-region-error`
+                : regionLookupError
+                  ? `${id}-region-hint`
+                  : undefined}
+              aria-busy={regionLookupPending}
             />
-            {countryCode && cityMenuOpen && (
-              <div className="geography-city-dropdown" id={cityListboxId} role="listbox" aria-label="City suggestions">
-                {cityLookupPending ? (
-                  <span className="geography-city-message" role="status">Loading cities...</span>
-                ) : cityLookupError ? (
-                  <span className="geography-city-message" role="status">No city suggestions available.</span>
-                ) : city.trim().length < 2 ? (
-                  <span className="geography-city-message">Type at least 2 characters to search.</span>
-                ) : cityOptions.length === 0 ? (
-                  <span className="geography-city-message">No matching cities. You can enter the city manually.</span>
+            {regionMenuOpen && (
+              <div
+                className="geography-city-dropdown"
+                id={regionListboxId}
+                role="listbox"
+                aria-label="Region suggestions"
+              >
+                {regionLookupPending ? (
+                  <span className="geography-city-message" role="status">Loading regions...</span>
+                ) : matchingRegions.length === 0 ? (
+                  <span className="geography-city-message">
+                    No matching regions. You can enter the region manually.
+                  </span>
                 ) : (
-                  cityOptions.map((option, index) => (
+                  matchingRegions.map((option, index) => (
                     <button
                       className="geography-city-option"
-                      id={`${cityListboxId}-${index}`}
-                      key={option}
+                      id={`${regionListboxId}-${index}`}
+                      key={`${option.name}-${option.code}`}
                       type="button"
                       role="option"
-                      aria-selected={activeCityIndex === index}
+                      aria-selected={activeRegionIndex === index}
                       onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => chooseCity(option)}
+                      onClick={() => chooseRegion(option)}
                     >
-                      {option}
+                      {option.name}
                     </button>
                   ))
                 )}
               </div>
             )}
           </div>
-        )}
-        {cityLookupError && (
-          <span className="gg-caption" id={`${id}-city-hint`}>
-            {showRegion
-              ? "City options are unavailable for this region. Try selecting another region."
-              : "City suggestions are unavailable; enter the city manually."}
-          </span>
-        )}
-        {cityError && <span className="warehouse-field-error" id={`${id}-city-error`}>{cityError}</span>}
-      </div>
-
-      {showPostalCode && (
-        <div className="gg-field">
-          <label className="gg-label" htmlFor={`${id}-postal`}>
-            Postal Code <span className="gg-req">*</span>
-          </label>
-          {city && postalCodeOptions.length > 0 && !postalLookupError ? (
-            <select
-              className="gg-select"
-              id={`${id}-postal`}
-              name="zipCode"
-              value={postalCode}
-              onChange={(event) => setPostalCode(event.target.value)}
-              required
-              aria-invalid={Boolean(postalError)}
-              aria-describedby={postalError ? `${id}-postal-error` : undefined}
-              disabled={disabled}
-            >
-              <option value="" disabled>Select a postal code</option>
-              {postalCode && !postalCodeOptions.includes(postalCode) && (
-                <option value={postalCode}>{postalCode} (saved value)</option>
-              )}
-              {postalCodeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-            </select>
-          ) : city && postalLookupMessage ? (
-            <input
-              className="gg-input"
-              id={`${id}-postal`}
-              name="zipCode"
-              type="text"
-              autoComplete="postal-code"
-              maxLength={20}
-              value={postalCode}
-              onChange={(event) => setPostalCode(event.target.value)}
-              required
-              aria-invalid={Boolean(postalError)}
-              aria-describedby={postalError ? `${id}-postal-error` : `${id}-postal-hint`}
-              disabled={disabled}
-            />
-          ) : (
-            <select
-              className="gg-select"
-              id={`${id}-postal`}
-              name="zipCode"
-              value=""
-              required
-              aria-invalid={Boolean(postalError)}
-              aria-describedby={postalError ? `${id}-postal-error` : undefined}
-              disabled
-            >
-              <option value="">
-                {!city ? "Select a city first" : "Loading postal codes..."}
-              </option>
-            </select>
+          {regionLookupError && (
+            <span className="gg-caption" id={`${id}-region-hint`} role="status">
+              Region options are unavailable. You can enter the region manually.
+            </span>
           )}
-          {postalLookupMessage && (
-            <span className="gg-caption" id={`${id}-postal-hint`} role="status">{postalLookupMessage}</span>
-          )}
-          {postalError && <span className="warehouse-field-error" id={`${id}-postal-error`}>{postalError}</span>}
+          {regionError && <span className="warehouse-field-error" id={`${id}-region-error`}>{regionError}</span>}
+          {regionLookupPending && <span className="gg-caption" role="status">Loading regions...</span>}
         </div>
       )}
+
+      {countryCode && (!showRegion || region.trim()) && (
+        <>
+          <div className="gg-field">
+            <label className="gg-label" htmlFor={`${id}-city`}>
+              City <span className="gg-req">*</span>
+            </label>
+            <div className="geography-city-control">
+              <input
+                className="gg-input"
+                id={`${id}-city`}
+                name="city"
+                type="text"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded={Boolean(countryCode && cityMenuOpen)}
+                aria-controls={countryCode && cityMenuOpen ? cityListboxId : undefined}
+                aria-activedescendant={activeCityIndex >= 0 ? `${cityListboxId}-${activeCityIndex}` : undefined}
+                placeholder={country ? "Search or enter a city" : "Select a country first"}
+                autoComplete="address-level2"
+                maxLength={100}
+                value={city}
+                onFocus={() => {
+                  if (countryCode) setCityMenuOpen(true);
+                }}
+                onBlur={() => setCityMenuOpen(false)}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  const option = cityOptions.find(
+                    (item) => item.name.toLocaleLowerCase() === value.trim().toLocaleLowerCase(),
+                  );
+                  setCity(value);
+                  setCityRecord(option
+                    ? {
+                        name: option.name,
+                        type: "city",
+                        source: option.source ?? "manual",
+                        sourceType: option.sourceType ?? "manual",
+                        isManual: option.isManual ?? true,
+                        ...(option.geonameId === undefined ? {} : { externalId: String(option.geonameId) }),
+                      }
+                    : manualLocationRecord(value, "city"));
+                  setPostalCode("");
+                  setPostalCodeRecord(null);
+                  clearAddressDetails();
+                  setCityMenuOpen(Boolean(countryCode));
+                  setActiveCityIndex(-1);
+                }}
+                onKeyDown={handleCityKeyDown}
+                required
+                aria-invalid={Boolean(cityError)}
+                aria-describedby={cityError ? `${id}-city-error` : cityLookupError ? `${id}-city-hint` : undefined}
+                disabled={cityInputDisabled}
+              />
+              {countryCode && cityMenuOpen && (
+                <div className="geography-city-dropdown" id={cityListboxId} role="listbox" aria-label="City suggestions">
+                  {cityLookupPending ? (
+                    <span className="geography-city-message" role="status">Loading cities...</span>
+                  ) : cityLookupError ? (
+                    <span className="geography-city-message" role="status">No city suggestions available.</span>
+                  ) : city.trim().length < 2 ? (
+                    <span className="geography-city-message">Type at least 2 characters to search.</span>
+                  ) : cityOptions.length === 0 ? (
+                    <span className="geography-city-message">No matching cities. You can enter the city manually.</span>
+                  ) : (
+                    cityOptions.map((option, index) => (
+                      <button
+                        className="geography-city-option"
+                        id={`${cityListboxId}-${index}`}
+                        key={`${option.name}-${option.geonameId ?? "countries-dev"}`}
+                        type="button"
+                        role="option"
+                        aria-selected={activeCityIndex === index}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => chooseCity(option)}
+                      >
+                        {option.name}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+            {cityLookupError && (
+              <span className="gg-caption" id={`${id}-city-hint`}>
+                City suggestions are unavailable; enter the city manually.
+              </span>
+            )}
+            {cityError && <span className="warehouse-field-error" id={`${id}-city-error`}>{cityError}</span>}
+          </div>
+
+          {showPostalCode && city && (
+            <div className="gg-field">
+              <label className="gg-label" htmlFor={`${id}-postal`}>Postal Code</label>
+              <input
+                className="gg-input"
+                id={`${id}-postal`}
+                name="zipCode"
+                type="text"
+                autoComplete="postal-code"
+                maxLength={20}
+                list={`${id}-postal-options`}
+                placeholder="Enter a postal code"
+                value={postalCode}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  const option = postalCodeOptions.find((item) => item.postalCode === value);
+                  setPostalCode(value);
+                  setPostalCodeRecord(option
+                    ? {
+                        name: option.postalCode,
+                        type: "postal_code",
+                        source: option.source ?? "GeoNames",
+                        sourceType: option.sourceType ?? "external_dataset",
+                        isManual: option.isManual ?? false,
+                      }
+                    : manualLocationRecord(value, "postal_code"));
+                }}
+                aria-invalid={Boolean(postalError)}
+                aria-describedby={postalError || postalLookupMessage ? `${id}-postal-hint` : undefined}
+                aria-busy={postalLookupPending}
+                disabled={disabled}
+              />
+              <datalist id={`${id}-postal-options`}>
+                {postalCodeOptions.map((option) => <option key={option.postalCode} value={option.postalCode} />)}
+              </datalist>
+              {postalLookupPending && (
+                <span className="gg-caption" id={`${id}-postal-hint`} role="status">Loading postal codes...</span>
+              )}
+              {!postalLookupPending && postalLookupMessage && (
+                <span className="gg-caption" id={`${id}-postal-hint`} role="status">{postalLookupMessage}</span>
+              )}
+              {postalError && <span className="warehouse-field-error" id={`${id}-postal-error`}>{postalError}</span>}
+            </div>
+          )}
+
+          {city && (
+            <>
+              <div className="gg-field warehouse-address">
+                <label className="gg-label" htmlFor={`${id}-address`}>Address</label>
+                <textarea
+                  className="gg-textarea"
+                  id={`${id}-address`}
+                  maxLength={500}
+                  value={additionalAddress}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    clearAddressDetails();
+                    setAdditionalAddress(value);
+                  }}
+                  disabled={disabled}
+                  style={{ minHeight: 90 }}
+                />
+              </div>
+              <div className="gg-field warehouse-address" aria-live="polite">
+                <span className="gg-label">Address Preview</span>
+                <p className="gg-caption">{addressPreview || "Enter location details to build an address preview."}</p>
+                {(addressError || addressDataError) && (
+                  <span className="warehouse-field-error">{addressError || addressDataError}</span>
+                )}
+              </div>
+            </>
+          )}
+        </>
+      )}
+
     </>
   );
 }
@@ -675,18 +1050,22 @@ export function PhoneNumberInput({
         callingCode,
         nationalNumberMaxLength: country.nationalNumberMaxLength,
       })),
+  ).sort((a, b) =>
+    compareCallingCodes(a.callingCode, b.callingCode)
+    || compareGeographyNames(a.countryCode, b.countryCode),
   );
 
   useEffect(() => {
     if (status !== "ready" || initialized.current) return;
     initialized.current = true;
+    const normalizedDefaultValue = normalizePhoneNumber(defaultValue);
     const match = [...dialOptions]
       .sort((a, b) => b.callingCode.length - a.callingCode.length)
-      .find((option) => defaultValue.startsWith(`+${option.callingCode}`));
+      .find((option) => normalizedDefaultValue.startsWith(`+${option.callingCode}`));
 
     if (match) {
       setCallingCodeSelection(match.key);
-      setLocalNumber(defaultValue.slice(match.callingCode.length + 1).trim());
+      setLocalNumber(normalizedDefaultValue.slice(match.callingCode.length + 1).trim());
     }
   }, [defaultValue, dialOptions, status]);
 
@@ -761,7 +1140,33 @@ export function PhoneNumberInput({
           type="tel"
           value={localNumber}
           onChange={(event) => {
-            const nextLocalNumber = limitPhoneNumberDigits(event.target.value, maximumNumberDigits);
+            const value = event.target.value;
+            const internationalNumber = parseInternationalPhoneNumber(value);
+            const internationalOptions = internationalNumber
+              ? dialOptions.filter(
+                  (option) => option.callingCode === internationalNumber.countryCallingCode,
+                )
+              : [];
+            const internationalOption =
+              internationalOptions.find(
+                (option) => option.countryCode === internationalNumber?.country,
+              )
+              ?? internationalOptions.find((option) => option.key === callingCodeSelection)
+              ?? internationalOptions[0];
+
+            if (internationalNumber && internationalOption) {
+              setCallingCodeSelection(internationalOption.key);
+              setLocalNumber(internationalNumber.nationalNumber);
+              updatePhone(internationalNumber.nationalNumber, internationalOption.key);
+              if (internationalOption.countryCode !== selectedDialOption?.countryCode) {
+                onCountryCodeChange?.(internationalOption.countryCode);
+              }
+              return;
+            }
+
+            const nextLocalNumber = /^\s*(?:\+|00)/.test(value)
+              ? value.slice(0, maxLength)
+              : limitPhoneNumberDigits(value, maximumNumberDigits);
             setLocalNumber(nextLocalNumber);
             updatePhone(nextLocalNumber, callingCodeSelection);
           }}

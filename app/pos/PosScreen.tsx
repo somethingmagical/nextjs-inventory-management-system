@@ -6,15 +6,12 @@ import { Prisma } from "@prisma/client";
 import {
   Banknote,
   CalendarDays,
-  Calculator,
   Check,
   ChevronDown,
   CircleCheck,
-  Gauge,
   Hand,
   Home,
   List,
-  Maximize,
   Minus,
   PackageOpen,
   Pencil,
@@ -27,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { CountryCityFields, PhoneNumberInput } from "@/components/shared/GeographyFields";
+import useDialogFocus from "@/components/shared/useDialogFocus";
 import {
   calculatePurchaseLineTotals,
   calculatePurchaseTotals,
@@ -667,16 +665,25 @@ export default function PosScreen({
             <div className="pos-foot-grid">
               <div className="pos-foot-fields" aria-label="Sale adjustments">
                 <label className="pos-foot-input">
-                  <input aria-label="Tax" type="number" min="0" max="100" step="0.01" value={orderTax} onChange={(event) => setOrderTax(event.target.value)} />
-                  <span>%</span>
+                  <span className="pos-foot-label">Tax rate</span>
+                  <span className="pos-foot-control">
+                    <input type="number" min="0" max="100" step="0.01" value={orderTax} onChange={(event) => setOrderTax(event.target.value)} />
+                    <span className="pos-foot-unit" aria-hidden="true">%</span>
+                  </span>
                 </label>
                 <label className="pos-foot-input">
-                  <input aria-label="Discount" type="number" min="0" step="0.01" value={orderDiscount} onChange={(event) => setOrderDiscount(event.target.value)} />
-                  <span>$</span>
+                  <span className="pos-foot-label">Discount amount</span>
+                  <span className="pos-foot-control">
+                    <input type="number" min="0" step="0.01" value={orderDiscount} onChange={(event) => setOrderDiscount(event.target.value)} />
+                    <span className="pos-foot-unit" aria-hidden="true">$</span>
+                  </span>
                 </label>
                 <label className="pos-foot-input">
-                  <input aria-label="Shipping" type="number" min="0" step="0.01" value={shipping} onChange={(event) => setShipping(event.target.value)} />
-                  <span>$</span>
+                  <span className="pos-foot-label">Shipping amount</span>
+                  <span className="pos-foot-control">
+                    <input type="number" min="0" step="0.01" value={shipping} onChange={(event) => setShipping(event.target.value)} />
+                    <span className="pos-foot-unit" aria-hidden="true">$</span>
+                  </span>
                 </label>
               </div>
               <div className="pos-totals">
@@ -716,8 +723,8 @@ export default function PosScreen({
           <label className="pos-search-box">
             <Search aria-hidden="true" />
             <input
-              aria-label="Search products by code or name"
-              placeholder="Scan/Search Product by Code Name"
+                aria-label="Search products by code or name"
+                placeholder="Search or scan by product name or code"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
@@ -732,18 +739,6 @@ export default function PosScreen({
               onClick={() => setIsHeldOrdersOpen(true)}
             >
               <List aria-hidden="true" /><span className="pos-tool-badge">{heldOrders.length}</span>
-            </button>
-            <button className="pos-tool pos-tool-green" type="button" disabled aria-label="Shopping bag">
-              <ShoppingBag aria-hidden="true" />
-            </button>
-            <button className="pos-tool pos-tool-gold" type="button" disabled aria-label="Fullscreen">
-              <Maximize aria-hidden="true" />
-            </button>
-            <button className="pos-tool pos-tool-gold" type="button" disabled aria-label="Calculator">
-              <Calculator aria-hidden="true" />
-            </button>
-            <button className="pos-tool pos-tool-gold" type="button" disabled aria-label="Gauge">
-              <Gauge aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -900,6 +895,7 @@ function PosCustomerModal({
   onCreated: (customer: PosOption) => void;
   onClose: () => void;
 }) {
+  const dialogRef = useRef<HTMLElement>(null);
   const [state, formAction, isPending] = useActionState(
     createPosCustomer,
     initialPosCustomerActionState,
@@ -925,6 +921,7 @@ function PosCustomerModal({
 
   const fieldError = (field: CustomerField) =>
     state.status === "error" ? state.fieldErrors?.[field]?.[0] : undefined;
+  useDialogFocus(dialogRef);
 
   return (
     <div
@@ -934,7 +931,7 @@ function PosCustomerModal({
         if (event.target === event.currentTarget && !isPending) onClose();
       }}
     >
-      <section className="gg-modal pos-customer-modal" role="dialog" aria-modal="true" aria-labelledby="pos-customer-modal-title">
+      <section ref={dialogRef} tabIndex={-1} className="gg-modal pos-customer-modal" role="dialog" aria-modal="true" aria-labelledby="pos-customer-modal-title">
         <div className="gg-modal-head">
           <h2 className="gg-card-title" id="pos-customer-modal-title">Add Customer</h2>
           <button className="gg-modal-close" type="button" aria-label="Close customer form" onClick={onClose} disabled={isPending}>
@@ -1001,25 +998,14 @@ function PosCustomerModal({
                 regionError={fieldError("region")}
                 cityError={fieldError("city")}
                 postalError={fieldError("zipCode")}
+                addressError={fieldError("address")}
+                addressDataError={fieldError("addressData")}
                 disabled={isPending}
                 showRegion
                 showPostalCode
                 onCountryCodeChange={setCountryCode}
                 phoneCountrySelection={phoneCountrySelection}
               />
-              <div className="gg-field pos-customer-address">
-                <label className="gg-label" htmlFor="pos-customer-address">Address <span className="gg-req">*</span></label>
-                <textarea
-                  className="gg-textarea"
-                  id="pos-customer-address"
-                  name="address"
-                  maxLength={191}
-                  required
-                  aria-invalid={Boolean(fieldError("address"))}
-                  disabled={isPending}
-                />
-                {fieldError("address") && <span className="warehouse-field-error">{fieldError("address")}</span>}
-              </div>
             </div>
           </div>
           <div className="gg-modal-foot">
@@ -1057,6 +1043,9 @@ function PosPaymentModal({
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   onClose: () => void;
 }) {
+  const dialogRef = useRef<HTMLFormElement>(null);
+  useDialogFocus(dialogRef);
+
   return (
     <div
       className="pos-held-overlay"
@@ -1065,7 +1054,7 @@ function PosPaymentModal({
         if (event.target === event.currentTarget && !isSaving) onClose();
       }}
     >
-      <form className="gg-modal pos-payment-modal" role="dialog" aria-modal="true" aria-labelledby="pos-payment-title" onSubmit={onSubmit}>
+      <form ref={dialogRef} tabIndex={-1} className="gg-modal pos-payment-modal" role="dialog" aria-modal="true" aria-labelledby="pos-payment-title" onSubmit={onSubmit}>
         <div className="gg-modal-head">
           <h2 className="gg-card-title" id="pos-payment-title">Complete payment</h2>
           <button className="gg-modal-close" type="button" aria-label="Close payment" onClick={onClose} disabled={isSaving}>
@@ -1124,10 +1113,13 @@ function PosReceiptModal({
   receipt: PosReceipt;
   onClose: () => void;
 }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  useDialogFocus(dialogRef);
+
   return (
     <>
       <div className="pos-held-overlay" role="presentation">
-        <section className="gg-modal pos-receipt-modal" role="dialog" aria-modal="true" aria-labelledby="pos-receipt-title">
+        <section ref={dialogRef} tabIndex={-1} className="gg-modal pos-receipt-modal" role="dialog" aria-modal="true" aria-labelledby="pos-receipt-title">
           <div className="gg-modal-head">
             <h2 className="gg-card-title" id="pos-receipt-title">Sale completed</h2>
             <button className="gg-modal-close" type="button" aria-label="Close receipt options" onClick={onClose}>
@@ -1198,6 +1190,9 @@ function HeldOrdersModal({
   onDiscard: (heldOrderId: string) => void;
   onClose: () => void;
 }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  useDialogFocus(dialogRef);
+
   return (
     <div
       className="pos-held-overlay"
@@ -1206,7 +1201,7 @@ function HeldOrdersModal({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <section className="gg-modal pos-held-modal" role="dialog" aria-modal="true" aria-labelledby="pos-held-title">
+      <section ref={dialogRef} tabIndex={-1} className="gg-modal pos-held-modal" role="dialog" aria-modal="true" aria-labelledby="pos-held-title">
         <div className="gg-modal-head">
           <h2 className="gg-card-title" id="pos-held-title">Held orders ({orders.length})</h2>
           <button className="gg-modal-close" type="button" aria-label="Close held orders" onClick={onClose}>
@@ -1275,6 +1270,8 @@ function PosItemEditModal({
   onSave: () => void;
   onClose: () => void;
 }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  useDialogFocus(dialogRef);
   if (!item) return null;
 
   return (
@@ -1285,7 +1282,7 @@ function PosItemEditModal({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <section className="gg-modal purchase-item-modal" role="dialog" aria-modal="true" aria-labelledby="pos-item-modal-title">
+      <section ref={dialogRef} tabIndex={-1} className="gg-modal purchase-item-modal" role="dialog" aria-modal="true" aria-labelledby="pos-item-modal-title">
         <div className="gg-modal-head">
           <h2 className="gg-card-title" id="pos-item-modal-title">{item.name}</h2>
           <button className="gg-modal-close" type="button" aria-label="Close product details" onClick={onClose}>

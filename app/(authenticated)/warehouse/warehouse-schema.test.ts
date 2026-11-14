@@ -9,16 +9,18 @@ const validWarehouse = {
   country: "United States",
   city: "Seattle",
   region: "Washington",
+  suburb: "",
   zipCode: "98101",
   address: "123 Market Street",
 };
 
-test("requires a region before accepting a warehouse", () => {
+test("allows a warehouse without an administrative area", () => {
   const parsed = warehouseSchema.safeParse({ ...validWarehouse, region: undefined });
   const emptyRegion = warehouseSchema.safeParse({ ...validWarehouse, region: "" });
 
-  assert.equal(parsed.success, false);
-  assert.equal(emptyRegion.success, false);
+  assert.equal(parsed.success, true);
+  assert.equal(emptyRegion.success, true);
+  if (emptyRegion.success) assert.equal(emptyRegion.data.region, null);
 });
 
 test("trims and validates the selected region", () => {
@@ -30,10 +32,19 @@ test("trims and validates the selected region", () => {
   assert.equal(tooLong.success, false);
 });
 
-test("requires an address before accepting a warehouse", () => {
+test("allows an optional suburb and stores an empty selection as null", () => {
+  const parsed = warehouseSchema.safeParse(validWarehouse);
+  assert.equal(parsed.success, true);
+  if (parsed.success) assert.equal(parsed.data.suburb, null);
+});
+
+test("allows optional postal code and address details", () => {
   const parsed = warehouseSchema.safeParse({ ...validWarehouse, address: "   " });
+  const noPostalCode = warehouseSchema.safeParse({ ...validWarehouse, zipCode: "" });
   const tooLong = warehouseSchema.safeParse({ ...validWarehouse, address: "a".repeat(192) });
 
-  assert.equal(parsed.success, false);
+  assert.equal(parsed.success, true);
+  assert.equal(noPostalCode.success, true);
+  if (noPostalCode.success) assert.equal(noPostalCode.data.zipCode, null);
   assert.equal(tooLong.success, false);
 });

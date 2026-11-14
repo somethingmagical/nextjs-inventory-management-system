@@ -60,10 +60,13 @@ async function AuthorizedEditCustomer({ params }: EditCustomerPageProps) {
       phoneNumber: true,
       dateOfBirth: true,
       country: true,
+      countryCode: true,
       region: true,
       city: true,
+      suburb: true,
       zipCode: true,
       address: true,
+      addressData: true,
     },
   });
 
@@ -83,10 +86,13 @@ async function AuthorizedEditCustomer({ params }: EditCustomerPageProps) {
     phoneNumber: customer.phoneNumber,
     dateOfBirth: customer.dateOfBirth?.toISOString().slice(0, 10) ?? "",
     country: customer.country,
+    countryCode: customer.countryCode ?? "",
     region: customer.region ?? "",
     city: customer.city,
+    suburb: customer.suburb ?? "",
     zipCode: customer.zipCode ?? "",
     address: customer.address,
+    addressData: customer.addressData ? JSON.stringify(customer.addressData) : "",
   };
 
   return (
