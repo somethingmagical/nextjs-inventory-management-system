@@ -21,6 +21,7 @@ import ProductDeleteButton from "./ProductDeleteButton";
 import ProductListTools from "./ProductListTools";
 import { getProductImagePaths } from "./product-images";
 import { getProductViewAccess } from "./authorization";
+import TableRowActionsMenu from "@/components/shared/TableRowActionsMenu";
 import WarehouseToast from "@/components/shared/WarehouseToast";
 import DynamicPageSizeSelect from "@/components/shared/DynamicPageSizeSelect";
 import SortableTableHeader from "@/components/shared/SortableTableHeader";
@@ -302,32 +303,33 @@ async function ProductList({ searchParams }: ProductsPageProps) {
                         </time>
                       </td>
                       <td className="product-actions-cell">
-                        <div className="row-acts">
+                        <TableRowActionsMenu label={product.name}>
                           <Link
-                            className="act-view"
+                            className="gg-menu-item"
                             href={`/products/${encodeURIComponent(product.id)}`}
-                            aria-label={`View ${product.name}`}
-                            title="View"
+                            role="menuitem"
                           >
                             <Eye aria-hidden="true" />
+                            View Product
                           </Link>
                           {canManageProducts && (
                             <Link
-                              className="act-edit"
+                              className="gg-menu-item"
                               href={`/products/${encodeURIComponent(product.id)}/edit`}
-                              aria-label={`Edit ${product.name}`}
-                              title="Edit"
+                              role="menuitem"
                             >
                               <Pencil aria-hidden="true" />
+                              Edit Product
                             </Link>
                           )}
                           {canManageProducts && (
                             <ProductDeleteButton
                               productId={product.id}
                               productName={product.name}
+                              menuItem
                             />
                           )}
-                        </div>
+                        </TableRowActionsMenu>
                       </td>
                     </tr>
                   );

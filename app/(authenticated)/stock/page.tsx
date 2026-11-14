@@ -36,6 +36,7 @@ import { requirePermission } from "@/lib/authorization";
 import { PERMISSION } from "@/lib/permissions";
 import { parseSortBy, parseSortOrder } from "@/lib/table-sorting";
 import StockClearButton from "./StockClearButton";
+import TableRowActionsMenu from "@/components/shared/TableRowActionsMenu";
 
 export const metadata: Metadata = {
   title: "Stock",
@@ -402,23 +403,23 @@ async function StockContent({ searchParams }: { searchParams: SearchParams }) {
                               </span>
                             </td>
                             <td className="stock-action-cell">
-                              <div className="row-acts">
+                              <TableRowActionsMenu label={item.name}>
                                 <Link
-                                  className="act-view"
+                                  className="gg-menu-item"
                                   href={`/stock/${encodeURIComponent(item.id)}?warehouseId=${encodeURIComponent(selectedWarehouse.id)}`}
-                                  aria-label={`View stock for ${item.name}`}
-                                  title="View"
+                                  role="menuitem"
                                 >
                                   <Eye aria-hidden="true" />
+                                  View Stock
                                 </Link>
                                 {canManageAdjustments && (
                                   <Link
-                                    className="act-edit"
+                                    className="gg-menu-item"
                                     href={`/stock/${encodeURIComponent(item.id)}/edit?warehouseId=${encodeURIComponent(selectedWarehouse.id)}`}
-                                    aria-label={`Edit stock for ${item.name}`}
-                                    title="Edit"
+                                    role="menuitem"
                                   >
                                     <Pencil aria-hidden="true" />
+                                    Edit Stock
                                   </Link>
                                 )}
                                 {canManageAdjustments && (
@@ -428,9 +429,10 @@ async function StockContent({ searchParams }: { searchParams: SearchParams }) {
                                     warehouseId={selectedWarehouse.id}
                                     warehouseName={selectedWarehouse.name}
                                     quantity={item.quantity}
+                                    menuItem
                                   />
                                 )}
-                              </div>
+                              </TableRowActionsMenu>
                             </td>
                           </tr>
                         ))}

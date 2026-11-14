@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { AlertTriangle, Info, Pencil, Trash2 } from "lucide-react";
+import TableRowActionsMenu from "@/components/shared/TableRowActionsMenu";
 import { deleteExpense } from "./actions";
 
 export default function ExpenseRowActions({
@@ -33,20 +34,21 @@ export default function ExpenseRowActions({
 
   return (
     <>
-      <div className="row-acts">
+      <TableRowActionsMenu label={title}>
         <Link
-          className="act-edit"
+          className="gg-menu-item"
           href={`/expenses/${encodeURIComponent(expenseId)}/edit`}
-          aria-label={`Edit ${title}`}
-          title="Edit expense"
+          role="menuitem"
         >
           <Pencil aria-hidden="true" />
+          Edit Expense
         </Link>
         <button
-          className="act-del"
+          className="gg-menu-item is-danger"
           type="button"
+          role="menuitem"
+          data-close-row-menu=""
           aria-label={`Delete ${title}`}
-          title="Delete expense"
           disabled={isPending}
           onClick={() => {
             setError("");
@@ -54,8 +56,9 @@ export default function ExpenseRowActions({
           }}
         >
           <Trash2 aria-hidden="true" />
+          Delete Expense
         </button>
-      </div>
+      </TableRowActionsMenu>
       <dialog
         className="gg-modal warehouse-confirm-dialog"
         ref={dialogRef}

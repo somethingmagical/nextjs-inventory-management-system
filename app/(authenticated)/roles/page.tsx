@@ -18,6 +18,7 @@ import { db } from "@/lib/db";
 import { canManageRoleInHierarchy, isAdminRole } from "@/lib/authorization";
 import { getRoleViewAccess } from "./authorization";
 import RoleDeleteButton from "./RoleDeleteButton";
+import TableRowActionsMenu from "@/components/shared/TableRowActionsMenu";
 import AutoSearchForm from "@/components/shared/AutoSearchForm";
 import DynamicPageSizeSelect from "@/components/shared/DynamicPageSizeSelect";
 import SortableTableHeader from "@/components/shared/SortableTableHeader";
@@ -215,20 +216,21 @@ async function RoleList({ searchParams }: RolesPageProps) {
                       {canManageRoles && (
                         <td className="roles-actions-cell">
                           {canManageRole ? (
-                            <div className="row-acts">
+                            <TableRowActionsMenu label={role.name}>
                               <Link
-                                className="act-edit"
+                                className="gg-menu-item"
                                 href={`/roles/${encodeURIComponent(role.id)}/edit`}
-                                aria-label={`Edit ${role.name}`}
-                                title="Edit"
+                                role="menuitem"
                               >
                                 <Pencil aria-hidden="true" />
+                                Edit Role
                               </Link>
                               <RoleDeleteButton
                                 roleId={role.id}
                                 roleName={role.name}
+                                menuItem
                               />
-                            </div>
+                            </TableRowActionsMenu>
                           ) : (
                             <span className="gg-muted">Protected</span>
                           )}

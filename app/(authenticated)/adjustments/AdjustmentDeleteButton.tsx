@@ -7,9 +7,11 @@ import { deleteAdjustment } from "./actions";
 export default function AdjustmentDeleteButton({
   adjustmentId,
   reference,
+  menuItem = false,
 }: {
   adjustmentId: string;
   reference: string;
+  menuItem?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
@@ -31,14 +33,17 @@ export default function AdjustmentDeleteButton({
   return (
     <>
       <button
-        className="act-del"
+        className={menuItem ? "gg-menu-item is-danger" : "act-del"}
         type="button"
         onClick={handleDelete}
         disabled={isPending}
         aria-label={`Delete ${reference}`}
         title="Delete"
+        role={menuItem ? "menuitem" : undefined}
+        data-close-row-menu={menuItem ? "" : undefined}
       >
         <Trash2 aria-hidden="true" />
+        {menuItem && "Delete Adjustment"}
       </button>
       {error && (
         <p className="warehouse-toast is-visible" role="alert">

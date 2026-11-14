@@ -4,8 +4,14 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { StockQuantityLimitError } from "@/lib/product-stock";
-import { createPurchase as createPurchaseRecord } from "@/features/procurement/purchases";
+import {
+  InsufficientStockError,
+  StockQuantityLimitError,
+} from "@/lib/product-stock";
+import {
+  createPurchase as createPurchaseRecord,
+  updatePurchase as updatePurchaseRecord,
+} from "@/features/procurement/purchases";
 import { getPurchaseAccess } from "./authorization";
 import {
   purchaseCreateSchema,
@@ -71,7 +77,7 @@ export async function updatePurchaseDeliveryStatus(
   return { status: "success", message: "Delivery status updated." };
 }
 
-export async function createPurchase(
+export async function savePurchase(
   _previousState: PurchaseCreateActionState,
   formData: FormData,
 ): Promise<PurchaseCreateActionState> {
@@ -81,6 +87,16 @@ export async function createPurchase(
   }
   if (access.status === "forbidden") {
     return { status: "error", message: "You do not have permission to manage purchases." };
+  }
+
+  const rawPurchaseId = formData.get("purchaseId");
+  let purchaseId: string | undefined;
+  if (rawPurchaseId !== null) {
+    const parsedId = purchaseIdSchema.safeParse(rawPurchaseId);
+    if (!parsedId.success) {
+      return { status: "error", message: "This purchase could not be found." };
+    }
+    purchaseId = parsedId.data;
   }
 
   const rawItems = formData.get("items");
@@ -153,16 +169,24 @@ export async function createPurchase(
   }
 
   try {
-    await createPurchaseRecord({
+    const purchaseInput = {
       ...parsed.data,
       lineSubtotals: lineTotals.map((line) => line.subtotal),
       discount: totals.discount,
       shipping: totals.shipping,
       grandTotal: totals.grandTotal,
       actorId: access.userId,
-    });
+    };
+    if (purchaseId) {
+      await updatePurchaseRecord({ ...purchaseInput, id: purchaseId });
+    } else {
+      await createPurchaseRecord(purchaseInput);
+    }
   } catch (error) {
     if (error instanceof StockQuantityLimitError) {
+      return { status: "error", message: error.message };
+    }
+    if (error instanceof InsufficientStockError) {
       return { status: "error", message: error.message };
     }
     if (error instanceof Error && [
@@ -170,6 +194,7 @@ export async function createPurchase(
       "The selected supplier is no longer available.",
       "One or more selected products are no longer available.",
       "One or more selected purchase units are no longer available.",
+      "This purchase no longer exists or has already been deleted.",
     ].includes(error.message)) {
       return { status: "error", message: error.message };
     }
@@ -183,11 +208,14 @@ export async function createPurchase(
   }
 
   revalidatePath("/purchases");
+  if (purchaseId) {
+    revalidatePath(`/purchases/${encodeURIComponent(purchaseId)}`);
+  }
   revalidatePath("/products");
   revalidatePath("/products/[id]", "page");
   revalidatePath("/dashboard");
   revalidatePath("/warehouse");
-  redirect("/purchases?created=1");
+  redirect(purchaseId ? "/purchases?updated=1" : "/purchases?created=1");
 }
 
 export async function searchPurchaseProducts(

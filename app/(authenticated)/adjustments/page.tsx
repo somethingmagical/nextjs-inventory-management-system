@@ -15,6 +15,7 @@ import { z } from "zod";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { db } from "@/lib/db";
 import AdjustmentDeleteButton from "./AdjustmentDeleteButton";
+import TableRowActionsMenu from "@/components/shared/TableRowActionsMenu";
 import { getAdjustmentViewAccess } from "./authorization";
 import { PERMISSION } from "@/lib/permissions";
 import WarehouseToast from "@/components/shared/WarehouseToast";
@@ -247,22 +248,23 @@ async function AdjustmentList({ searchParams }: AdjustmentsPageProps) {
                     </td>
                     <td className="gg-num">{adjustment._count.items}</td>
                     <td className="product-actions-cell">
-                      <div className="row-acts">
+                      <TableRowActionsMenu label={adjustment.reference}>
                         <Link
-                          className="act-view"
+                          className="gg-menu-item"
                           href={`/adjustments/${encodeURIComponent(adjustment.id)}`}
-                          aria-label={`View ${adjustment.reference}`}
-                          title="View"
+                          role="menuitem"
                         >
                           <Eye aria-hidden="true" />
+                          View Adjustment
                         </Link>
                         {canManageAdjustments && (
                           <AdjustmentDeleteButton
                             adjustmentId={adjustment.id}
                             reference={adjustment.reference}
+                            menuItem
                           />
                         )}
-                      </div>
+                      </TableRowActionsMenu>
                     </td>
                   </tr>
                 ))}

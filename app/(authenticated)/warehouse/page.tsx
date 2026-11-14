@@ -15,6 +15,7 @@ import { z } from "zod";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { getWarehouseListData } from "@/features/warehouses/queries";
 import WarehouseDeleteButton from "./WarehouseDeleteButton";
+import TableRowActionsMenu from "@/components/shared/TableRowActionsMenu";
 import WarehouseToast from "@/components/shared/WarehouseToast";
 import AutoSearchForm from "@/components/shared/AutoSearchForm";
 import DynamicPageSizeSelect from "@/components/shared/DynamicPageSizeSelect";
@@ -223,20 +224,21 @@ async function WarehouseList({ searchParams }: WarehousePageProps) {
                     </td>
                     {canManageWarehouses && (
                       <td className="warehouse-actions-cell">
-                        <div className="warehouse-row-actions">
+                        <TableRowActionsMenu label={warehouse.name}>
                           <Link
-                            className="act-edit"
+                            className="gg-menu-item"
                             href={`/warehouse/${encodeURIComponent(warehouse.id)}/edit`}
-                            aria-label={`Edit ${warehouse.name}`}
-                            title="Edit"
+                            role="menuitem"
                           >
                             <Pencil aria-hidden="true" />
+                            Edit Warehouse
                           </Link>
                           <WarehouseDeleteButton
                             warehouseId={warehouse.id}
                             warehouseName={warehouse.name}
+                            menuItem
                           />
-                        </div>
+                        </TableRowActionsMenu>
                       </td>
                     )}
                   </tr>

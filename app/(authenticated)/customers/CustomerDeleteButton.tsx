@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { AlertTriangle, Info, Trash2 } from "lucide-react";
+import { useCloseTableRowActionsMenu } from "@/components/shared/TableRowActionsMenuContext";
 import { deleteCustomer } from "./actions";
 import {
   initialCustomerActionState,
@@ -11,11 +12,14 @@ import {
 export default function CustomerDeleteButton({
   customerId,
   customerName,
+  menuItem = false,
 }: {
   customerId: string;
   customerName: string;
+  menuItem?: boolean;
 }) {
   const dialogId = useId();
+  const closeRowActionsMenu = useCloseTableRowActionsMenu();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const deleteAction = deleteCustomer.bind(null, customerId);
@@ -56,19 +60,22 @@ export default function CustomerDeleteButton({
       <form
         ref={formRef}
         action={formAction}
+        role={menuItem ? "presentation" : undefined}
         onSubmit={() => {
           dialogRef.current?.close();
         }}
       >
         <button
-          className="act-del"
+          className={menuItem ? "gg-menu-item is-danger" : "act-del"}
           type="button"
+          role={menuItem ? "menuitem" : undefined}
           onClick={() => setConfirmOpen(true)}
           disabled={isPending}
           aria-label={`Delete ${customerName}`}
           title="Delete"
         >
           <Trash2 aria-hidden="true" />
+          {menuItem && "Delete Customer"}
         </button>
       </form>
       <dialog
@@ -76,7 +83,10 @@ export default function CustomerDeleteButton({
         ref={dialogRef}
         aria-labelledby={`customer-delete-title-${dialogId}`}
         aria-describedby={`customer-delete-description-${dialogId}`}
-        onClose={() => setConfirmOpen(false)}
+        onClose={() => {
+          setConfirmOpen(false);
+          closeRowActionsMenu();
+        }}
         onClick={(event) => {
           if (event.target === event.currentTarget) {
             dialogRef.current?.close();

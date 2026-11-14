@@ -4,17 +4,21 @@ import { useEffect, useId, useRef, useState, useTransition } from "react";
 import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Info, Trash2 } from "lucide-react";
+import { useCloseTableRowActionsMenu } from "@/components/shared/TableRowActionsMenuContext";
 import { deleteProduct } from "./actions";
 import { initialProductActionState } from "./create/action-state";
 
 export default function ProductDeleteButton({
   productId,
   productName,
+  menuItem = false,
 }: {
   productId: string;
   productName: string;
+  menuItem?: boolean;
 }) {
   const router = useRouter();
+  const closeRowActionsMenu = useCloseTableRowActionsMenu();
   const dialogId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -64,16 +68,18 @@ export default function ProductDeleteButton({
 
   return (
     <>
-      <form ref={formRef} onSubmit={handleSubmit}>
+      <form ref={formRef} onSubmit={handleSubmit} role={menuItem ? "presentation" : undefined}>
         <button
-          className="act-del"
+          className={menuItem ? "gg-menu-item is-danger" : "act-del"}
           type="button"
+          role={menuItem ? "menuitem" : undefined}
           onClick={() => setConfirmOpen(true)}
           disabled={isPending}
           aria-label={`Delete ${productName}`}
           title="Delete"
         >
           <Trash2 aria-hidden="true" />
+          {menuItem && "Delete Product"}
         </button>
       </form>
       <dialog
@@ -81,7 +87,10 @@ export default function ProductDeleteButton({
         ref={dialogRef}
         aria-labelledby={`product-delete-title-${dialogId}`}
         aria-describedby={`product-delete-description-${dialogId}`}
-        onClose={() => setConfirmOpen(false)}
+        onClose={() => {
+          setConfirmOpen(false);
+          closeRowActionsMenu();
+        }}
         onClick={(event) => {
           if (event.target === event.currentTarget) dialogRef.current?.close();
         }}

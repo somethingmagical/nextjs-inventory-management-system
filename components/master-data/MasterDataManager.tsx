@@ -28,6 +28,7 @@ import type {
 } from "@/app/master-data/action-state";
 import AutoSearchForm from "@/components/shared/AutoSearchForm";
 import SortableTableHeader from "@/components/shared/SortableTableHeader";
+import TableRowActionsMenu from "@/components/shared/TableRowActionsMenu";
 import TableSortFilter from "@/components/shared/TableSortFilter";
 import type { SortOrder, TableSearchParams } from "@/lib/table-sorting";
 
@@ -186,7 +187,7 @@ export default function MasterDataManager({
       : entity === "Brand"
         ? "Brands"
         : "Expense Categories";
-  const canManage = Boolean(createAction || updateAction || deleteAction);
+  const canManage = Boolean(updateAction || deleteAction);
 
   return (
     <>
@@ -294,11 +295,12 @@ export default function MasterDataManager({
                   </td>
                   {canManage && (
                     <td className="category-actions-cell">
-                      <div className="row-acts">
+                      <TableRowActionsMenu label={item.name}>
                         {updateAction && (
                           <button
-                            className="act-edit"
+                            className="gg-menu-item"
                             type="button"
+                            role="menuitem"
                             aria-label={`Edit ${item.name}`}
                             title="Edit"
                             onClick={(event) =>
@@ -309,12 +311,15 @@ export default function MasterDataManager({
                             }
                           >
                             <Pencil aria-hidden="true" />
+                            Edit
                           </button>
                         )}
                         {deleteAction && (
                           <button
-                            className="act-del"
+                            className="gg-menu-item is-danger"
                             type="button"
+                            role="menuitem"
+                            data-close-row-menu=""
                             aria-label={`Delete ${item.name}`}
                             title="Delete"
                             onClick={() => {
@@ -323,9 +328,10 @@ export default function MasterDataManager({
                             }}
                           >
                             <Trash2 aria-hidden="true" />
+                            Delete
                           </button>
                         )}
-                      </div>
+                      </TableRowActionsMenu>
                     </td>
                   )}
                 </tr>

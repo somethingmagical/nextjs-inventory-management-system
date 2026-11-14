@@ -6,6 +6,7 @@ import type { FormEvent } from "react";
 import { AlertTriangle, Eye, Info, Pencil, Trash2 } from "lucide-react";
 import { deleteTransfer } from "@/app/(authenticated)/transfers/create/actions";
 import { initialTransferCreateActionState } from "@/app/(authenticated)/transfers/create/action-state";
+import TableRowActionsMenu from "@/components/shared/TableRowActionsMenu";
 
 export default function TransferRowActions({
   transferId,
@@ -36,34 +37,35 @@ export default function TransferRowActions({
 
   return (
     <div className="transfer-row-actions">
-      <div className="row-acts">
+      <TableRowActionsMenu label={reference}>
         <Link
-          className="act-view"
+          className="gg-menu-item"
           href={basePath}
-          aria-label={`View ${reference}`}
-          title="View transfer"
+          role="menuitem"
         >
           <Eye aria-hidden="true" />
+          View Transfer
         </Link>
-        {canManage && <Link
-          className="act-edit"
-          href={`${basePath}/edit`}
-          aria-label={`Edit ${reference}`}
-          title="Edit transfer"
-        >
-          <Pencil aria-hidden="true" />
-        </Link>}
-        {canManage && <button
-          className="act-del"
-          type="button"
-          aria-label={`Delete ${reference}`}
-          title="Delete transfer"
-          disabled={isDeleting}
-          onClick={() => setConfirmOpen(true)}
-        >
-          <Trash2 aria-hidden="true" />
-        </button>}
-      </div>
+        {canManage && (
+          <Link className="gg-menu-item" href={`${basePath}/edit`} role="menuitem">
+            <Pencil aria-hidden="true" />
+            Edit Transfer
+          </Link>
+        )}
+        {canManage && (
+          <button
+            className="gg-menu-item is-danger"
+            type="button"
+            role="menuitem"
+            disabled={isDeleting}
+            data-close-row-menu=""
+            onClick={() => setConfirmOpen(true)}
+          >
+            <Trash2 aria-hidden="true" />
+            Delete Transfer
+          </button>
+        )}
+      </TableRowActionsMenu>
       {deleteState.status === "error" && !confirmOpen && (
         <p className="warehouse-toast is-visible" role="alert">
           <Info size={18} aria-hidden="true" />

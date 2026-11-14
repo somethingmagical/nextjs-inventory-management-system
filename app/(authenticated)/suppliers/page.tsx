@@ -16,6 +16,7 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import { getSupplierListData } from "@/features/partners/suppliers/queries";
 import SupplierImportButton from "./SupplierImportButton";
 import SupplierDeleteButton from "./SupplierDeleteButton";
+import TableRowActionsMenu from "@/components/shared/TableRowActionsMenu";
 import WarehouseToast from "@/components/shared/WarehouseToast";
 import AutoSearchForm from "@/components/shared/AutoSearchForm";
 import DynamicPageSizeSelect from "@/components/shared/DynamicPageSizeSelect";
@@ -213,20 +214,21 @@ async function SupplierList({ searchParams }: SuppliersPageProps) {
                     </td>
                     {canManageSuppliers && (
                       <td className="supplier-actions-cell">
-                        <div className="row-acts">
+                        <TableRowActionsMenu label={supplier.name}>
                           <Link
-                            className="act-edit"
+                            className="gg-menu-item"
                             href={`/suppliers/${encodeURIComponent(supplier.id)}/edit`}
-                            aria-label={`Edit ${supplier.name}`}
-                            title="Edit"
+                            role="menuitem"
                           >
                             <Pencil aria-hidden="true" />
+                            Edit Supplier
                           </Link>
                           <SupplierDeleteButton
                             supplierId={supplier.id}
                             supplierName={supplier.name}
+                            menuItem
                           />
-                        </div>
+                        </TableRowActionsMenu>
                       </td>
                     )}
                   </tr>

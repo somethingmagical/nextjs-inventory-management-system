@@ -18,6 +18,7 @@ import { getCustomerViewAccess } from "./authorization";
 import { PERMISSION } from "@/lib/permissions";
 import CustomerImportButton from "./CustomerImportButton";
 import CustomerDeleteButton from "./CustomerDeleteButton";
+import TableRowActionsMenu from "@/components/shared/TableRowActionsMenu";
 import WarehouseToast from "@/components/shared/WarehouseToast";
 import AutoSearchForm from "@/components/shared/AutoSearchForm";
 import DynamicPageSizeSelect from "@/components/shared/DynamicPageSizeSelect";
@@ -216,24 +217,23 @@ async function CustomerList({ searchParams }: CustomersPageProps) {
                       </td>
                       {canManageCustomers && (
                         <td className="supplier-actions-cell">
-                          <div className="row-acts">
-                            {!isDirectCustomer && (
+                          {!isDirectCustomer && (
+                            <TableRowActionsMenu label={customer.name}>
                               <Link
-                                className="act-edit"
+                                className="gg-menu-item"
                                 href={`/customers/${encodeURIComponent(customer.id)}/edit`}
-                                aria-label={`Edit ${customer.name}`}
-                                title="Edit"
+                                role="menuitem"
                               >
                                 <Pencil aria-hidden="true" />
+                                Edit Customer
                               </Link>
-                            )}
-                            {!isDirectCustomer && (
                               <CustomerDeleteButton
                                 customerId={customer.id}
                                 customerName={customer.name}
+                                menuItem
                               />
-                            )}
-                          </div>
+                            </TableRowActionsMenu>
+                          )}
                         </td>
                       )}
                     </tr>

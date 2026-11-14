@@ -19,6 +19,7 @@ import { db } from "@/lib/db";
 import { canManageRoleInHierarchy } from "@/lib/authorization";
 import { getUserViewAccess } from "./authorization";
 import UserDeleteButton from "./UserDeleteButton";
+import TableRowActionsMenu from "@/components/shared/TableRowActionsMenu";
 import WarehouseToast from "@/components/shared/WarehouseToast";
 import AutoSearchForm from "@/components/shared/AutoSearchForm";
 import DynamicPageSizeSelect from "@/components/shared/DynamicPageSizeSelect";
@@ -294,20 +295,21 @@ async function UserList({ searchParams }: UsersPageProps) {
                       {canManageUsers && (
                         <td className="user-actions-cell">
                           {canManageUser ? (
-                            <div className="row-acts">
+                            <TableRowActionsMenu label={name}>
                               <Link
-                                className="act-edit"
+                                className="gg-menu-item"
                                 href={`/users/${encodeURIComponent(user.id)}/edit`}
-                                aria-label={`Edit ${name}`}
-                                title="Edit"
+                                role="menuitem"
                               >
                                 <Pencil aria-hidden="true" />
+                                Edit User
                               </Link>
                               <UserDeleteButton
                                 userId={user.id}
                                 userName={name}
+                                menuItem
                               />
-                            </div>
+                            </TableRowActionsMenu>
                           ) : (
                             <span className="gg-muted">Protected</span>
                           )}

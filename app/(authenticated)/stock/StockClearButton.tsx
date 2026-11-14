@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, useTransition } from "react";
 import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Info, Trash2 } from "lucide-react";
+import { useCloseTableRowActionsMenu } from "@/components/shared/TableRowActionsMenuContext";
 import { clearWarehouseStock } from "./actions";
 
 export default function StockClearButton({
@@ -12,14 +13,17 @@ export default function StockClearButton({
   warehouseId,
   warehouseName,
   quantity,
+  menuItem = false,
 }: {
   productId: string;
   productName: string;
   warehouseId: string;
   warehouseName: string;
   quantity: string;
+  menuItem?: boolean;
 }) {
   const router = useRouter();
+  const closeRowActionsMenu = useCloseTableRowActionsMenu();
   const dialogId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -52,16 +56,18 @@ export default function StockClearButton({
 
   return (
     <>
-      <form ref={formRef} onSubmit={handleSubmit}>
+      <form ref={formRef} onSubmit={handleSubmit} role={menuItem ? "presentation" : undefined}>
         <button
-          className="act-del"
+          className={menuItem ? "gg-menu-item is-danger" : "act-del"}
           type="button"
+          role={menuItem ? "menuitem" : undefined}
           onClick={() => setConfirmOpen(true)}
           disabled={isPending}
           aria-label={`Set ${productName} stock to zero in ${warehouseName}`}
-          title="Set stock to zero"
+          title={menuItem ? undefined : "Set stock to zero"}
         >
           <Trash2 aria-hidden="true" />
+          {menuItem && "Set quantity to zero"}
         </button>
       </form>
       <dialog
@@ -69,7 +75,10 @@ export default function StockClearButton({
         ref={dialogRef}
         aria-labelledby={`stock-clear-title-${dialogId}`}
         aria-describedby={`stock-clear-description-${dialogId}`}
-        onClose={() => setConfirmOpen(false)}
+        onClose={() => {
+          setConfirmOpen(false);
+          closeRowActionsMenu();
+        }}
         onClick={(event) => {
           if (event.target === event.currentTarget) dialogRef.current?.close();
         }}

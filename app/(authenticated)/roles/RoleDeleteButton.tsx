@@ -3,16 +3,20 @@
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Info, Trash2 } from "lucide-react";
+import { useCloseTableRowActionsMenu } from "@/components/shared/TableRowActionsMenuContext";
 import { deleteRole } from "./actions";
 
 export default function RoleDeleteButton({
   roleId,
   roleName,
+  menuItem = false,
 }: {
   roleId: string;
   roleName: string;
+  menuItem?: boolean;
 }) {
   const dialogId = useId();
+  const closeRowActionsMenu = useCloseTableRowActionsMenu();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -39,8 +43,9 @@ export default function RoleDeleteButton({
   return (
     <>
       <button
-        className="act-del"
+        className={menuItem ? "gg-menu-item is-danger" : "act-del"}
         type="button"
+        role={menuItem ? "menuitem" : undefined}
         aria-label={`Delete ${roleName}`}
         title="Delete"
         disabled={isPending}
@@ -50,13 +55,17 @@ export default function RoleDeleteButton({
         }}
       >
         <Trash2 aria-hidden="true" />
+        {menuItem && "Delete Role"}
       </button>
       <dialog
         className="gg-modal warehouse-confirm-dialog"
         ref={dialogRef}
         aria-labelledby={`role-delete-title-${dialogId}`}
         aria-describedby={`role-delete-description-${dialogId}`}
-        onClose={() => setConfirmOpen(false)}
+        onClose={() => {
+          setConfirmOpen(false);
+          closeRowActionsMenu();
+        }}
         onClick={(event) => {
           if (event.target === event.currentTarget && !isPending) dialogRef.current?.close();
         }}

@@ -4,20 +4,24 @@ import { useEffect, useId, useRef, useState, useTransition } from "react";
 import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Info, Trash2 } from "lucide-react";
+import { useCloseTableRowActionsMenu } from "@/components/shared/TableRowActionsMenuContext";
 import { deleteSupplier } from "./actions";
 import { initialSupplierActionState } from "./create/action-state";
 
 export default function SupplierDeleteButton({
   supplierId,
   supplierName,
+  menuItem = false,
 }: {
   supplierId: string;
   supplierName: string;
+  menuItem?: boolean;
 }) {
   const dialogId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
+  const closeRowActionsMenu = useCloseTableRowActionsMenu();
   const [state, setState] = useState(initialSupplierActionState);
   const [isPending, startTransition] = useTransition();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -74,17 +78,20 @@ export default function SupplierDeleteButton({
     <>
       <form
         ref={formRef}
+        role={menuItem ? "presentation" : undefined}
         onSubmit={handleSubmit}
       >
         <button
-          className="act-del"
+          className={menuItem ? "gg-menu-item is-danger" : "act-del"}
           type="button"
+          role={menuItem ? "menuitem" : undefined}
           onClick={() => setConfirmOpen(true)}
           disabled={isPending}
           aria-label={`Delete ${supplierName}`}
           title="Delete"
         >
           <Trash2 aria-hidden="true" />
+          {menuItem && "Delete Supplier"}
         </button>
       </form>
       <dialog
@@ -92,7 +99,10 @@ export default function SupplierDeleteButton({
         ref={dialogRef}
         aria-labelledby={`supplier-delete-title-${dialogId}`}
         aria-describedby={`supplier-delete-description-${dialogId}`}
-        onClose={() => setConfirmOpen(false)}
+        onClose={() => {
+          setConfirmOpen(false);
+          closeRowActionsMenu();
+        }}
         onClick={(event) => {
           if (event.target === event.currentTarget) {
             dialogRef.current?.close();

@@ -8,7 +8,10 @@ import {
   calculatePurchaseTotals,
 } from "@/lib/purchase-pricing";
 import useDialogFocus from "@/components/shared/useDialogFocus";
-import { createPurchase, searchPurchaseProducts } from "@/app/(authenticated)/purchases/actions";
+import {
+  savePurchase,
+  searchPurchaseProducts,
+} from "@/app/(authenticated)/purchases/actions";
 import {
   initialPurchaseCreateActionState,
   type PurchaseCreateActionState,
@@ -37,40 +40,62 @@ type PurchaseItemEdit = Pick<
   "netUnitCost" | "unit" | "discountType" | "discount" | "taxType" | "orderTax"
 >;
 
+export type PurchaseFormInitialData = {
+  id: string;
+  date: string;
+  warehouseId: string;
+  supplierId: string;
+  status: "Pending" | "Ordered" | "Received";
+  orderTax: string;
+  discount: string;
+  shipping: string;
+  notes: string | null;
+  items: (PurchaseDraftItem & { id: string })[];
+};
+
 const minimumSearchLength = 2;
 
 export default function PurchaseForm({
   warehouses,
   suppliers,
   units,
+  initialData,
+  isEditing = false,
 }: {
   warehouses: Option[];
   suppliers: Option[];
   units: string[];
+  initialData?: PurchaseFormInitialData;
+  isEditing?: boolean;
 }) {
   const [date, setDate] = useState(() => {
+    if (initialData) return initialData.date;
     const now = new Date();
     return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
   });
-  const [warehouseId, setWarehouseId] = useState("");
-  const [supplierId, setSupplierId] = useState("");
+  const [warehouseId, setWarehouseId] = useState(initialData?.warehouseId ?? "");
+  const [supplierId, setSupplierId] = useState(initialData?.supplierId ?? "");
   const [query, setQuery] = useState("");
   const [products, setProducts] = useState<ProductResult[]>([]);
-  const [items, setItems] = useState<PurchaseDraftItem[]>([]);
+  const [items, setItems] = useState<PurchaseDraftItem[]>(
+    () => initialData?.items ?? [],
+  );
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [itemEdit, setItemEdit] = useState<PurchaseItemEdit | null>(null);
   const [itemEditError, setItemEditError] = useState("");
-  const [orderTax, setOrderTax] = useState("0.00");
-  const [orderDiscount, setOrderDiscount] = useState("0.00");
-  const [shipping, setShipping] = useState("0.00");
-  const [status, setStatus] = useState<"Pending" | "Ordered" | "Received">("Received");
-  const [notes, setNotes] = useState("");
+  const [orderTax, setOrderTax] = useState(initialData?.orderTax ?? "0.00");
+  const [orderDiscount, setOrderDiscount] = useState(initialData?.discount ?? "0.00");
+  const [shipping, setShipping] = useState(initialData?.shipping ?? "0.00");
+  const [status, setStatus] = useState<"Pending" | "Ordered" | "Received">(
+    initialData?.status ?? "Received",
+  );
+  const [notes, setNotes] = useState(initialData?.notes ?? "");
   const [searchError, setSearchError] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [actionState, formAction, isPending] = useActionState<
     PurchaseCreateActionState,
     FormData
-  >(createPurchase, initialPurchaseCreateActionState);
+  >(savePurchase, initialPurchaseCreateActionState);
   const itemDialogRef = useRef<HTMLElement>(null);
   useDialogFocus(itemDialogRef, Boolean(editingItemId && itemEdit));
 
@@ -116,7 +141,7 @@ export default function PurchaseForm({
 
   function selectWarehouse(nextWarehouseId: string) {
     setWarehouseId(nextWarehouseId);
-    setItems([]);
+    if (!initialData) setItems([]);
     setQuery("");
     setProducts([]);
     setSearchError("");
@@ -235,14 +260,22 @@ export default function PurchaseForm({
   return (
     <main className="gg-content">
       <div className="page-head">
-        <h1 className="gg-page-title">Create Purchase</h1>
-        <Link className="gg-btn gg-btn--secondary" href="/purchases">
+        <h1 className="gg-page-title">{isEditing ? "Edit Purchase" : "Create Purchase"}</h1>
+        <Link
+          className="gg-btn gg-btn--secondary"
+          href={initialData
+            ? `/purchases/${encodeURIComponent(initialData.id)}`
+            : "/purchases"}
+        >
           <ArrowLeft aria-hidden="true" />
           Back
         </Link>
       </div>
 
       <form className="gg-card gg-card-pad purchase-form-card" action={formAction}>
+        {initialData && (
+          <input type="hidden" name="purchaseId" value={initialData.id} />
+        )}
         {actionState.status === "error" && (
           <p className="warehouse-toast is-visible" role="alert">
             <span>{actionState.message}</span>
@@ -419,7 +452,13 @@ export default function PurchaseForm({
                     </div>
                   </td>
                   <td className="gg-num">$ {item.netUnitCost}</td>
-                  <td><span className="stock-chip gg-num">{item.stock} {item.stockUnit}</span></td>
+                  <td>
+                    <span className="stock-chip gg-num">
+                      {initialData && warehouseId !== initialData.warehouseId
+                        ? "—"
+                        : `${item.stock} ${item.stockUnit}`}
+                    </span>
+                  </td>
                   <td>
                     <div className="gg-stepper">
                       <button
@@ -555,9 +594,16 @@ export default function PurchaseForm({
         <div className="gg-form-actions">
           <button className="gg-btn gg-btn--primary" type="submit" disabled={isPending || items.length === 0 || Boolean(pricingError)}>
             <Check aria-hidden="true" />
-            {isPending ? "Saving..." : "Save Purchase"}
+            {isPending ? "Saving..." : isEditing ? "Update Purchase" : "Save Purchase"}
           </button>
-          <Link className="gg-btn gg-btn--secondary" href="/purchases">Cancel</Link>
+          <Link
+            className="gg-btn gg-btn--secondary"
+            href={initialData
+              ? `/purchases/${encodeURIComponent(initialData.id)}`
+              : "/purchases"}
+          >
+            Cancel
+          </Link>
         </div>
       </form>
       {editingItemId && itemEdit && (
