@@ -83,7 +83,7 @@
   --dropdown-border: var(--gray-200);
   --dropdown-radius: var(--r-lg);
   --dropdown-shadow: 0 18px 42px -12px rgba(34,31,26,.22), 0 4px 12px rgba(34,31,26,.08);
-  --dropdown-hover: var(--gold-50);
+  --dropdown-hover: var(--gray-100);
 
   /* --- Type ------------------------------------------------------------ */
   --font-display: var(--font-geist-sans), "Segoe UI", system-ui, sans-serif;
@@ -180,6 +180,17 @@ button { font-family: inherit; }
 .gg-nav { flex: 1; overflow-y: auto; padding: var(--sp-2) var(--sp-3) var(--sp-6); }
 .gg-nav::-webkit-scrollbar { width: 8px; }
 .gg-nav::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: var(--r-pill); }
+.gg-nav-section-label {
+  margin: 16px 12px 6px;
+  color: var(--gray-500);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+.gg-nav-entry:first-child .gg-nav-section-label { margin-top: 8px; }
+.gg-app.is-collapsed:not(.is-mobile-nav-open) .gg-nav-section-label { display: none; }
 
 .gg-nav-item {
   display: flex; align-items: center; gap: var(--sp-3);
@@ -1273,6 +1284,7 @@ select option { background: var(--dropdown-bg); color: var(--ink); }
   .gg-app.is-mobile-nav-open .gg-sidebar-search { display: block; }
   .gg-app.is-mobile-nav-open .gg-nav-label,
   .gg-app.is-mobile-nav-open .gg-nav-chev { display: inline; }
+  .gg-app.is-mobile-nav-open .gg-nav-section-label { display: block; }
   .gg-app.is-mobile-nav-open .gg-nav-item { justify-content: flex-start; padding-inline: var(--sp-3); }
   .gg-mobile-nav-backdrop {
     position: fixed; inset: 0; z-index: 109; border: 0;

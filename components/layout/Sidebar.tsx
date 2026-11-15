@@ -59,6 +59,7 @@ type NavigationLink = {
 type NavigationItem = {
   label: string;
   icon: string;
+  section: string;
   href?: string;
   activePrefix?: string;
   permission?: Permission;
@@ -66,10 +67,11 @@ type NavigationItem = {
 };
 
 const navigation: NavigationItem[] = [
-  { label: "Dashboard", icon: "dashboard", href: "/dashboard", permission: PERMISSION.viewDashboard },
+  { label: "Dashboard", icon: "dashboard", section: "Overview", href: "/dashboard", permission: PERMISSION.viewDashboard },
   {
     label: "Products",
     icon: "boxes",
+    section: "Inventory",
     children: [
       { label: "Products", href: "/products", permission: PERMISSION.viewProducts, activePrefix: "/products" },
       { label: "Product Category", href: "/product-categories", permission: PERMISSION.viewProductCategories, activePrefix: "/product-categories" },
@@ -79,11 +81,14 @@ const navigation: NavigationItem[] = [
       // { label: "Print Barcode", permission: PERMISSION.manageProducts },
     ],
   },
-  { label: "Adjustments", icon: "sliders", href: "/adjustments", permission: PERMISSION.viewAdjustments },
+  { label: "Stock", icon: "inventory", section: "Inventory", href: "/stock", permission: PERMISSION.viewStock, activePrefix: "/stock" },
+  { label: "Adjustments", icon: "sliders", section: "Inventory", href: "/adjustments", permission: PERMISSION.viewAdjustments },
+  { label: "Warehouse", icon: "warehouse", section: "Inventory", href: "/warehouse", permission: PERMISSION.viewWarehouses, activePrefix: "/warehouse" },
   // { label: "Quotations", icon: "fileText", permission: PERMISSION.manageQuotations },
   {
     label: "Purchases",
     icon: "receipt",
+    section: "Transactions",
     children: [
       { label: "Purchases", href: "/purchases", permission: PERMISSION.viewPurchases, activePrefix: "/purchases", excludePrefix: "/purchases/returns" },
       { label: "Purchases Returns", href: "/purchases/returns", permission: PERMISSION.viewPurchaseReturns, activePrefix: "/purchases/returns" },
@@ -92,15 +97,17 @@ const navigation: NavigationItem[] = [
   {
     label: "Sales",
     icon: "shoppingCart",
+    section: "Transactions",
     children: [
       { label: "Sales", href: "/sales", permission: PERMISSION.viewSales, activePrefix: "/sales", excludePrefix: "/sales/returns" },
       { label: "Sales Returns", href: "/sales/returns", permission: PERMISSION.viewSaleReturns, activePrefix: "/sales/returns" },
     ],
   },
-  { label: "Transfers", icon: "repeat", href: "/transfers", permission: PERMISSION.viewTransfers },
+  { label: "Transfers", icon: "repeat", section: "Transactions", href: "/transfers", permission: PERMISSION.viewTransfers },
   {
     label: "Expenses",
     icon: "wallet",
+    section: "Transactions",
     children: [
       { label: "Expenses", href: "/expenses", permission: PERMISSION.viewExpenses, activePrefix: "/expenses" },
       { label: "Expense Categories", href: "/expense-categories", permission: PERMISSION.viewExpenseCategories, activePrefix: "/expense-categories" },
@@ -109,16 +116,15 @@ const navigation: NavigationItem[] = [
   {
     label: "People",
     icon: "users",
+    section: "People & access",
     children: [
       { label: "Customers", href: "/customers", permission: PERMISSION.viewCustomers, activePrefix: "/customers" },
       { label: "Suppliers", href: "/suppliers", permission: PERMISSION.viewSuppliers, activePrefix: "/suppliers" },
       { label: "Users", href: "/users", permission: PERMISSION.viewUsers, activePrefix: "/users" },
     ],
   },
-  { label: "Roles/Permissions", icon: "shieldCheck", href: "/roles", permission: PERMISSION.viewRoles },
-  { label: "Warehouse", icon: "warehouse", href: "/warehouse", permission: PERMISSION.viewWarehouses, activePrefix: "/warehouse" },
-  { label: "Stock", icon: "inventory", href: "/stock", permission: PERMISSION.viewStock, activePrefix: "/stock" },
-  { label: "Reports", icon: "chart", href: "/reports/warehouse", permission: PERMISSION.viewReports },
+  { label: "Roles/Permissions", icon: "shieldCheck", section: "People & access", href: "/roles", permission: PERMISSION.viewRoles },
+  { label: "Reports", icon: "chart", section: "Insights & setup", href: "/reports/warehouse", permission: PERMISSION.viewReports },
   // { label: "Currencies", icon: "dollar", permission: PERMISSION.manageCurrency },
   // { label: "Languages", icon: "languages", permission: PERMISSION.manageLanguage },
   // {
@@ -129,7 +135,7 @@ const navigation: NavigationItem[] = [
   //     { label: "Email Templates", permission: PERMISSION.manageEmailTemplates },
   //   ],
   // },
-  { label: "Settings", icon: "settings", href: "/settings", permission: PERMISSION.manageSetting },
+  { label: "Settings", icon: "settings", section: "Insights & setup", href: "/settings", permission: PERMISSION.manageSetting },
 ];
 
 export function getActiveNavigationIcon(pathname: string): string | null {
@@ -315,8 +321,9 @@ export default function Sidebar({
         </div>
       </div>
       <nav className="gg-nav" id="main-navigation" aria-label="Main navigation">
-        {visibleNavigation.map((item) => {
+        {visibleNavigation.map((item, index) => {
           const children = item.children;
+          const sectionHeading = item.section !== visibleNavigation[index - 1]?.section;
 
           const isOpen = openGroups.includes(item.label)
             || Boolean(normalizedSearch && children)
@@ -346,47 +353,50 @@ export default function Sidebar({
             };
 
             return (
-              <div key={item.label} className={`gg-nav-group ${isOpen ? "is-open" : ""}`}>
-                <button
-                  className="gg-nav-item gg-nav-toggle"
-                  type="button"
-                  id={`sidebar-group-trigger-${item.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
-                  ref={(element) => {
-                    if (element) groupButtonRefs.current.set(item.label, element);
-                    else groupButtonRefs.current.delete(item.label);
-                  }}
-                  aria-expanded={isCollapsed || isMobile ? isFlyoutOpen : isOpen}
-                  aria-controls={isFlyoutOpen ? `sidebar-flyout-${item.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}` : undefined}
-                  aria-label={item.label}
-                  title={item.label}
-                  onClick={handleGroupClick}
-                >
-                  {content}
-                </button>
-                <div className="gg-nav-sub">
-                  {children.map((child) => {
-                    const active = child.activePrefix
-                      ? pathname.startsWith(child.activePrefix)
-                        && (!child.excludePrefix || !pathname.startsWith(child.excludePrefix))
-                      : false;
-                    const className = `gg-nav-item ${active ? "is-active" : ""}`;
-                    return child.href ? (
-                      <Link
-                        className={className}
-                        href={child.href}
-                        key={child.label}
-                        title={child.label}
-                        aria-current={active ? "page" : undefined}
-                        onClick={onNavigate}
-                      >
-                        <span className="gg-nav-label">{child.label}</span>
-                      </Link>
-                    ) : (
-                      <a className={className} href="#" key={child.label} onClick={(event) => event.preventDefault()}>
-                        <span className="gg-nav-label">{child.label}</span>
-                      </a>
-                    );
-                  })}
+              <div className="gg-nav-entry" key={item.label}>
+                {sectionHeading && <p className="gg-nav-section-label">{item.section}</p>}
+                <div className={`gg-nav-group ${isOpen ? "is-open" : ""}`}>
+                  <button
+                    className="gg-nav-item gg-nav-toggle"
+                    type="button"
+                    id={`sidebar-group-trigger-${item.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+                    ref={(element) => {
+                      if (element) groupButtonRefs.current.set(item.label, element);
+                      else groupButtonRefs.current.delete(item.label);
+                    }}
+                    aria-expanded={isCollapsed || isMobile ? isFlyoutOpen : isOpen}
+                    aria-controls={isFlyoutOpen ? `sidebar-flyout-${item.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}` : undefined}
+                    aria-label={item.label}
+                    title={item.label}
+                    onClick={handleGroupClick}
+                  >
+                    {content}
+                  </button>
+                  <div className="gg-nav-sub">
+                    {children.map((child) => {
+                      const active = child.activePrefix
+                        ? pathname.startsWith(child.activePrefix)
+                          && (!child.excludePrefix || !pathname.startsWith(child.excludePrefix))
+                        : false;
+                      const className = `gg-nav-item ${active ? "is-active" : ""}`;
+                      return child.href ? (
+                        <Link
+                          className={className}
+                          href={child.href}
+                          key={child.label}
+                          title={child.label}
+                          aria-current={active ? "page" : undefined}
+                          onClick={onNavigate}
+                        >
+                          <span className="gg-nav-label">{child.label}</span>
+                        </Link>
+                      ) : (
+                        <a className={className} href="#" key={child.label} onClick={(event) => event.preventDefault()}>
+                          <span className="gg-nav-label">{child.label}</span>
+                        </a>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             );
@@ -395,16 +405,18 @@ export default function Sidebar({
             || (item.href && pathname.startsWith(`${item.href}/`))
             || (item.activePrefix && pathname.startsWith(item.activePrefix));
           return (
-            <Link
-              key={item.label}
-              className={`gg-nav-item ${active ? "is-active" : ""}`}
-              href={item.href ?? "#"}
-              title={item.label}
-              aria-current={active ? "page" : undefined}
-              onClick={onNavigate}
-            >
-              {content}
-            </Link>
+            <div className="gg-nav-entry" key={item.label}>
+              {sectionHeading && <p className="gg-nav-section-label">{item.section}</p>}
+              <Link
+                className={`gg-nav-item ${active ? "is-active" : ""}`}
+                href={item.href ?? "#"}
+                title={item.label}
+                aria-current={active ? "page" : undefined}
+                onClick={onNavigate}
+              >
+                {content}
+              </Link>
+            </div>
           );
         })}
         {normalizedSearch && visibleNavigation.length === 0 && (
