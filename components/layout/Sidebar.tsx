@@ -178,6 +178,7 @@ export default function Sidebar({
 }) {
   const pathname = usePathname();
   const [openGroups, setOpenGroups] = useState<string[]>([]);
+  const [closedGroups, setClosedGroups] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isMobile, setIsMobile] = useState(false);
   const [openFlyoutLabel, setOpenFlyoutLabel] = useState<string | null>(null);
@@ -210,6 +211,10 @@ export default function Sidebar({
   const openFlyoutChildren = visibleNavigation.find(
     (item) => item.label === openFlyoutLabel,
   )?.children;
+
+  useEffect(() => {
+    setClosedGroups([]);
+  }, [pathname]);
 
   useEffect(() => {
     setPortalReady(true);
@@ -280,8 +285,15 @@ export default function Sidebar({
     setFocusFirstFlyoutLink(false);
   }, [focusFirstFlyoutLink, openFlyoutLabel, portalReady]);
 
-  function toggleGroup(label: string) {
-    setOpenGroups((groups) => groups.includes(label) ? groups.filter((group) => group !== label) : [...groups, label]);
+  function toggleGroup(label: string, isOpen: boolean) {
+    if (isOpen) {
+      setOpenGroups((groups) => groups.filter((group) => group !== label));
+      setClosedGroups((groups) => groups.includes(label) ? groups : [...groups, label]);
+      return;
+    }
+
+    setClosedGroups((groups) => groups.filter((group) => group !== label));
+    setOpenGroups((groups) => groups.includes(label) ? groups : [...groups, label]);
   }
 
   return (
@@ -324,11 +336,17 @@ export default function Sidebar({
         {visibleNavigation.map((item, index) => {
           const children = item.children;
           const sectionHeading = item.section !== visibleNavigation[index - 1]?.section;
+          const isActiveGroup = Boolean(children?.some(
+            (child) => child.activePrefix && pathname.startsWith(child.activePrefix),
+          ));
 
-          const isOpen = openGroups.includes(item.label)
-            || Boolean(normalizedSearch && children)
-            || children?.some((child) => child.activePrefix && pathname.startsWith(child.activePrefix));
+          const isOpen = !closedGroups.includes(item.label)
+            && (openGroups.includes(item.label)
+              || Boolean(normalizedSearch && children)
+              || isActiveGroup);
           const isFlyoutOpen = openFlyoutLabel === item.label;
+          const isIconMode = isCollapsed || (isMobile && !isMobileNavigationOpen);
+          const isSubmenuOpen = isIconMode ? isFlyoutOpen : isOpen;
           const content = (
             <>
               <Icon name={item.icon} className="gg-nav-ico" />
@@ -338,7 +356,6 @@ export default function Sidebar({
           );
           if (children) {
             const handleGroupClick = (event: MouseEvent<HTMLButtonElement>) => {
-              const isIconMode = isCollapsed || (isMobile && !isMobileNavigationOpen);
               if (isIconMode) {
                 if (isFlyoutOpen) {
                   setOpenFlyoutLabel(null);
@@ -349,7 +366,7 @@ export default function Sidebar({
                 }
                 return;
               }
-              toggleGroup(item.label);
+              toggleGroup(item.label, isOpen);
             };
 
             return (
@@ -357,14 +374,14 @@ export default function Sidebar({
                 {sectionHeading && <p className="gg-nav-section-label">{item.section}</p>}
                 <div className={`gg-nav-group ${isOpen ? "is-open" : ""}`}>
                   <button
-                    className="gg-nav-item gg-nav-toggle"
+                    className={`gg-nav-item gg-nav-toggle${isActiveGroup && !isSubmenuOpen ? " is-active" : ""}`}
                     type="button"
                     id={`sidebar-group-trigger-${item.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
                     ref={(element) => {
                       if (element) groupButtonRefs.current.set(item.label, element);
                       else groupButtonRefs.current.delete(item.label);
                     }}
-                    aria-expanded={isCollapsed || isMobile ? isFlyoutOpen : isOpen}
+                    aria-expanded={isSubmenuOpen}
                     aria-controls={isFlyoutOpen ? `sidebar-flyout-${item.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}` : undefined}
                     aria-label={item.label}
                     title={item.label}

@@ -207,10 +207,10 @@ button { font-family: inherit; }
 .is-collapsed .gg-nav-item { justify-content: center; padding: 10px; }
 
 .gg-nav-item.is-active {
-  background: var(--gold-50); color: var(--gold-700); font-weight: 600;
+  background: var(--gold-700); color: #fff; font-weight: 600;
 }
-.gg-nav-item.is-active .gg-nav-ico,
 .gg-nav-item:hover .gg-nav-ico { color: var(--sidebar-icon); }
+.gg-nav-item.is-active .gg-nav-ico { color: #fff; }
 .gg-nav-item.is-active::before {
   content: ""; position: absolute; left: -12px; top: 50%; transform: translateY(-50%);
   width: 4px; height: 22px; border-radius: var(--r-pill); background: var(--gold-500);
