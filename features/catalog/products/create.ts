@@ -3,6 +3,12 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 
+type WarehouseDiscountInput = {
+  warehouseId: string;
+  discountType: "Fixed" | "Percentage";
+  discount: string;
+};
+
 export async function createProductWithInitialStock(input: {
   code: string;
   name: string;
@@ -13,6 +19,9 @@ export async function createProductWithInitialStock(input: {
   stockAlert: string | null;
   orderTax: string | null;
   taxType: "Exclusive" | "Inclusive";
+  defaultDiscountType: "Fixed" | "Percentage";
+  defaultDiscount: string;
+  warehouseDiscounts: WarehouseDiscountInput[];
   quantityLimitation: string | null;
   notes: string | null;
   warehouseId: string;
@@ -23,7 +32,7 @@ export async function createProductWithInitialStock(input: {
   actorId: string;
 }): Promise<boolean> {
   return db.$transaction(async (transaction) => {
-    const [category, brand, unit, warehouse, supplier] = await Promise.all([
+    const [category, brand, unit, warehouse, supplier, overrideWarehouses] = await Promise.all([
       transaction.category.findFirst({
         where: { id: input.categoryId, deletedAt: null },
         select: { id: true, name: true },
@@ -44,9 +53,24 @@ export async function createProductWithInitialStock(input: {
         where: { id: input.supplierId, deletedAt: null },
         select: { id: true },
       }),
+      transaction.warehouse.findMany({
+        where: {
+          id: { in: input.warehouseDiscounts.map((override) => override.warehouseId) },
+          deletedAt: null,
+        },
+        select: { id: true },
+      }),
     ]);
 
-    if (!category || !brand || !unit || !warehouse || !supplier) {
+    if (
+      !category
+      || !brand
+      || !unit
+      || !warehouse
+      || !supplier
+      || overrideWarehouses.length !== input.warehouseDiscounts.length
+      || new Set(input.warehouseDiscounts.map((override) => override.warehouseId)).size !== input.warehouseDiscounts.length
+    ) {
       return false;
     }
 
@@ -61,6 +85,8 @@ export async function createProductWithInitialStock(input: {
         stockAlert: input.stockAlert,
         orderTax: input.orderTax,
         taxType: input.taxType,
+        defaultDiscountType: input.defaultDiscountType,
+        defaultDiscount: input.defaultDiscount,
         quantityLimitation: input.quantityLimitation,
         notes: input.notes,
         images: input.images.length ? input.images : Prisma.JsonNull,
@@ -82,6 +108,17 @@ export async function createProductWithInitialStock(input: {
       },
       select: { id: true },
     });
+
+    if (input.warehouseDiscounts.length) {
+      await transaction.productWarehouseDiscount.createMany({
+        data: input.warehouseDiscounts.map((override) => ({
+          productId: product.id,
+          warehouseId: override.warehouseId,
+          discountType: override.discountType,
+          discount: override.discount,
+        })),
+      });
+    }
 
     const initialQuantity = new Prisma.Decimal(input.quantity);
     if (!initialQuantity.isZero()) {

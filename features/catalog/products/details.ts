@@ -8,6 +8,15 @@ export async function getProductDetails(id: string) {
     include: {
       categoryRecord: { select: { name: true } },
       brandRecord: { select: { name: true } },
+      warehouseDiscounts: {
+        orderBy: { warehouse: { name: "asc" } },
+        where: { warehouse: { deletedAt: null } },
+        select: {
+          discountType: true,
+          discount: true,
+          warehouse: { select: { name: true } },
+        },
+      },
       productStocks: {
         orderBy: { warehouse: { name: "asc" } },
         select: {

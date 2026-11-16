@@ -98,6 +98,10 @@ async function AuthorizedProductView({ params }: ProductViewPageProps) {
             <Detail label="Stock Alert" value={product.stockAlert?.toString() ?? "—"} />
             <Detail label="Order Tax" value={product.orderTax === null ? "—" : `${product.orderTax.toString()}%`} />
             <Detail label="Tax Type" value={product.taxType} />
+            <Detail
+              label="Default Sale Discount"
+              value={formatDiscount(product.defaultDiscountType, product.defaultDiscount)}
+            />
             <Detail label="Quantity Limitation" value={product.quantityLimitation?.toString() ?? "—"} />
             <Detail label="Created On" value={product.createdAt.toLocaleString()} />
             <Detail label="Last Updated" value={product.updatedAt.toLocaleString()} />
@@ -162,9 +166,41 @@ async function AuthorizedProductView({ params }: ProductViewPageProps) {
             </table>
           </div>
         </section>
+
+        <section className="gg-card gg-card-pad product-detail-card" aria-labelledby="product-discounts-title">
+          <h2 className="gg-card-title" id="product-discounts-title">Warehouse Discount Overrides</h2>
+          <div className="gg-table-wrap">
+            <table className="gg-table">
+              <thead>
+                <tr>
+                  <th scope="col">Warehouse</th>
+                  <th scope="col">Sale Discount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {product.warehouseDiscounts.map((override) => (
+                  <tr key={override.warehouse.name}>
+                    <td>{override.warehouse.name}</td>
+                    <td>{formatDiscount(override.discountType, override.discount)}</td>
+                  </tr>
+                ))}
+                {product.warehouseDiscounts.length === 0 && (
+                  <tr>
+                    <td className="product-empty-cell" colSpan={2}>All warehouses use the default product discount.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </main>
     </DashboardLayout>
   );
+}
+
+function formatDiscount(type: "Fixed" | "Percentage", value: Prisma.Decimal) {
+  if (value.isZero()) return "Disabled";
+  return type === "Fixed" ? `$ ${value.toFixed(2)} per unit` : `${value.toString()}%`;
 }
 
 function Detail({ label, value, full = false }: { label: string; value: string; full?: boolean }) {

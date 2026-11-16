@@ -33,6 +33,9 @@ export async function createProduct(
     stockAlert: formData.get("stockAlert"),
     orderTax: formData.get("orderTax"),
     taxType: formData.get("taxType"),
+    defaultDiscountType: formData.get("defaultDiscountType"),
+    defaultDiscount: formData.get("defaultDiscount"),
+    warehouseDiscounts: formData.get("warehouseDiscounts"),
     quantityLimitation: formData.get("quantityLimitation"),
     notes: formData.get("notes"),
     warehouseId: formData.get("warehouseId"),
@@ -105,8 +108,7 @@ export async function createProduct(
       await removeProductImages(upload.images.map((image) => image.path));
       return {
         status: "error",
-        message: "A selected product category, brand, unit, warehouse, or supplier is no longer available.",
-        fieldErrors: { categoryId: ["Choose active product references and try again."] },
+        message: "A selected product reference or warehouse discount setting is no longer available. Review the form and try again.",
       };
     }
   } catch (error) {

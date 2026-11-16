@@ -22,6 +22,11 @@ type ProductFormAction = (
 ) => Promise<ProductActionState>;
 
 type ProductOption = { id: string; name: string; value?: string };
+type WarehouseDiscount = {
+  warehouseId: string;
+  discountType: "Fixed" | "Percentage";
+  discount: string;
+};
 type ProductImagePreview = { id: string; src: string; name: string; file: File };
 type OrderedProductImage =
   | { key: string; path: string; preview: null }
@@ -41,6 +46,8 @@ const emptyValues: ProductFormValues = {
   stockAlert: "0",
   orderTax: "0",
   taxType: "Exclusive",
+  defaultDiscountType: "Percentage",
+  defaultDiscount: "0",
   quantityLimitation: "",
   notes: "",
   warehouseId: "",
@@ -62,6 +69,7 @@ export default function ProductForm({
   units,
   warehouses,
   suppliers,
+  initialWarehouseDiscounts = [],
   images = [],
 }: {
   mode: "create" | "edit";
@@ -76,6 +84,7 @@ export default function ProductForm({
   units: ProductOption[];
   warehouses?: ProductOption[];
   suppliers?: ProductOption[];
+  initialWarehouseDiscounts?: WarehouseDiscount[];
   images?: string[];
 }) {
   const router = useRouter();
@@ -90,6 +99,7 @@ export default function ProductForm({
   const [brandOptions, setBrandOptions] = useState(brands);
   const [supplierOptions, setSupplierOptions] = useState(suppliers ?? []);
   const [warehouseOptions, setWarehouseOptions] = useState(warehouses ?? []);
+  const [warehouseDiscounts, setWarehouseDiscounts] = useState(initialWarehouseDiscounts);
   const [state, formAction, isPending] = useActionState<ProductActionState, FormData>(
     action,
     initialProductActionState,
@@ -121,6 +131,27 @@ export default function ProductForm({
 
   function updateFormValue(field: ProductField, value: string) {
     setFormValues((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateWarehouseDiscount(warehouseId: string, changes: Partial<Omit<WarehouseDiscount, "warehouseId">>) {
+    setWarehouseDiscounts((current) => current.map((override) =>
+      override.warehouseId === warehouseId ? { ...override, ...changes } : override,
+    ));
+  }
+
+  function toggleWarehouseDiscount(warehouseId: string, enabled: boolean) {
+    if (enabled) {
+      setWarehouseDiscounts((current) => [
+        ...current,
+        {
+          warehouseId,
+          discountType: formValues.defaultDiscountType === "Fixed" ? "Fixed" : "Percentage",
+          discount: formValues.defaultDiscount,
+        },
+      ]);
+    } else {
+      setWarehouseDiscounts((current) => current.filter((override) => override.warehouseId !== warehouseId));
+    }
   }
 
   function closeQuickCreate() {
@@ -183,7 +214,7 @@ export default function ProductForm({
     newImagesRef.current.forEach((image) => URL.revokeObjectURL(image.src));
   }, []);
 
-  function fieldError(field: ProductField | "images") {
+  function fieldError(field: ProductField | "images" | "warehouseDiscounts") {
     return state.fieldErrors?.[field]?.[0];
   }
 
@@ -297,6 +328,7 @@ export default function ProductForm({
         {newImages.map((image) => (
           <input key={image.id} type="hidden" name="newImageId" value={image.id} />
         ))}
+        <input type="hidden" name="warehouseDiscounts" value={JSON.stringify(warehouseDiscounts)} />
         <div className="create-layout">
           <div className="field-grid">
             <FormInput
@@ -419,6 +451,120 @@ export default function ProductForm({
               error={fieldError("taxType")}
               pending={isPending}
             />
+            <FormSelect
+              name="defaultDiscountType"
+              label="Default Sale Discount Type"
+              required
+              value={formValues.defaultDiscountType}
+              onChange={(value) => updateFormValue("defaultDiscountType", value)}
+              options={[
+                { id: "Percentage", name: "Percentage" },
+                { id: "Fixed", name: "Fixed amount per unit" },
+              ]}
+              error={fieldError("defaultDiscountType")}
+              pending={isPending}
+            />
+            <FormInput
+              name="defaultDiscount"
+              label="Default Sale Discount"
+              required
+              value={formValues.defaultDiscount}
+              onChange={(value) => updateFormValue("defaultDiscount", value)}
+              error={fieldError("defaultDiscount")}
+              pending={isPending}
+              placeholder="0"
+              type="number"
+              step="0.01"
+              max={formValues.defaultDiscountType === "Percentage" ? "100" : formValues.price || MAX_PRODUCT_PRICE}
+              prefix={formValues.defaultDiscountType === "Fixed" ? "$" : undefined}
+              suffix={formValues.defaultDiscountType === "Percentage" ? "%" : undefined}
+            />
+            <p className="gg-caption span-2">
+              Applies to sales only. Fixed discounts are per unit; warehouse overrides can replace or disable this default.
+            </p>
+            <section className="product-warehouse-discounts span-2" aria-labelledby="product-warehouse-discounts-title">
+              <div className="product-warehouse-discounts-heading">
+                <h2 id="product-warehouse-discounts-title">Warehouse Overrides</h2>
+                <p>By default, every warehouse uses the product discount above. Enable an override to set a different discount or enter 0 to disable it.</p>
+              </div>
+              {warehouseOptions.length ? (
+                <div className="product-warehouse-discount-list">
+                  {warehouseOptions.map((warehouse) => {
+                    const override = warehouseDiscounts.find((discount) => discount.warehouseId === warehouse.id);
+                    const typeId = `warehouse-discount-type-${warehouse.id}`;
+                    const amountId = `warehouse-discount-amount-${warehouse.id}`;
+                    return (
+                      <div className="product-warehouse-discount" key={warehouse.id}>
+                        <div className="product-warehouse-discount-top">
+                          <strong>{warehouse.name}</strong>
+                          <label className="product-warehouse-discount-toggle">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(override)}
+                              disabled={isPending}
+                              onChange={(event) => toggleWarehouseDiscount(warehouse.id, event.target.checked)}
+                            />
+                            <span>Override discount</span>
+                          </label>
+                        </div>
+                        {override ? (
+                          <div className="product-warehouse-discount-fields">
+                            <div className="gg-field">
+                              <label className="gg-label" htmlFor={typeId}>Discount type</label>
+                              <select
+                                className="gg-select"
+                                id={typeId}
+                                value={override.discountType}
+                                disabled={isPending}
+                                onChange={(event) => updateWarehouseDiscount(
+                                  warehouse.id,
+                                  { discountType: event.target.value === "Fixed" ? "Fixed" : "Percentage" },
+                                )}
+                              >
+                                <option value="Percentage">Percentage</option>
+                                <option value="Fixed">Fixed amount per unit</option>
+                              </select>
+                            </div>
+                            <div className="gg-field">
+                              <label className="gg-label" htmlFor={amountId}>Discount amount</label>
+                              <div className="gg-input-group">
+                                {override.discountType === "Fixed" && <span className="gg-input-prefix">$</span>}
+                                <input
+                                  className="gg-input"
+                                  id={amountId}
+                                  type="number"
+                                  min="0"
+                                  max={override.discountType === "Percentage" ? "100" : formValues.price || MAX_PRODUCT_PRICE}
+                                  step="0.01"
+                                  value={override.discount}
+                                  disabled={isPending}
+                                  aria-invalid={Boolean(fieldError("warehouseDiscounts"))}
+                                  aria-describedby={fieldError("warehouseDiscounts") ? "warehouse-discounts-error" : undefined}
+                                  onChange={(event) => updateWarehouseDiscount(
+                                    warehouse.id,
+                                    { discount: event.target.value },
+                                  )}
+                                />
+                                {override.discountType === "Percentage" && <span className="gg-input-suffix">%</span>}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="product-warehouse-discount-inherit">Uses the default product discount</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="product-warehouse-discount-inherit">No active warehouses are available.</p>
+              )}
+              {fieldError("warehouseDiscounts") && (
+                <span className="warehouse-field-error" id="warehouse-discounts-error" role="alert">
+                  {fieldError("warehouseDiscounts")}
+                </span>
+              )}
+            </section>
             <FormInput
               name="quantityLimitation"
               label="Quantity Limitation"

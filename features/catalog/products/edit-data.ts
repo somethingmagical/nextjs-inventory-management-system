@@ -3,7 +3,7 @@ import "server-only";
 import { db } from "@/lib/db";
 
 export async function getProductEditData(id: string) {
-  const [product, categories, brands, units] = await Promise.all([
+  const [product, categories, brands, units, warehouses] = await Promise.all([
     db.product.findFirst({
       where: { id, deletedAt: null },
       select: {
@@ -17,9 +17,15 @@ export async function getProductEditData(id: string) {
         stockAlert: true,
         orderTax: true,
         taxType: true,
+        defaultDiscountType: true,
+        defaultDiscount: true,
         quantityLimitation: true,
         notes: true,
         images: true,
+        warehouseDiscounts: {
+          where: { warehouse: { deletedAt: null } },
+          select: { warehouseId: true, discountType: true, discount: true },
+        },
       },
     }),
     db.category.findMany({
@@ -37,7 +43,12 @@ export async function getProductEditData(id: string) {
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
+    db.warehouse.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
   ]);
 
-  return { product, categories, brands, units };
+  return { product, categories, brands, units, warehouses };
 }

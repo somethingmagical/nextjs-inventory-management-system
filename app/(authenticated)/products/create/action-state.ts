@@ -5,7 +5,7 @@ export type ProductField = keyof ProductFormValues;
 export type ProductActionState = {
   status: "idle" | "error" | "success";
   message: string;
-  fieldErrors?: Partial<Record<ProductField | "images", string[]>>;
+  fieldErrors?: Partial<Record<ProductField | "images" | "warehouseDiscounts", string[]>>;
 };
 
 export const initialProductActionState: ProductActionState = {

@@ -3,6 +3,12 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 
+type WarehouseDiscountInput = {
+  warehouseId: string;
+  discountType: "Fixed" | "Percentage";
+  discount: string;
+};
+
 export async function updateProductDetails(input: {
   id: string;
   expectedUpdatedAt: Date;
@@ -16,6 +22,9 @@ export async function updateProductDetails(input: {
     stockAlert: string | null;
     orderTax: string | null;
     taxType: "Exclusive" | "Inclusive";
+    defaultDiscountType: "Fixed" | "Percentage";
+    defaultDiscount: string;
+    warehouseDiscounts: WarehouseDiscountInput[];
     quantityLimitation: string | null;
     notes: string | null;
   };
@@ -30,7 +39,7 @@ export async function updateProductDetails(input: {
       return false;
     }
 
-    const [category, brand, unit] = await Promise.all([
+    const [category, brand, unit, activeWarehouses] = await Promise.all([
       transaction.category.findFirst({
         where: { id: input.details.categoryId, deletedAt: null },
         select: { id: true, name: true },
@@ -43,8 +52,20 @@ export async function updateProductDetails(input: {
         where: { name: input.details.productUnit, deletedAt: null },
         select: { name: true },
       }),
+      transaction.warehouse.findMany({
+        where: { deletedAt: null },
+        select: { id: true },
+      }),
     ]);
-    if (!category || !brand || !unit) return false;
+    const activeWarehouseIds = new Set(activeWarehouses.map((warehouse) => warehouse.id));
+    if (
+      !category
+      || !brand
+      || !unit
+      || input.details.warehouseDiscounts.some((override) => !activeWarehouseIds.has(override.warehouseId))
+      || new Set(input.details.warehouseDiscounts.map((override) => override.warehouseId)).size
+        !== input.details.warehouseDiscounts.length
+    ) return false;
 
     const result = await transaction.product.updateMany({
       where: { id: current.id, updatedAt: current.updatedAt, deletedAt: null },
@@ -58,6 +79,8 @@ export async function updateProductDetails(input: {
         stockAlert: input.details.stockAlert,
         orderTax: input.details.orderTax,
         taxType: input.details.taxType,
+        defaultDiscountType: input.details.defaultDiscountType,
+        defaultDiscount: input.details.defaultDiscount,
         quantityLimitation: input.details.quantityLimitation,
         notes: input.details.notes,
         images: input.images.length ? input.images : Prisma.JsonNull,
@@ -71,6 +94,25 @@ export async function updateProductDetails(input: {
       },
     });
 
-    return result.count === 1;
+    if (result.count !== 1) return false;
+
+    await transaction.productWarehouseDiscount.deleteMany({
+      where: {
+        productId: current.id,
+        warehouseId: { in: activeWarehouses.map((warehouse) => warehouse.id) },
+      },
+    });
+    if (input.details.warehouseDiscounts.length) {
+      await transaction.productWarehouseDiscount.createMany({
+        data: input.details.warehouseDiscounts.map((override) => ({
+          productId: current.id,
+          warehouseId: override.warehouseId,
+          discountType: override.discountType,
+          discount: override.discount,
+        })),
+      });
+    }
+
+    return true;
   }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
 }

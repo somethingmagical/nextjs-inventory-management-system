@@ -53,7 +53,8 @@ async function increaseStockBalance(
 
   const updated = await transaction.productStock.updateMany({
     where: {
-      ...unique,
+      productId: input.productId,
+      warehouseId: input.warehouseId,
       quantity: {
         lte: maxQuantity.minus(input.quantity),
         ...(input.expectedQuantity ? { equals: input.expectedQuantity } : {}),
@@ -102,17 +103,12 @@ export async function applyStockAdjustment(
   },
 ) {
   const quantity = new Prisma.Decimal(input.quantity);
-  const unique = {
-    productId_warehouseId: {
-      productId: input.productId,
-      warehouseId: input.warehouseId,
-    },
-  };
 
   if (input.type === "Subtraction") {
     const updated = await transaction.productStock.updateMany({
       where: {
-        ...unique,
+        productId: input.productId,
+        warehouseId: input.warehouseId,
         quantity: {
           gte: quantity,
           ...(input.expectedQuantity ? { equals: input.expectedQuantity } : {}),

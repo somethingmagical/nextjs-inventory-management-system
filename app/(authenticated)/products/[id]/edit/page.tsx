@@ -44,7 +44,7 @@ async function AuthorizedEditProduct({ params }: EditProductPageProps) {
   const parsedId = productIdSchema.safeParse(id);
   if (!parsedId.success) notFound();
 
-  const { product, categories, brands, units } = await getProductEditData(parsedId.data);
+  const { product, categories, brands, units, warehouses } = await getProductEditData(parsedId.data);
   if (!product) notFound();
   const unitOptions = units.map((unit) => ({ ...unit, value: unit.name }));
 
@@ -59,6 +59,8 @@ async function AuthorizedEditProduct({ params }: EditProductPageProps) {
     stockAlert: product.stockAlert?.toString() ?? "",
     orderTax: product.orderTax?.toString() ?? "",
     taxType: product.taxType,
+    defaultDiscountType: product.defaultDiscountType,
+    defaultDiscount: product.defaultDiscount.toString(),
     quantityLimitation: product.quantityLimitation?.toString() ?? "",
     notes: product.notes ?? "",
   };
@@ -77,6 +79,12 @@ async function AuthorizedEditProduct({ params }: EditProductPageProps) {
         canCreateWarehouse={false}
         brands={brands}
         units={unitOptions}
+        warehouses={warehouses}
+        initialWarehouseDiscounts={product.warehouseDiscounts.map((override) => ({
+          warehouseId: override.warehouseId,
+          discountType: override.discountType,
+          discount: override.discount.toString(),
+        }))}
         images={getProductImagePaths(product.images)}
       />
     </DashboardLayout>

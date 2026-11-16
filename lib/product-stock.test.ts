@@ -16,6 +16,10 @@ function createTransaction(initialQuantity?: string, initialSupplierId: string |
         supplierId: initialSupplierId,
       };
   const writes: { create?: { supplierId: string | null }; update?: object }[] = [];
+  const updateFilters: {
+    productId: string;
+    warehouseId: string;
+  }[] = [];
   const movementWrites: {
     data: {
       productId: string;
@@ -32,9 +36,17 @@ function createTransaction(initialQuantity?: string, initialSupplierId: string |
     productStock: {
       findUnique: async () => stock && { quantity: stock.quantity },
       updateMany: async (input: {
-        where: { quantity?: { gte?: Prisma.Decimal; lte?: Prisma.Decimal } };
+        where: {
+          productId: string;
+          warehouseId: string;
+          quantity?: { gte?: Prisma.Decimal; lte?: Prisma.Decimal };
+        };
         data: { quantity: { increment?: Prisma.Decimal; decrement?: Prisma.Decimal } };
       }) => {
+        updateFilters.push({
+          productId: input.where.productId,
+          warehouseId: input.where.warehouseId,
+        });
         if (!stock) return { count: 0 };
         if (input.where.quantity?.gte && stock.quantity.lessThan(input.where.quantity.gte)) {
           return { count: 0 };
@@ -77,6 +89,7 @@ function createTransaction(initialQuantity?: string, initialSupplierId: string |
     quantity: () => stock?.quantity.toString() ?? null,
     supplierId: () => stock?.supplierId ?? null,
     writes,
+    updateFilters,
     movementWrites,
   };
 }
@@ -102,6 +115,10 @@ test("stock subtraction changes the transaction balance by exact decimal quantit
 
   assert.equal(fake.quantity(), "6.1");
   assert.equal(fake.writes.length, 1);
+  assert.deepEqual(fake.updateFilters, [{
+    productId: "product-1",
+    warehouseId: "warehouse-1",
+  }]);
   assert.equal(fake.movementWrites.length, 1);
   assert.equal(fake.movementWrites[0].data.quantity.toString(), "-2.025");
 });

@@ -1057,6 +1057,17 @@ select option { background: var(--dropdown-bg); color: var(--ink); }
 .product-image-picker { display: flex; min-height: 116px; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-2); padding: var(--sp-4); border: 1px dashed var(--gray-300); border-radius: var(--r-md); background: var(--gray-50); color: var(--gray-700); cursor: pointer; text-align: center; }
 .product-image-picker > svg { width: 24px; height: 24px; color: var(--gold-600); }
 .product-image-picker:hover { border-color: var(--gold-500); background: var(--gold-50); }
+.product-warehouse-discounts { display: grid; gap: var(--sp-3); min-width: 0; padding: var(--sp-4); border: 1px solid var(--gray-200); border-radius: var(--r-md); background: var(--gray-50); }
+.product-warehouse-discounts-heading h2 { margin: 0 0 var(--sp-1); color: var(--ink); font-size: 15px; }
+.product-warehouse-discounts-heading p,
+.product-warehouse-discount-inherit { margin: 0; color: var(--gray-600); font-size: 13px; line-height: 1.5; }
+.product-warehouse-discount-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: var(--sp-3); }
+.product-warehouse-discount { display: grid; gap: var(--sp-3); min-width: 0; padding: var(--sp-3); border: 1px solid var(--gray-200); border-radius: var(--r-sm); background: var(--surface); }
+.product-warehouse-discount-top { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.product-warehouse-discount-top > strong { min-width: 0; overflow-wrap: anywhere; color: var(--ink); font-size: 13px; }
+.product-warehouse-discount-toggle { display: inline-flex; flex: 0 0 auto; align-items: center; gap: var(--sp-2); color: var(--gray-700); font-size: 12px; font-weight: 600; }
+.product-warehouse-discount-toggle input { width: 16px; height: 16px; accent-color: var(--gold-600); }
+.product-warehouse-discount-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-3); }
 .product-prerequisite-notice { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: 0 var(--sp-6) var(--sp-6); padding: var(--sp-4); border: 1px solid var(--warning); border-radius: var(--r-md); background: var(--warning-bg); color: var(--warning-fg); }
 .product-prerequisite-notice > strong { color: var(--ink); }
 .product-prerequisite-notice a { font-weight: 700; text-decoration: underline; }
@@ -1099,6 +1110,7 @@ select option { background: var(--dropdown-bg); color: var(--ink); }
 @media (max-width: 600px) {
   .field-grid { grid-template-columns: 1fr; }
   .field-grid .span-2, .product-form-actions { grid-column: auto; }
+  .product-warehouse-discount-fields { grid-template-columns: 1fr; }
   .product-detail-head { align-items: flex-start; flex-direction: column; }
   .product-detail-actions { width: 100%; }
   .product-detail-actions > .gg-btn { flex: 1; justify-content: center; }
@@ -2689,6 +2701,7 @@ body:has(.pos-screen) { height: 100dvh; overflow: hidden; background: var(--pos-
 .pos-cart-product-name { color: var(--pos-text); font-size: 12px; }
 .pos-cart-product-meta { flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .pos-cart-code { min-height: 18px; padding-inline: 5px; background: rgba(170, 180, 194, .12); color: var(--pos-muted); font-size: 9px; }
+.pos-cart-discount-hint { color: #F08ABC; font-size: 9px; font-weight: 700; white-space: nowrap; }
 .pos-cart-stock-hint { color: var(--pos-muted); font-size: 9px; }
 .pos-cart-edit { width: 20px; height: 20px; color: var(--pos-muted); }
 .pos-stepper { gap: 4px; }
@@ -2743,6 +2756,9 @@ body:has(.pos-screen) { height: 100dvh; overflow: hidden; background: var(--pos-
 .pos-product-art > .pos-product-photo { object-fit: cover; }
 .pos-product-tag { top: 7px; min-height: 22px; border-radius: 6px; padding-inline: 7px; font-size: 10px; }
 .pos-product-price { left: 7px; background: #151B24; color: var(--pos-text); }
+.pos-product-price.is-discounted { min-height: 32px; align-items: flex-start; flex-direction: column; justify-content: center; gap: 0; }
+.pos-product-price del { color: var(--pos-muted); font-size: 9px; line-height: 1.1; }
+.pos-product-price strong { color: #F08ABC; font-size: 11px; line-height: 1.2; }
 .pos-product-stock { right: 7px; background: var(--pos-success); color: #fff; }
 .pos-product-stock.is-low { background: var(--pos-warning); color: #231B10; }
 .pos-product-stock.is-unavailable { background: var(--pos-danger); color: #fff; }

@@ -1,8 +1,9 @@
 "use client";
 
-import { BrowserMultiFormatReader, type IScannerControls } from "@zxing/browser";
+import type { IScannerControls } from "@zxing/browser";
 import { Barcode, Camera, CircleAlert, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { createProductBarcodeReader } from "@/lib/product-barcode-reader";
 import useDialogFocus from "./useDialogFocus";
 
 export default function BarcodeScannerDialog({
@@ -31,7 +32,7 @@ export default function BarcodeScannerDialog({
     let controls: IScannerControls | null = null;
     let cancelled = false;
     let finished = false;
-    const reader = new BrowserMultiFormatReader();
+    const reader = createProductBarcodeReader();
 
     // Let React Strict Mode's setup/cleanup probe finish before requesting the camera.
     const startupTimer = window.setTimeout(() => {

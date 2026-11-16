@@ -12,6 +12,9 @@ const validProductDetails = {
   stockAlert: "0",
   orderTax: "0",
   taxType: "Exclusive" as const,
+  defaultDiscountType: "Percentage" as const,
+  defaultDiscount: "0",
+  warehouseDiscounts: "[]",
   quantityLimitation: "",
   notes: "",
 };
@@ -23,6 +26,96 @@ test("accepts a product price at the maximum", () => {
 test("rejects product prices above the maximum", () => {
   assert.equal(
     productDetailsSchema.safeParse({ ...validProductDetails, price: "1000000.00" }).success,
+    false,
+  );
+});
+
+test("accepts an explicit zero warehouse override", () => {
+  const parsed = productDetailsSchema.safeParse({
+    ...validProductDetails,
+    warehouseDiscounts: JSON.stringify([{
+      warehouseId: "warehouse-1",
+      discountType: "Fixed",
+      discount: "0",
+    }]),
+  });
+
+  assert.equal(parsed.success, true);
+  if (parsed.success) {
+    assert.deepEqual(parsed.data.warehouseDiscounts, [{
+      warehouseId: "warehouse-1",
+      discountType: "Fixed",
+      discount: "0",
+    }]);
+  }
+});
+
+test("allows discounts equal to their limits", () => {
+  assert.equal(
+    productDetailsSchema.safeParse({
+      ...validProductDetails,
+      defaultDiscount: "100",
+    }).success,
+    true,
+  );
+  assert.equal(
+    productDetailsSchema.safeParse({
+      ...validProductDetails,
+      defaultDiscountType: "Fixed",
+      defaultDiscount: "999999.99",
+    }).success,
+    true,
+  );
+});
+
+test("rejects discounts above the permitted amount", () => {
+  assert.equal(
+    productDetailsSchema.safeParse({
+      ...validProductDetails,
+      defaultDiscount: "100.01",
+    }).success,
+    false,
+  );
+  assert.equal(
+    productDetailsSchema.safeParse({
+      ...validProductDetails,
+      defaultDiscountType: "Fixed",
+      defaultDiscount: "1000000.00",
+    }).success,
+    false,
+  );
+});
+
+test("rejects duplicate warehouse overrides", () => {
+  assert.equal(
+    productDetailsSchema.safeParse({
+      ...validProductDetails,
+      warehouseDiscounts: JSON.stringify([
+        { warehouseId: "warehouse-1", discountType: "Percentage", discount: "5" },
+        { warehouseId: "warehouse-1", discountType: "Fixed", discount: "1" },
+      ]),
+    }).success,
+    false,
+  );
+});
+
+test("rejects invalid warehouse override values", () => {
+  assert.equal(
+    productDetailsSchema.safeParse({
+      ...validProductDetails,
+      warehouseDiscounts: JSON.stringify([
+        { warehouseId: "warehouse-1", discountType: "Percentage", discount: "100.01" },
+      ]),
+    }).success,
+    false,
+  );
+  assert.equal(
+    productDetailsSchema.safeParse({
+      ...validProductDetails,
+      warehouseDiscounts: JSON.stringify([
+        { warehouseId: "warehouse-1", discountType: "Fixed", discount: "1000000" },
+      ]),
+    }).success,
     false,
   );
 });

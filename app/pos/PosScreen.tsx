@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useActionState, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Prisma } from "@prisma/client";
-import { BrowserMultiFormatReader, type IScannerControls } from "@zxing/browser";
+import type { IScannerControls } from "@zxing/browser";
 import {
   Barcode,
   Banknote,
@@ -33,16 +33,21 @@ import {
   calculatePurchaseLineTotals,
   calculatePurchaseTotals,
 } from "@/lib/purchase-pricing";
+import {
+  calculateFixedLineDiscount,
+  calculateUnitDiscount,
+} from "@/lib/product-discount";
+import { createProductBarcodeReader } from "@/lib/product-barcode-reader";
 import { createSale } from "@/app/(authenticated)/sales/create/actions";
 import { initialSaleCreateActionState } from "@/app/(authenticated)/sales/create/action-state";
-import { createPosCustomer, initialPosCustomerActionState, loadPosProducts } from "./actions";
+import { createPosCustomer, loadPosProducts } from "./actions";
+import { initialPosCustomerActionState } from "./action-state";
 import type { CustomerField } from "@/app/(authenticated)/customers/create/action-state";
 import type { PosOption, PosProduct } from "./types";
 
 type PosCartItem = PosProduct & {
   quantity: string;
-  discountType: "Fixed" | "Percentage";
-  discount: string;
+  discountPerUnit: string | null;
 };
 
 type PosItemEdit = Pick<PosCartItem, "price" | "taxRate" | "taxType" | "discountType" | "discount">;
@@ -76,6 +81,8 @@ type PosReceipt = {
     unit: string;
     price: string;
     subtotal: string;
+    discount: string;
+    discountType: "Fixed" | "Percentage";
   }[];
 };
 
@@ -391,15 +398,26 @@ export default function PosScreen({
         const remainingStock = availableStock.minus(currentQuantity);
         if (remainingStock.isZero() || remainingStock.isNegative()) return current;
         const increment = Prisma.Decimal.min(remainingStock, new Prisma.Decimal(1));
-        return current.map((item) => item.id === product.id
-          ? { ...item, quantity: currentQuantity.plus(increment).toString() }
-          : item);
+        const nextQuantity = currentQuantity.plus(increment);
+        return current.map((item) => {
+          if (item.id !== product.id) return item;
+          return {
+            ...item,
+            quantity: nextQuantity.toString(),
+            ...(item.discountType === "Fixed" && item.discountPerUnit !== null
+              ? { discount: calculateFixedLineDiscount(item.discountPerUnit, nextQuantity).toFixed(2) }
+              : {}),
+          };
+        });
       }
+      const quantity = Prisma.Decimal.min(availableStock, new Prisma.Decimal(1));
       return [...current, {
         ...product,
-        quantity: Prisma.Decimal.min(availableStock, new Prisma.Decimal(1)).toString(),
-        discountType: "Fixed",
-        discount: "0.00",
+        quantity: quantity.toString(),
+        discount: product.discountType === "Fixed"
+          ? calculateFixedLineDiscount(product.discount, quantity).toFixed(2)
+          : product.discount,
+        discountPerUnit: product.discountType === "Fixed" ? product.discount : null,
       }];
     });
     return true;
@@ -428,10 +446,25 @@ export default function PosScreen({
         const remainingStock = availableStock.minus(currentQuantity);
         if (remainingStock.isZero() || remainingStock.isNegative()) return item;
         const increment = Prisma.Decimal.min(remainingStock, new Prisma.Decimal(delta));
-        return { ...item, quantity: currentQuantity.plus(increment).toString() };
+        const quantity = currentQuantity.plus(increment);
+        return {
+          ...item,
+          quantity: quantity.toString(),
+          ...(item.discountType === "Fixed" && item.discountPerUnit !== null
+            ? { discount: calculateFixedLineDiscount(item.discountPerUnit, quantity).toFixed(2) }
+            : {}),
+        };
       }
       const quantity = currentQuantity.plus(delta);
-      return quantity.greaterThan(0) ? { ...item, quantity: quantity.toString() } : item;
+      return quantity.greaterThan(0)
+        ? {
+          ...item,
+          quantity: quantity.toString(),
+          ...(item.discountType === "Fixed" && item.discountPerUnit !== null
+            ? { discount: calculateFixedLineDiscount(item.discountPerUnit, quantity).toFixed(2) }
+            : {}),
+        }
+        : item;
     }));
   }
 
@@ -453,7 +486,15 @@ export default function PosScreen({
     }
     setCartMessage("");
     setCart((current) => current.map((entry) => (
-      entry.id === productId ? { ...entry, quantity: quantity.toString() } : entry
+      entry.id === productId
+        ? {
+          ...entry,
+          quantity: quantity.toString(),
+          ...(entry.discountType === "Fixed" && entry.discountPerUnit !== null
+            ? { discount: calculateFixedLineDiscount(entry.discountPerUnit, quantity).toFixed(2) }
+            : {}),
+        }
+        : entry
     )));
   }
 
@@ -504,6 +545,8 @@ export default function PosScreen({
         unit: item.unit,
         price: item.price,
         subtotal: lineTotals.get(item.id)?.subtotal.toFixed(2) ?? "0.00",
+        discount: item.discount,
+        discountType: item.discountType,
       })),
     };
     setPaymentError("");
@@ -663,7 +706,17 @@ export default function PosScreen({
     }
 
     setCart((current) => current.map((item) => (
-      item.id === editingItemId ? { ...item, ...itemEdit } : item
+      item.id === editingItemId
+        ? {
+          ...item,
+          ...itemEdit,
+          discountPerUnit: itemEdit.discountType === "Fixed"
+            && item.discountType === "Fixed"
+            && item.discount === itemEdit.discount
+            ? item.discountPerUnit
+            : null,
+        }
+        : item
     )));
     closeItemEditor();
   }
@@ -837,6 +890,13 @@ export default function PosScreen({
                       <div className="pos-cart-product-name" title={item.name}>{item.name}</div>
                     <div className="pos-cart-product-meta">
                       <span className="pos-cart-code">{item.code}</span>
+                      {decimalValue(item.discount).greaterThan(0) && (
+                        <span className="pos-cart-discount-hint">
+                          {item.discountType === "Fixed"
+                            ? `$ ${formatPrice(item.discount)} off`
+                            : `${formatPrice(item.discount)}% off`}
+                        </span>
+                      )}
                       <span className="pos-cart-stock-hint">
                         Available: {formatStock(item.stock)} {item.unit}
                       </span>
@@ -1053,6 +1113,13 @@ export default function PosScreen({
                 && product.stockAlert !== null
                 && decimalValue(product.stockAlert).greaterThan(0)
                 && stock.lessThanOrEqualTo(decimalValue(product.stockAlert));
+              const unitDiscount = calculateUnitDiscount(
+                product.price,
+                product.discountType,
+                product.discount,
+              );
+              const hasDiscount = unitDiscount.greaterThan(0);
+              const salePrice = decimalValue(product.price).minus(unitDiscount).toString();
               return (
                 <article className="pos-product-card" key={product.id}>
                   <button
@@ -1075,7 +1142,14 @@ export default function PosScreen({
                       ) : (
                         <PackageOpen aria-hidden="true" />
                       )}
-                      <span className="pos-product-tag pos-product-price">$ {formatPrice(product.price)}</span>
+                      <span className={`pos-product-tag pos-product-price${hasDiscount ? " is-discounted" : ""}`}>
+                        {hasDiscount ? (
+                          <>
+                            <del>$ {formatPrice(product.price)}</del>
+                            <strong>$ {formatPrice(salePrice)}</strong>
+                          </>
+                        ) : `$ ${formatPrice(product.price)}`}
+                      </span>
                       <span className={`pos-product-tag pos-product-stock${outOfStock ? " is-unavailable" : lowStock ? " is-low" : ""}`}>
                         {formatStock(product.stock)} {product.unit}
                       </span>
@@ -1263,29 +1337,34 @@ function PosBarcodeScannerModal({
     let controls: IScannerControls | null = null;
     let cancelled = false;
     let finished = false;
-    const reader = new BrowserMultiFormatReader();
-    void reader.decodeFromVideoDevice(undefined, video, (result) => {
-      if (!result || cancelled || finished) return;
-      const code = result.getText();
-      setScannedCode(code);
-      if (onDetectedRef.current(code)) {
-        finished = true;
-        controls?.stop();
-      } else {
-        setError(`No available product matches “${code}”. Try another barcode or search by name.`);
-      }
-    }).then((nextControls) => {
-      controls = nextControls;
-      if (cancelled || finished) controls.stop();
-    }).catch((cameraError: unknown) => {
+    const reader = createProductBarcodeReader();
+    const startupTimer = window.setTimeout(() => {
       if (cancelled) return;
-      setError(cameraError instanceof Error
-        ? `Could not start the camera: ${cameraError.message}`
-        : "Could not start the camera. Check camera permissions and try again.");
-    });
+
+      void reader.decodeFromVideoDevice(undefined, video, (result) => {
+        if (!result || cancelled || finished) return;
+        const code = result.getText();
+        setScannedCode(code);
+        if (onDetectedRef.current(code)) {
+          finished = true;
+          controls?.stop();
+        } else {
+          setError(`No available product matches “${code}”. Try another barcode or search by name.`);
+        }
+      }).then((nextControls) => {
+        controls = nextControls;
+        if (cancelled || finished) controls.stop();
+      }).catch((cameraError: unknown) => {
+        if (cancelled) return;
+        setError(cameraError instanceof Error
+          ? `Could not start the camera: ${cameraError.message}`
+          : "Could not start the camera. Check camera permissions and try again.");
+      });
+    }, 0);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(startupTimer);
       controls?.stop();
     };
   }, []);
@@ -1590,7 +1669,7 @@ function PosReceiptModal({
         </dl>
         <table className="pos-print-items">
           <thead>
-            <tr><th>Product</th><th>Qty</th><th>Price</th><th>Subtotal</th></tr>
+            <tr><th>Product</th><th>Qty</th><th>Price</th><th>Discount</th><th>Subtotal</th></tr>
           </thead>
           <tbody>
             {receipt.items.map((item, index) => (
@@ -1598,6 +1677,9 @@ function PosReceiptModal({
                 <td>{item.name}<small>{item.code}</small></td>
                 <td>{item.quantity} {item.unit}</td>
                 <td>{formatMoney(new Prisma.Decimal(item.price))}</td>
+                <td>{item.discountType === "Fixed"
+                  ? formatMoney(new Prisma.Decimal(item.discount))
+                  : `${formatPrice(item.discount)}%`}</td>
                 <td>{formatMoney(new Prisma.Decimal(item.subtotal))}</td>
               </tr>
             ))}

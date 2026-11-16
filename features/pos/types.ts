@@ -13,4 +13,6 @@ export type PosProduct = {
   brandName: string;
   taxRate: string;
   taxType: "Inclusive" | "Exclusive";
+  discountType: "Fixed" | "Percentage";
+  discount: string;
 };

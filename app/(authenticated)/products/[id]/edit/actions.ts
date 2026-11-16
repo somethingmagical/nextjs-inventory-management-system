@@ -47,6 +47,9 @@ export async function updateProduct(
     stockAlert: formData.get("stockAlert"),
     orderTax: formData.get("orderTax"),
     taxType: formData.get("taxType"),
+    defaultDiscountType: formData.get("defaultDiscountType"),
+    defaultDiscount: formData.get("defaultDiscount"),
+    warehouseDiscounts: formData.get("warehouseDiscounts"),
     quantityLimitation: formData.get("quantityLimitation"),
     notes: formData.get("notes"),
   });
@@ -136,7 +139,7 @@ export async function updateProduct(
       await removeProductImages(upload.images.map((image) => image.path));
       return {
         status: "error",
-        message: "The product or one of its selected references is no longer available.",
+        message: "The product, a selected reference, or a warehouse discount setting is no longer available. Refresh and try again.",
       };
     }
   } catch (error) {

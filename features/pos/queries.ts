@@ -1,6 +1,7 @@
 import "server-only";
 
 import { db } from "@/lib/db";
+import { resolveProductDiscount } from "@/lib/product-discount";
 import type { PosProduct } from "./types";
 
 export async function getPosPageData() {
@@ -62,6 +63,8 @@ export async function getPosProducts(warehouseId: string): Promise<PosProduct[]>
       stockAlert: true,
       orderTax: true,
       taxType: true,
+      defaultDiscountType: true,
+      defaultDiscount: true,
       categoryId: true,
       categoryRecord: { select: { name: true } },
       brandId: true,
@@ -70,25 +73,46 @@ export async function getPosProducts(warehouseId: string): Promise<PosProduct[]>
         where: { warehouseId },
         select: { quantity: true },
       },
+      warehouseDiscounts: {
+        where: { warehouseId },
+        select: { discountType: true, discount: true },
+      },
     },
   });
 
-  return products.map((product) => ({
-    id: product.id,
-    code: product.code,
-    name: product.name,
-    image: getPrimaryImage(product.images, product.image),
-    price: product.price.toString(),
-    stock: product.productStocks[0]?.quantity.toString() ?? "0",
-    stockAlert: product.stockAlert?.toString() ?? null,
-    unit: product.productUnit,
-    taxRate: product.orderTax?.toString() ?? "0",
-    taxType: product.taxType,
-    categoryId: product.categoryId,
-    categoryName: product.categoryRecord.name,
-    brandId: product.brandId,
-    brandName: product.brandRecord.name,
-  }));
+  return products.map((product) => {
+    const warehouseOverride = product.warehouseDiscounts[0];
+    const discount = resolveProductDiscount(
+      {
+        discountType: product.defaultDiscountType,
+        discount: product.defaultDiscount.toString(),
+      },
+      warehouseOverride
+        ? {
+          discountType: warehouseOverride.discountType,
+          discount: warehouseOverride.discount.toString(),
+        }
+        : null,
+    );
+    return {
+      id: product.id,
+      code: product.code,
+      name: product.name,
+      image: getPrimaryImage(product.images, product.image),
+      price: product.price.toString(),
+      stock: product.productStocks[0]?.quantity.toString() ?? "0",
+      stockAlert: product.stockAlert?.toString() ?? null,
+      unit: product.productUnit,
+      taxRate: product.orderTax?.toString() ?? "0",
+      taxType: product.taxType,
+      categoryId: product.categoryId,
+      categoryName: product.categoryRecord.name,
+      brandId: product.brandId,
+      brandName: product.brandRecord.name,
+      discountType: discount.discountType,
+      discount: discount.discount,
+    };
+  });
 }
 
 function getPrimaryImage(images: unknown, legacyImage: string | null): string | null {

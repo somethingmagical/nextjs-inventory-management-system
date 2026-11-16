@@ -8,20 +8,9 @@ import { db } from "@/lib/db";
 import { PERMISSION } from "@/lib/permissions";
 import { getPosProducts } from "@/features/pos/queries";
 import { customerSchema } from "@/app/(authenticated)/customers/customer-schema";
-import type { CustomerField } from "@/app/(authenticated)/customers/create/action-state";
-import type { PosOption } from "./types";
+import type { PosCustomerActionState } from "./action-state";
 
 const warehouseIdSchema = z.string().trim().min(1).max(191);
-
-export type PosCustomerActionState =
-  | { status: "idle"; message: "" }
-  | { status: "error"; message: string; fieldErrors?: Partial<Record<CustomerField, string[]>> }
-  | { status: "success"; message: string; customer: PosOption };
-
-export const initialPosCustomerActionState: PosCustomerActionState = {
-  status: "idle",
-  message: "",
-};
 
 export async function createPosCustomer(
   _previousState: PosCustomerActionState,
