@@ -17,6 +17,7 @@
   "dependencies": {
     "@prisma/adapter-mariadb": "^7.10.1",
     "@prisma/client": "^7.10.1",
+    "@zxing/browser": "^0.2.1",
     "bcryptjs": "^3.0.3",
     "chart.js": "^4.6.1",
     "dotenv": "^18.0.10",

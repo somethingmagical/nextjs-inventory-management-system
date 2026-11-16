@@ -3,8 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useRef, useState, type RefObject } from "react";
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, ImagePlus, Info, Plus, X } from "lucide-react";
+import { useActionState, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { ArrowLeft, Barcode, Check, ChevronLeft, ChevronRight, ImagePlus, Info, Plus, X } from "lucide-react";
 import {
   initialProductActionState,
   type ProductActionState,
@@ -13,6 +13,7 @@ import {
 import type { ProductFormValues } from "../product-schema";
 import { MAX_PRODUCT_PRICE } from "@/lib/product-price";
 import { useRetainedFormValues } from "@/components/shared/useRetainedFormValues";
+import BarcodeScannerDialog from "@/components/shared/BarcodeScannerDialog";
 import ProductReferenceCreateDialog, { type ProductReferenceKind } from "@/components/master-data/ProductReferenceCreateDialog";
 
 type ProductFormAction = (
@@ -102,6 +103,7 @@ export default function ProductForm({
   const [imageSelectionError, setImageSelectionError] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
+  const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
   const currentImages = images.filter((image) => !removedImages.includes(image));
   const orderedImageKeys = imageOrder ?? [
     ...currentImages.map(existingImageKey),
@@ -316,6 +318,17 @@ export default function ProductForm({
               error={fieldError("code")}
               pending={isPending}
               placeholder="Enter Code"
+              action={
+                <button
+                  className="product-code-scan"
+                  type="button"
+                  aria-label="Scan barcode"
+                  disabled={isPending}
+                  onClick={() => setIsBarcodeScannerOpen(true)}
+                >
+                  <Barcode aria-hidden="true" />
+                </button>
+              }
             />
             <FormSelect
               name="categoryId"
@@ -632,6 +645,16 @@ export default function ProductForm({
           onCreated={(reference) => handleReferenceCreated(activeQuickCreate, reference)}
         />
       )}
+      {isBarcodeScannerOpen && (
+        <BarcodeScannerDialog
+          onDetected={(code) => {
+            updateFormValue("code", code);
+            setIsBarcodeScannerOpen(false);
+            return true;
+          }}
+          onClose={() => setIsBarcodeScannerOpen(false)}
+        />
+      )}
     </main>
   );
 }
@@ -650,6 +673,7 @@ function FormInput({
   max,
   prefix,
   suffix,
+  action,
 }: {
   name: ProductField;
   label: string;
@@ -664,13 +688,17 @@ function FormInput({
   max?: string;
   prefix?: string;
   suffix?: string;
+  action?: ReactNode;
 }) {
   return (
     <div className="gg-field">
       <label className="gg-label" htmlFor={name}>
         {label}{required && <> <span className="gg-req">*</span></>}
       </label>
-      <div className={prefix || suffix ? "gg-input-group" : undefined}>
+      <div className={prefix || suffix || action
+        ? `gg-input-group${action ? " product-code-input-group" : ""}`
+        : undefined}
+      >
         {prefix && <span className="gg-input-prefix">{prefix}</span>}
         <input
           className="gg-input"
@@ -689,6 +717,7 @@ function FormInput({
           disabled={pending}
         />
         {suffix && <span className="gg-input-suffix">{suffix}</span>}
+        {action}
       </div>
       {error && <span className="warehouse-field-error" id={`${name}-error`}>{error}</span>}
     </div>

@@ -3,12 +3,16 @@
 import Image from "next/image";
 import { useActionState, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Prisma } from "@prisma/client";
+import { BrowserMultiFormatReader, type IScannerControls } from "@zxing/browser";
 import {
+  Barcode,
   Banknote,
+  Camera,
   CalendarDays,
   Check,
   ChevronDown,
   CircleCheck,
+  CircleAlert,
   Hand,
   Home,
   List,
@@ -75,14 +79,6 @@ type PosReceipt = {
   }[];
 };
 
-const cardColors = [
-  ["#E48FA6", "#C75C7E"],
-  ["#9FB6C9", "#6E8BA6"],
-  ["#8FC9A6", "#4E9E73"],
-  ["#E8A6B4", "#D06A82"],
-  ["#E79BB0", "#CE6B88"],
-];
-
 function formatPrice(price: string) {
   return Number(price).toLocaleString("en-US", {
     minimumFractionDigits: 2,
@@ -131,11 +127,14 @@ export default function PosScreen({
 }) {
   const [customerId, setCustomerId] = useState(defaultCustomerId);
   const [customerOptions, setCustomerOptions] = useState(customers);
+  const [isCustomerMenuOpen, setIsCustomerMenuOpen] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState("");
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [warehouseId, setWarehouseId] = useState(initialWarehouseId);
   const [products, setProducts] = useState(initialProducts);
   const [cart, setCart] = useState<PosCartItem[]>([]);
   const [search, setSearch] = useState("");
+  const [isCameraScannerOpen, setIsCameraScannerOpen] = useState(false);
   const [categoryId, setCategoryId] = useState("all");
   const [brandId, setBrandId] = useState("all");
   const [loadError, setLoadError] = useState("");
@@ -145,6 +144,9 @@ export default function PosScreen({
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [itemEdit, setItemEdit] = useState<PosItemEdit | null>(null);
   const [itemEditError, setItemEditError] = useState("");
+  const [cartMessage, setCartMessage] = useState("");
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [heldOrderToDiscard, setHeldOrderToDiscard] = useState<string | null>(null);
   const [heldOrders, setHeldOrders] = useState<HeldPosOrder[]>([]);
   const [isHeldOrdersOpen, setIsHeldOrdersOpen] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
@@ -159,13 +161,19 @@ export default function PosScreen({
     initialSaleCreateActionState,
   );
   const saleFormRef = useRef<HTMLFormElement>(null);
+  const productSearchRef = useRef<HTMLInputElement>(null);
+  const customerMenuRef = useRef<HTMLDivElement>(null);
+  const customerSearchRef = useRef<HTMLInputElement>(null);
   const pendingReceiptRef = useRef<Omit<PosReceipt, "saleId" | "reference"> | null>(null);
   const requestId = useRef(0);
   const lastLoadedWarehouseId = useRef(initialWarehouseId);
+  const barcodeBuffer = useRef("");
+  const lastBarcodeKeyAt = useRef(0);
 
   const handleCustomerCreated = useCallback((customer: PosOption) => {
     setCustomerOptions((current) => [...current, customer]);
     setCustomerId(customer.id);
+    setIsCustomerMenuOpen(false);
     setIsCustomerModalOpen(false);
   }, []);
 
@@ -173,6 +181,16 @@ export default function PosScreen({
     const now = new Date();
     return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
   });
+
+  const clearCurrentOrder = useCallback(() => {
+    setCart([]);
+    setOrderTax("0.00");
+    setOrderDiscount("0.00");
+    setShipping("0.00");
+    setEditingItemId(null);
+    setItemEdit(null);
+    setItemEditError("");
+  }, []);
 
   useEffect(() => {
     if (!editingItemId) return;
@@ -211,6 +229,27 @@ export default function PosScreen({
   }, [isPaymentOpen, isSavingSale, receipt]);
 
   useEffect(() => {
+    if (!isCustomerMenuOpen) return;
+
+    customerSearchRef.current?.focus();
+    function handlePointerDown(event: PointerEvent) {
+      if (event.target instanceof Node && !customerMenuRef.current?.contains(event.target)) {
+        setIsCustomerMenuOpen(false);
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setIsCustomerMenuOpen(false);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isCustomerMenuOpen]);
+
+  useEffect(() => {
     if (saleActionState.status === "error") {
       setPaymentActionError(saleActionState.message);
       return;
@@ -241,7 +280,7 @@ export default function PosScreen({
       setLoadError("");
       setProducts(result.products);
     });
-  }, [saleActionState, startLoading, warehouseId]);
+  }, [clearCurrentOrder, saleActionState, startLoading, warehouseId]);
 
   useEffect(() => {
     if (!warehouseId || warehouseId === lastLoadedWarehouseId.current) return;
@@ -271,6 +310,12 @@ export default function PosScreen({
         || product.code.toLocaleLowerCase().includes(normalizedSearch))
     ));
   }, [brandId, categoryId, products, search]);
+  const visibleCustomers = useMemo(() => {
+    const query = customerSearch.trim().toLocaleLowerCase();
+    return customerOptions.filter((customer) =>
+      !query || customer.name.toLocaleLowerCase().includes(query),
+    );
+  }, [customerOptions, customerSearch]);
 
   const { lineTotals, orderTotals, totalQuantity, pricingError } = useMemo(() => {
     const nextLineTotals = new Map<string, ReturnType<typeof calculatePurchaseLineTotals>>();
@@ -325,10 +370,20 @@ export default function PosScreen({
     ? Prisma.Decimal.max(parsedTenderedAmount.minus(orderTotals.grandTotal), new Prisma.Decimal(0))
     : null;
 
-  function addProduct(product: PosProduct) {
+  const addProduct = useCallback((product: PosProduct) => {
     const availableStock = decimalValue(product.stock);
-    if (availableStock.isZero() || availableStock.isNegative()) return;
+    if (availableStock.isZero() || availableStock.isNegative()) {
+      setCartMessage(`${product.name} is out of stock at this warehouse.`);
+      return false;
+    }
 
+    const existingItem = cart.find((item) => item.id === product.id);
+    if (existingItem && availableStock.lessThanOrEqualTo(decimalValue(existingItem.quantity))) {
+      setCartMessage(`Only ${formatStock(product.stock)} ${product.unit} available for ${product.name}.`);
+      return false;
+    }
+
+    setCartMessage("");
     setCart((current) => {
       const existing = current.find((item) => item.id === product.id);
       if (existing) {
@@ -347,7 +402,22 @@ export default function PosScreen({
         discount: "0.00",
       }];
     });
-  }
+    return true;
+  }, [cart]);
+
+  const addScannedProduct = useCallback((rawCode: string) => {
+    const code = rawCode.trim().toLocaleLowerCase();
+    if (!code) return false;
+    const product = products.find((item) => item.code.trim().toLocaleLowerCase() === code);
+    if (!product) {
+      setCartMessage(`No product code matches “${rawCode.trim()}”.`);
+      setSearch(rawCode.trim());
+      return false;
+    }
+    const added = addProduct(product);
+    setSearch("");
+    return added;
+  }, [addProduct, products]);
 
   function changeQuantity(productId: string, delta: number) {
     setCart((current) => current.map((item) => {
@@ -365,7 +435,29 @@ export default function PosScreen({
     }));
   }
 
-  function makeHeldOrder(): HeldPosOrder {
+  function setItemQuantity(productId: string, value: string) {
+    if (!/^\d{1,9}(?:\.\d{0,3})?$/.test(value)) return;
+    let quantity: Prisma.Decimal;
+    try {
+      quantity = new Prisma.Decimal(value);
+    } catch {
+      return;
+    }
+    if (!quantity.isFinite() || quantity.isZero() || quantity.isNegative()) return;
+
+    const item = cart.find((entry) => entry.id === productId);
+    if (!item) return;
+    if (quantity.greaterThan(decimalValue(item.stock))) {
+      setCartMessage(`Only ${formatStock(item.stock)} ${item.unit} available for ${item.name}.`);
+      return;
+    }
+    setCartMessage("");
+    setCart((current) => current.map((entry) => (
+      entry.id === productId ? { ...entry, quantity: quantity.toString() } : entry
+    )));
+  }
+
+  const makeHeldOrder = useCallback((): HeldPosOrder => {
     return {
       id: crypto.randomUUID(),
       heldAt: Date.now(),
@@ -378,25 +470,15 @@ export default function PosScreen({
       orderDiscount,
       shipping,
     };
-  }
+  }, [cart, customerId, customerOptions, orderDiscount, orderTax, shipping, warehouseId, warehouses]);
 
-  function clearCurrentOrder() {
-    setCart([]);
-    setOrderTax("0.00");
-    setOrderDiscount("0.00");
-    setShipping("0.00");
-    setEditingItemId(null);
-    setItemEdit(null);
-    setItemEditError("");
-  }
-
-  function openPayment() {
+  const openPayment = useCallback(() => {
     if (!cart.length || !orderTotals || pricingError) return;
     setTenderedAmount(orderTotals.grandTotal.toFixed(2));
     setPaymentError("");
     setPaymentActionError("");
     setIsPaymentOpen(true);
-  }
+  }, [cart.length, orderTotals, pricingError]);
 
   function submitPayment(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -429,12 +511,93 @@ export default function PosScreen({
     saleFormRef.current.requestSubmit();
   }
 
-  function holdCurrentOrder() {
+  const holdCurrentOrder = useCallback(() => {
     if (!cart.length) return;
     const heldOrder = makeHeldOrder();
     setHeldOrders((current) => [heldOrder, ...current]);
     clearCurrentOrder();
-  }
+  }, [cart.length, clearCurrentOrder, makeHeldOrder]);
+
+  useEffect(() => {
+    function handleShortcuts(event: KeyboardEvent) {
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      const isEditingText = Boolean(target?.closest("input, textarea, select, [contenteditable='true']"));
+
+      if (event.key === "Escape") {
+        if (isCameraScannerOpen) setIsCameraScannerOpen(false);
+        if (isResetConfirmOpen) setIsResetConfirmOpen(false);
+        return;
+      }
+      if (
+        isEditingText || isCameraScannerOpen || isCustomerMenuOpen || isCustomerModalOpen
+        || isHeldOrdersOpen || isPaymentOpen || isResetConfirmOpen || receipt
+      ) return;
+
+      switch (event.key) {
+        case "F2":
+          event.preventDefault();
+          productSearchRef.current?.focus();
+          break;
+        case "F3":
+          event.preventDefault();
+          setIsCameraScannerOpen(true);
+          break;
+        case "F4":
+          event.preventDefault();
+          setCustomerSearch("");
+          setIsCustomerMenuOpen(true);
+          break;
+        case "F8":
+          event.preventDefault();
+          holdCurrentOrder();
+          break;
+        case "F9":
+          event.preventDefault();
+          openPayment();
+          break;
+        default:
+          break;
+      }
+    }
+
+    document.addEventListener("keydown", handleShortcuts);
+    return () => document.removeEventListener("keydown", handleShortcuts);
+  }, [holdCurrentOrder, isCameraScannerOpen, isCustomerMenuOpen, isCustomerModalOpen, isHeldOrdersOpen, isPaymentOpen, isResetConfirmOpen, openPayment, receipt]);
+
+  useEffect(() => {
+    function handleHidBarcode(event: KeyboardEvent) {
+      if (isCameraScannerOpen || event.altKey || event.ctrlKey || event.metaKey) return;
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) {
+        barcodeBuffer.current = "";
+        return;
+      }
+
+      if (event.key === "Enter") {
+        const code = barcodeBuffer.current;
+        barcodeBuffer.current = "";
+        if (code.length < 4) return;
+        const product = products.find((item) => item.code.trim().toLocaleLowerCase() === code.toLocaleLowerCase());
+        if (product) {
+          event.preventDefault();
+          addProduct(product);
+        } else {
+          setCartMessage(`No product code matches “${code}”.`);
+        }
+        return;
+      }
+
+      if (event.key.length !== 1 || !/^[\w-]$/.test(event.key)) return;
+      const now = performance.now();
+      if (now - lastBarcodeKeyAt.current > 80) barcodeBuffer.current = "";
+      barcodeBuffer.current += event.key;
+      lastBarcodeKeyAt.current = now;
+    }
+
+    document.addEventListener("keydown", handleHidBarcode);
+    return () => document.removeEventListener("keydown", handleHidBarcode);
+  }, [addProduct, isCameraScannerOpen, products]);
 
   function resumeHeldOrder(heldOrderId: string) {
     const heldOrder = heldOrders.find((order) => order.id === heldOrderId);
@@ -538,21 +701,70 @@ export default function PosScreen({
         <div className="pos-toolbar">
           <div className="pos-customer-box">
             <UserRound aria-hidden="true" />
-            <span className="pos-select-wrap">
+            <div className="pos-customer-select" ref={customerMenuRef}>
               <span className="pos-select-label">Customer</span>
-              <span className="pos-select-control">
-                <select
-                  aria-label="Customer"
-                  value={customerId}
-                  onChange={(event) => setCustomerId(event.target.value)}
-                >
-                  {customerOptions.map((customer) => (
-                    <option key={customer.id} value={customer.id}>{customer.name}</option>
-                  ))}
-                </select>
-                <ChevronDown aria-hidden="true" className="pos-select-chevron" />
-              </span>
-            </span>
+              <button
+                className="pos-customer-trigger"
+                type="button"
+                aria-label={`Customer: ${customerOptions.find((customer) => customer.id === customerId)?.name ?? "Select customer"}`}
+                aria-haspopup="listbox"
+                aria-expanded={isCustomerMenuOpen}
+                onClick={() => {
+                  setCustomerSearch("");
+                  setIsCustomerMenuOpen((open) => !open);
+                }}
+              >
+                <span>{customerOptions.find((customer) => customer.id === customerId)?.name ?? "Select customer"}</span>
+                <ChevronDown aria-hidden="true" />
+              </button>
+              {isCustomerMenuOpen && (
+                <div className="pos-customer-menu">
+                  <label className="pos-customer-search">
+                    <Search aria-hidden="true" />
+                    <input
+                      ref={customerSearchRef}
+                      type="search"
+                      role="searchbox"
+                      aria-label="Search customers"
+                      placeholder="Search customers"
+                      value={customerSearch}
+                      onChange={(event) => setCustomerSearch(event.target.value)}
+                    />
+                  </label>
+                  <div className="pos-customer-options" role="listbox" aria-label="Customers">
+                    {visibleCustomers.map((customer) => (
+                      <button
+                        key={customer.id}
+                        type="button"
+                        role="option"
+                        aria-selected={customer.id === customerId}
+                        className={customer.id === customerId ? "is-selected" : ""}
+                        onClick={() => {
+                          setCustomerId(customer.id);
+                          setIsCustomerMenuOpen(false);
+                        }}
+                      >
+                        {customer.name}
+                        {customer.id === customerId && <Check aria-hidden="true" />}
+                      </button>
+                    ))}
+                    {visibleCustomers.length === 0 && <p className="pos-customer-no-results">No matching customers.</p>}
+                  </div>
+                  {canCreateCustomers && (
+                    <button
+                      className="pos-customer-menu-add"
+                      type="button"
+                      onClick={() => {
+                        setIsCustomerMenuOpen(false);
+                        setIsCustomerModalOpen(true);
+                      }}
+                    >
+                      <Plus aria-hidden="true" />Add new customer
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
             {canCreateCustomers && (
               <button
                 className="pos-customer-add"
@@ -594,6 +806,13 @@ export default function PosScreen({
         </div>
 
         <div className="pos-cart">
+          <div className="pos-cart-titlebar">
+            <div>
+              <h2>Current sale</h2>
+              <span>{cart.length} {cart.length === 1 ? "item" : "items"} · {totalQuantity} units</span>
+            </div>
+            <span className="pos-cart-shortcut">F8 Hold · F9 Pay</span>
+          </div>
           <div className="pos-cart-head">
             <span>Product</span><span>Qty</span><span>Price</span><span>Sub Total</span><span />
           </div>
@@ -602,14 +821,20 @@ export default function PosScreen({
               <div className="pos-cart-empty">
                 <PackageOpen aria-hidden="true" />
                 <p>Your cart is empty</p>
-                <span>Select products to start a sale.</span>
+                <span>Scan or select products to begin.</span>
               </div>
             ) : cart.map((item) => {
               const totals = lineTotals.get(item.id);
               return (
                 <div className="pos-cart-row" key={item.id}>
                   <div className="pos-cart-product">
-                    <div className="pos-cart-product-name" title={item.name}>{item.name}</div>
+                    <div className="pos-cart-thumb">
+                      {item.image
+                        ? <Image src={item.image} alt="" width={44} height={44} unoptimized />
+                        : <PackageOpen aria-hidden="true" />}
+                    </div>
+                    <div className="pos-cart-product-info">
+                      <div className="pos-cart-product-name" title={item.name}>{item.name}</div>
                     <div className="pos-cart-product-meta">
                       <span className="pos-cart-code">{item.code}</span>
                       <span className="pos-cart-stock-hint">
@@ -624,6 +849,7 @@ export default function PosScreen({
                         <Pencil aria-hidden="true" />
                       </button>
                     </div>
+                    </div>
                   </div>
                   <div className="pos-stepper">
                     <button
@@ -634,7 +860,16 @@ export default function PosScreen({
                     >
                       <Minus aria-hidden="true" />
                     </button>
-                    <span className="pos-stepper-quantity">{formatStock(item.quantity)}</span>
+                    <input
+                      className="pos-stepper-quantity"
+                      aria-label={`Quantity for ${item.name}`}
+                      type="number"
+                      min="0.001"
+                      max={item.stock}
+                      step="0.001"
+                      value={item.quantity}
+                      onChange={(event) => setItemQuantity(item.id, event.target.value)}
+                    />
                     <button
                       type="button"
                       aria-label={`Increase ${item.name} quantity`}
@@ -662,6 +897,7 @@ export default function PosScreen({
           </div>
 
           <div className="pos-cart-foot">
+            {cartMessage && <p className="pos-cart-message" role="status">{cartMessage}</p>}
             <div className="pos-foot-grid">
               <div className="pos-foot-fields" aria-label="Sale adjustments">
                 <label className="pos-foot-input">
@@ -687,23 +923,25 @@ export default function PosScreen({
                 </label>
               </div>
               <div className="pos-totals">
-                <div>Total QTY : <span>{totalQuantity}</span></div>
-                <div>Sub Total : <span>{orderTotals ? formatMoney(orderTotals.subtotal) : "—"}</span></div>
-                <div className="pos-grand-total">Total : <b>{orderTotals ? formatMoney(orderTotals.grandTotal) : "—"}</b></div>
+                <div>Subtotal <span>{orderTotals ? formatMoney(orderTotals.subtotal) : "—"}</span></div>
+                <div>Tax <span>{orderTotals ? formatMoney(orderTotals.orderTax) : "—"}</span></div>
+                <div>Discount <span>− {orderTotals ? formatMoney(orderTotals.discount) : "—"}</span></div>
+                <div>Shipping <span>{orderTotals ? formatMoney(orderTotals.shipping) : "—"}</span></div>
+                <div className="pos-grand-total">Grand total <b>{orderTotals ? formatMoney(orderTotals.grandTotal) : "—"}</b></div>
               </div>
             </div>
             {pricingError && <p className="pos-pricing-error" role="alert">{pricingError}</p>}
             <div className="pos-cart-actions">
               <button className="pos-action pos-hold" type="button" disabled={!cart.length} onClick={holdCurrentOrder}>
-                Hold <Hand aria-hidden="true" />
+                Hold <Hand aria-hidden="true" /><kbd>F8</kbd>
               </button>
               <button
                 className="pos-action pos-reset"
                 type="button"
                 disabled={!cart.length}
-                onClick={clearCurrentOrder}
+                onClick={() => setIsResetConfirmOpen(true)}
               >
-                Reset <RotateCw aria-hidden="true" />
+                Reset cart <RotateCw aria-hidden="true" />
               </button>
               <button
                 className="pos-action pos-pay"
@@ -711,7 +949,7 @@ export default function PosScreen({
                 disabled={!cart.length || !orderTotals || Boolean(pricingError) || isSavingSale}
                 onClick={openPayment}
               >
-                Pay Now <Banknote aria-hidden="true" />
+                Pay Now <Banknote aria-hidden="true" /><kbd>F9</kbd>
               </button>
             </div>
           </div>
@@ -723,11 +961,34 @@ export default function PosScreen({
           <label className="pos-search-box">
             <Search aria-hidden="true" />
             <input
-                aria-label="Search products by code or name"
-                placeholder="Search or scan by product name or code"
+              ref={productSearchRef}
+              aria-label="Search products by name, SKU, or barcode"
+              placeholder="Search by name, SKU, or scan a barcode"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return;
+                const query = search.trim().toLocaleLowerCase();
+                const exactMatches = products.filter((product) =>
+                  product.code.toLocaleLowerCase() === query
+                  || product.name.toLocaleLowerCase() === query,
+                );
+                if (exactMatches.length !== 1) return;
+                event.preventDefault();
+                addProduct(exactMatches[0]);
+                setSearch("");
+              }}
             />
+            <span className="pos-search-shortcut">F2</span>
+            <button
+              className="pos-camera-scan"
+              type="button"
+              aria-label="Scan barcode with camera"
+              title="Scan barcode with camera (F3)"
+              onClick={() => setIsCameraScannerOpen(true)}
+            >
+              <Camera aria-hidden="true" /><span>Scan</span><kbd>F3</kbd>
+            </button>
           </label>
           <div className="pos-tools" aria-label="POS tools">
             <button
@@ -776,6 +1037,7 @@ export default function PosScreen({
           </div>
 
           {loadError && <p className="pos-product-message pos-product-error" role="alert">{loadError}</p>}
+          {cartMessage && <p className="pos-product-message" role="status">{cartMessage}</p>}
           {isLoading && <p className="pos-product-message" role="status">Loading warehouse products...</p>}
           {!isLoading && !loadError && !warehouseId && (
             <p className="pos-product-message">Add a warehouse before using the POS screen.</p>
@@ -784,9 +1046,13 @@ export default function PosScreen({
             <p className="pos-product-message">No products match your search and filters.</p>
           )}
           <div className="pos-product-grid" aria-busy={isLoading}>
-            {!isLoading && visibleProducts.map((product, index) => {
-              const [startColor, endColor] = cardColors[index % cardColors.length];
+            {!isLoading && visibleProducts.map((product) => {
+              const stock = decimalValue(product.stock);
               const outOfStock = decimalValue(product.stock).lessThanOrEqualTo(0);
+              const lowStock = !outOfStock
+                && product.stockAlert !== null
+                && decimalValue(product.stockAlert).greaterThan(0)
+                && stock.lessThanOrEqualTo(decimalValue(product.stockAlert));
               return (
                 <article className="pos-product-card" key={product.id}>
                   <button
@@ -796,10 +1062,7 @@ export default function PosScreen({
                     onClick={() => addProduct(product)}
                     aria-label={outOfStock ? `${product.name}, out of stock` : `Add ${product.name} to cart`}
                   >
-                    <div
-                      className="pos-product-art"
-                      style={{ backgroundImage: `linear-gradient(140deg, ${startColor}, ${endColor})` }}
-                    >
+                    <div className="pos-product-art">
                       {product.image ? (
                         <Image
                           className="pos-product-photo"
@@ -813,14 +1076,21 @@ export default function PosScreen({
                         <PackageOpen aria-hidden="true" />
                       )}
                       <span className="pos-product-tag pos-product-price">$ {formatPrice(product.price)}</span>
-                      <span className="pos-product-tag pos-product-stock">
+                      <span className={`pos-product-tag pos-product-stock${outOfStock ? " is-unavailable" : lowStock ? " is-low" : ""}`}>
                         {formatStock(product.stock)} {product.unit}
                       </span>
-                      {outOfStock && <span className="pos-product-unavailable">Out of stock</span>}
+                      {(outOfStock || lowStock) && (
+                        <span className={`pos-product-status${outOfStock ? " is-unavailable" : " is-low"}`}>
+                          {outOfStock ? "Out of stock" : "Low stock"}
+                        </span>
+                      )}
                     </div>
                     <div className="pos-product-body">
                       <div className="pos-product-name">{product.name}</div>
-                      <div className="pos-product-code">{product.code}</div>
+                      <div className="pos-product-meta">
+                        <span className="pos-product-code">{product.code}</span>
+                        <span className="pos-product-available">{outOfStock ? "Unavailable" : `${formatStock(product.stock)} ${product.unit} available`}</span>
+                      </div>
                     </div>
                   </button>
                 </article>
@@ -846,10 +1116,43 @@ export default function PosScreen({
           activeWarehouseName={warehouses.find((warehouse) => warehouse.id === warehouseId)?.name ?? "Unknown warehouse"}
           hasActiveCart={cart.length > 0}
           onResume={resumeHeldOrder}
-          onDiscard={(heldOrderId) => {
-            setHeldOrders((current) => current.filter((order) => order.id !== heldOrderId));
-          }}
+          onDiscard={setHeldOrderToDiscard}
           onClose={() => setIsHeldOrdersOpen(false)}
+        />
+      )}
+      {isResetConfirmOpen && (
+        <PosConfirmModal
+          title="Reset current cart?"
+          message="This removes all products and sale adjustments from the current cart. Held orders are not affected."
+          confirmLabel="Reset cart"
+          onConfirm={() => {
+            clearCurrentOrder();
+            setCartMessage("");
+            setIsResetConfirmOpen(false);
+          }}
+          onClose={() => setIsResetConfirmOpen(false)}
+        />
+      )}
+      {heldOrderToDiscard && (
+        <PosConfirmModal
+          title="Discard held order?"
+          message="This held order will be permanently removed from this POS session."
+          confirmLabel="Discard order"
+          onConfirm={() => {
+            setHeldOrders((current) => current.filter((order) => order.id !== heldOrderToDiscard));
+            setHeldOrderToDiscard(null);
+          }}
+          onClose={() => setHeldOrderToDiscard(null)}
+        />
+      )}
+      {isCameraScannerOpen && (
+        <PosBarcodeScannerModal
+          onDetected={(code) => {
+            const added = addScannedProduct(code);
+            if (added) setIsCameraScannerOpen(false);
+            return added;
+          }}
+          onClose={() => setIsCameraScannerOpen(false)}
         />
       )}
       {isPaymentOpen && orderTotals && (
@@ -885,6 +1188,141 @@ export default function PosScreen({
         />
       )}
     </main>
+  );
+}
+
+function PosConfirmModal({
+  title,
+  message,
+  confirmLabel,
+  onConfirm,
+  onClose,
+}: {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const dialogRef = useRef<HTMLElement>(null);
+  useDialogFocus(dialogRef);
+
+  return (
+    <div className="pos-held-overlay" role="presentation">
+      <section
+        ref={dialogRef}
+        tabIndex={-1}
+        className="gg-modal pos-confirm-modal"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="pos-confirm-title"
+        aria-describedby="pos-confirm-message"
+      >
+        <div className="gg-modal-head">
+          <h2 className="gg-card-title" id="pos-confirm-title">{title}</h2>
+          <button className="gg-modal-close" type="button" aria-label="Close confirmation" onClick={onClose}>
+            <X aria-hidden="true" />
+          </button>
+        </div>
+        <div className="gg-modal-body">
+          <p id="pos-confirm-message">{message}</p>
+        </div>
+        <div className="gg-modal-foot">
+          <button className="gg-btn gg-btn--secondary" type="button" onClick={onClose}>Cancel</button>
+          <button className="gg-btn pos-confirm-danger" type="button" onClick={onConfirm}>
+            <Trash2 aria-hidden="true" />{confirmLabel}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function PosBarcodeScannerModal({
+  onDetected,
+  onClose,
+}: {
+  onDetected: (code: string) => boolean;
+  onClose: () => void;
+}) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const onDetectedRef = useRef(onDetected);
+  const [error, setError] = useState("");
+  const [scannedCode, setScannedCode] = useState("");
+  useDialogFocus(dialogRef);
+
+  useEffect(() => {
+    onDetectedRef.current = onDetected;
+  }, [onDetected]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    let controls: IScannerControls | null = null;
+    let cancelled = false;
+    let finished = false;
+    const reader = new BrowserMultiFormatReader();
+    void reader.decodeFromVideoDevice(undefined, video, (result) => {
+      if (!result || cancelled || finished) return;
+      const code = result.getText();
+      setScannedCode(code);
+      if (onDetectedRef.current(code)) {
+        finished = true;
+        controls?.stop();
+      } else {
+        setError(`No available product matches “${code}”. Try another barcode or search by name.`);
+      }
+    }).then((nextControls) => {
+      controls = nextControls;
+      if (cancelled || finished) controls.stop();
+    }).catch((cameraError: unknown) => {
+      if (cancelled) return;
+      setError(cameraError instanceof Error
+        ? `Could not start the camera: ${cameraError.message}`
+        : "Could not start the camera. Check camera permissions and try again.");
+    });
+
+    return () => {
+      cancelled = true;
+      controls?.stop();
+    };
+  }, []);
+
+  return (
+    <div className="pos-held-overlay" role="presentation">
+      <section
+        ref={dialogRef}
+        tabIndex={-1}
+        className="gg-modal pos-scanner-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pos-scanner-title"
+      >
+        <div className="gg-modal-head">
+          <div className="pos-scanner-heading">
+            <span><Barcode aria-hidden="true" /></span>
+            <div>
+              <h2 className="gg-card-title" id="pos-scanner-title">Scan a barcode</h2>
+              <p>Point the camera at a product barcode.</p>
+            </div>
+          </div>
+          <button className="gg-modal-close" type="button" aria-label="Close barcode scanner" onClick={onClose}>
+            <X aria-hidden="true" />
+          </button>
+        </div>
+        <div className="pos-scanner-body">
+          <video ref={videoRef} autoPlay muted playsInline aria-label="Camera barcode scanning preview" />
+          {!error && !scannedCode && <p className="pos-scanner-hint"><Camera aria-hidden="true" /> Waiting for a barcode…</p>}
+          {error && <p className="pos-scanner-error" role="alert"><CircleAlert aria-hidden="true" />{error}</p>}
+          {scannedCode && !error && <p className="pos-scanner-hint" role="status">Barcode detected: {scannedCode}</p>}
+        </div>
+        <div className="gg-modal-foot">
+          <button className="gg-btn gg-btn--secondary" type="button" onClick={onClose}>Close scanner</button>
+        </div>
+      </section>
+    </div>
   );
 }
 

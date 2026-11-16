@@ -5,6 +5,7 @@ export type PosProduct = {
   image: string | null;
   price: string;
   stock: string;
+  stockAlert: string | null;
   unit: string;
   categoryId: string;
   categoryName: string;
