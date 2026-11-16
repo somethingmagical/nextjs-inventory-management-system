@@ -48,6 +48,36 @@ function useThemeRevision() {
   return revision;
 }
 
+function useHasEnteredViewport<T extends Element>(ref: { current: T | null }) {
+  const [hasEnteredViewport, setHasEnteredViewport] = useState(false);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    if (!("IntersectionObserver" in window)) {
+      setHasEnteredViewport(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry?.isIntersecting) return;
+      setHasEnteredViewport(true);
+      observer.disconnect();
+    }, { threshold: 0.15 });
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref]);
+
+  return hasEnteredViewport;
+}
+
+function getScrollAnimationOptions() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ? false
+    : { duration: 850, easing: "easeOutQuart" as const };
+}
+
 function getChartColors() {
   const root = getComputedStyle(document.documentElement);
   return Array.from({ length: 5 }, (_, index) =>
@@ -73,10 +103,12 @@ export function WeeklySalesChart({
   purchases: number[];
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const hasEnteredViewport = useHasEnteredViewport(chartContainerRef);
   const themeRevision = useThemeRevision();
 
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || !hasEnteredViewport) return;
     const [salesColor, purchasesColor] = getChartColors();
 
     const chart = new Chart(canvasRef.current, {
@@ -111,6 +143,7 @@ export function WeeklySalesChart({
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: getScrollAnimationOptions(),
         plugins: {
           legend: {
             position: "top",
@@ -131,10 +164,10 @@ export function WeeklySalesChart({
     });
 
     return () => chart.destroy();
-  }, [labels, sales, purchases, themeRevision]);
+  }, [hasEnteredViewport, labels, sales, purchases, themeRevision]);
 
   return (
-    <div className="chart-box dashboard-line-wrap">
+    <div className="chart-box dashboard-line-wrap" ref={chartContainerRef}>
       <canvas ref={canvasRef} role="img" aria-label="Sales and purchases by day for the last seven days" />
       <table className="sr-only">
         <caption>Sales and purchases for the last seven days</caption>
@@ -163,12 +196,14 @@ export function ProductSalesChart({
   amounts: number[];
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const hasEnteredViewport = useHasEnteredViewport(chartContainerRef);
   const themeRevision = useThemeRevision();
   const hasData = amounts.some((amount) => amount > 0);
   const totalAmount = amounts.reduce((total, amount) => total + amount, 0);
 
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || !hasEnteredViewport) return;
     const colors = getChartColors();
 
     const chart = new Chart(canvasRef.current, {
@@ -184,6 +219,7 @@ export function ProductSalesChart({
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: getScrollAnimationOptions(),
         cutout: "62%",
         plugins: {
           legend: { display: false },
@@ -193,11 +229,11 @@ export function ProductSalesChart({
     });
 
     return () => chart.destroy();
-  }, [amounts, hasData, labels, themeRevision]);
+  }, [amounts, hasData, hasEnteredViewport, labels, themeRevision]);
 
   return (
     <div className="dashboard-product-chart">
-      <div className="chart-box dashboard-doughnut">
+      <div className="chart-box dashboard-doughnut" ref={chartContainerRef}>
         <canvas ref={canvasRef} role="img" aria-label={hasData ? `Top products by revenue: ${labels.join(", ")}` : "No top selling product data available"} />
         {!hasData && <span className="dashboard-chart-empty">No data</span>}
       </div>
@@ -237,11 +273,13 @@ export function CustomerSalesChart({
   amounts: number[];
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const hasEnteredViewport = useHasEnteredViewport(chartContainerRef);
   const themeRevision = useThemeRevision();
   const hasData = amounts.some((amount) => amount > 0);
 
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || !hasEnteredViewport) return;
     const colors = getChartColors();
 
     const chart = new Chart(canvasRef.current, {
@@ -258,6 +296,7 @@ export function CustomerSalesChart({
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: getScrollAnimationOptions(),
         plugins: {
           legend: {
             display: hasData,
@@ -271,11 +310,11 @@ export function CustomerSalesChart({
     });
 
     return () => chart.destroy();
-  }, [amounts, hasData, labels, themeRevision]);
+  }, [amounts, hasData, hasEnteredViewport, labels, themeRevision]);
 
   return (
     <>
-      <div className="chart-box customer-chart">
+      <div className="chart-box customer-chart" ref={chartContainerRef}>
         <canvas ref={canvasRef} role="img" aria-label={hasData ? `Top five customers by sales: ${labels.join(", ")}` : "No customer sales data available"} />
         {!hasData && <span className="dashboard-chart-empty">No data</span>}
       </div>
