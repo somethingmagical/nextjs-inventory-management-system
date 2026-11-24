@@ -1,0 +1,2 @@
+DELETE FROM `LoginAttemptBucket`
+WHERE `updatedAt` < UTC_TIMESTAMP(3) - INTERVAL 30 DAY;

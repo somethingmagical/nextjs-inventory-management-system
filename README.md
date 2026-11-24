@@ -92,6 +92,12 @@ configured, the fallback is 30 failed attempts per email. A threshold triggers a
 15-minute lockout. These limits are stored in the database; apply the checked-in
 `LoginAttemptBucket` migration before deploying this version.
 
+To keep login requests from sweeping expired rate-limit rows, schedule
+`npm run auth:cleanup-login-attempts` to run daily. It removes buckets older than
+30 days. Set `AUTH_TIMING_LOGS=true` temporarily to log credential sign-in stage
+durations (rate-limit lookup, user query, password check, and counter cleanup);
+the timing log contains no account or credential values.
+
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `DB_HOST` | Yes | MySQL/MariaDB server hostname or IP address. |
@@ -101,6 +107,7 @@ configured, the fallback is 30 failed attempts per email. A threshold triggers a
 | `DB_DATABASE` | Yes | Database name. |
 | `AUTH_SECRET` | Yes | Secret used to sign authentication tokens. |
 | `AUTH_TRUST_PROXY_IP` | No | Set to `true` only when a trusted reverse proxy overwrites `X-Forwarded-For`; enables per-IP login throttling. |
+| `AUTH_TIMING_LOGS` | No | Set to `true` temporarily to log credential sign-in stage durations without personal data. |
 | `ADMIN_EMAIL` | Yes, for seeding | Email address for the initial administrator account. |
 | `ADMIN_PASSWORD` | Yes, for seeding | Initial administrator password. |
 | `SEED_DEMO_DATA` | No | Set to `true` for one seed run to upsert the standard demo dataset. |
@@ -129,8 +136,9 @@ No Google, Mapbox, commercial geocoder, subscription, trial, or usage-billed ser
 ### Other useful commands
 
 ```bash
-npm run build   # Create a production build
-npm run start   # Serve the production build
+npm run build                       # Create a production build
+npm run start                       # Serve the production build
+npm run auth:cleanup-login-attempts # Remove expired login rate-limit buckets
 ```
 
 ## Learn More

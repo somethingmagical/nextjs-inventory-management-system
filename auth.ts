@@ -29,6 +29,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials, request) {
+        const timingEnabled = process.env.AUTH_TIMING_LOGS === "true";
+        const startedAt = performance.now();
+        let stageStartedAt = startedAt;
+        const timings: Record<string, number> = {};
+        function finishStage(name: string) {
+          if (!timingEnabled) return;
+          const now = performance.now();
+          timings[name] = Math.round((now - stageStartedAt) * 10) / 10;
+          stageStartedAt = now;
+        }
+        function logTimings() {
+          if (!timingEnabled) return;
+          console.info("auth.credentials.timing", {
+            ...timings,
+            totalMs: Math.round((performance.now() - startedAt) * 10) / 10,
+          });
+        }
+
         const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
         if (!authSecret) {
           throw new Error("AUTH_SECRET must be configured to protect login rate-limit keys.");
@@ -43,11 +61,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           process.env.AUTH_TRUST_PROXY_IP === "true",
         );
         const attemptKeys = createLoginAttemptKeys(emailCandidate, clientIp, authSecret);
-        if (await isLoginAttemptBlocked(attemptKeys)) return null;
+        const isBlocked = await isLoginAttemptBlocked(attemptKeys);
+        finishStage("rateLimitMs");
+        if (isBlocked) {
+          logTimings();
+          return null;
+        }
 
         const parsedCredentials = credentialsSchema.safeParse(credentials);
+        finishStage("validationMs");
         if (!parsedCredentials.success) {
           await recordFailedLoginAttempt(attemptKeys);
+          finishStage("failedAttemptWriteMs");
+          logTimings();
           return null;
         }
 
@@ -58,14 +84,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             deletedAt: null,
             roleRecord: { deletedAt: null },
           },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            image: true,
+            role: true,
+            password: true,
+          },
         });
+        finishStage("userLookupMs");
 
         const passwordMatches = await compare(
           parsedCredentials.data.password,
           user?.password ?? timingEqualizationPasswordHash,
         );
+        finishStage("passwordCheckMs");
         if (!user || !passwordMatches) {
           await recordFailedLoginAttempt(attemptKeys);
+          finishStage("failedAttemptWriteMs");
+          logTimings();
           return null;
         }
 
@@ -74,6 +113,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         } catch (error) {
           console.error("Could not clear account-specific login attempt counters.", error);
         }
+        finishStage("successCounterClearMs");
+        logTimings();
 
         return {
           id: user.id,

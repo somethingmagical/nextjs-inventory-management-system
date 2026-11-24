@@ -10,6 +10,7 @@
     "build": "prisma generate && next build",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed",
+    "auth:cleanup-login-attempts": "prisma db execute --file prisma/cleanup-expired-login-attempts.sql",
     "start": "next start",
     "postinstall": "prisma generate",
     "lint": "eslint"

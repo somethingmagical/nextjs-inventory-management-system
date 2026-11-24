@@ -1,7 +1,6 @@
 import "server-only";
 
 import {
-  loginAttemptRetentionMs,
   loginRateLimitLockoutMs,
   loginRateLimitWindowMs,
   type LoginAttemptKey,
@@ -10,10 +9,6 @@ import {
 export async function isLoginAttemptBlocked(keys: LoginAttemptKey[], now = new Date()) {
   if (keys.length === 0) return false;
   const { db } = await import("@/lib/db");
-
-  await db.loginAttemptBucket.deleteMany({
-    where: { updatedAt: { lt: new Date(now.getTime() - loginAttemptRetentionMs) } },
-  });
 
   const buckets = await db.loginAttemptBucket.findMany({
     where: { key: { in: keys.map(({ key }) => key) } },

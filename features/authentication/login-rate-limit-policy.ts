@@ -3,7 +3,6 @@ import { isIP } from "node:net";
 
 export const loginRateLimitWindowMs = 15 * 60 * 1000;
 export const loginRateLimitLockoutMs = 15 * 60 * 1000;
-export const loginAttemptRetentionMs = 30 * 24 * 60 * 60 * 1000;
 
 export const loginAttemptLimits = {
   ip: 20,
