@@ -32,7 +32,7 @@ async function AuthorizedPosPage() {
   if (access.status === "unauthenticated") redirect("/");
   if (access.status === "forbidden") redirect("/dashboard");
 
-  const { warehouses, customers, categories, brands, defaultCustomerId } = await getPosPageData();
+  const { warehouses, customers, categories, brands } = await getPosPageData();
   const selectedWarehouseId = warehouses[0]?.id ?? "";
   const products = selectedWarehouseId ? await getPosProducts(selectedWarehouseId) : [];
 
@@ -43,7 +43,6 @@ async function AuthorizedPosPage() {
       categories={categories}
       brands={brands}
       initialProducts={products}
-      defaultCustomerId={defaultCustomerId}
       initialWarehouseId={selectedWarehouseId}
       canCreateCustomers={access.user.roleName === "admin" || access.user.permissions.includes(PERMISSION.manageCustomers)}
     />

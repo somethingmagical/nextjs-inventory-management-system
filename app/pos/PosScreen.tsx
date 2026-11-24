@@ -86,6 +86,8 @@ type PosReceipt = {
   }[];
 };
 
+const POS_WAREHOUSE_STORAGE_KEY = "inventory-pos-last-warehouse";
+
 function formatPrice(price: string) {
   return Number(price).toLocaleString("en-US", {
     minimumFractionDigits: 2,
@@ -119,7 +121,6 @@ export default function PosScreen({
   categories,
   brands,
   initialProducts,
-  defaultCustomerId,
   initialWarehouseId,
   canCreateCustomers,
 }: {
@@ -128,11 +129,10 @@ export default function PosScreen({
   categories: PosOption[];
   brands: PosOption[];
   initialProducts: PosProduct[];
-  defaultCustomerId: string;
   initialWarehouseId: string;
   canCreateCustomers: boolean;
 }) {
-  const [customerId, setCustomerId] = useState(defaultCustomerId);
+  const [customerId, setCustomerId] = useState("");
   const [customerOptions, setCustomerOptions] = useState(customers);
   const [isCustomerMenuOpen, setIsCustomerMenuOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
@@ -152,10 +152,12 @@ export default function PosScreen({
   const [itemEdit, setItemEdit] = useState<PosItemEdit | null>(null);
   const [itemEditError, setItemEditError] = useState("");
   const [cartMessage, setCartMessage] = useState("");
+  const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [heldOrderToDiscard, setHeldOrderToDiscard] = useState<string | null>(null);
   const [heldOrders, setHeldOrders] = useState<HeldPosOrder[]>([]);
   const [isHeldOrdersOpen, setIsHeldOrdersOpen] = useState(false);
+  const [isShortcutGuideOpen, setIsShortcutGuideOpen] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [paymentType, setPaymentType] = useState("Cash");
   const [tenderedAmount, setTenderedAmount] = useState("");
@@ -169,6 +171,7 @@ export default function PosScreen({
   );
   const saleFormRef = useRef<HTMLFormElement>(null);
   const productSearchRef = useRef<HTMLInputElement>(null);
+  const mobileCartRef = useRef<HTMLDivElement>(null);
   const customerMenuRef = useRef<HTMLDivElement>(null);
   const customerSearchRef = useRef<HTMLInputElement>(null);
   const pendingReceiptRef = useRef<Omit<PosReceipt, "saleId" | "reference"> | null>(null);
@@ -177,9 +180,23 @@ export default function PosScreen({
   const barcodeBuffer = useRef("");
   const lastBarcodeKeyAt = useRef(0);
 
+  useEffect(() => {
+    try {
+      const savedWarehouseId = window.localStorage.getItem(POS_WAREHOUSE_STORAGE_KEY);
+      if (savedWarehouseId && warehouses.some((warehouse) => warehouse.id === savedWarehouseId)) {
+        setWarehouseId(savedWarehouseId);
+      }
+    } catch (error) {
+      console.error("Saved POS warehouse could not be loaded.", error);
+    }
+  }, [warehouses]);
+
+  useDialogFocus(mobileCartRef, isMobileCartOpen);
+
   const handleCustomerCreated = useCallback((customer: PosOption) => {
     setCustomerOptions((current) => [...current, customer]);
     setCustomerId(customer.id);
+    setCartMessage("");
     setIsCustomerMenuOpen(false);
     setIsCustomerModalOpen(false);
   }, []);
@@ -220,6 +237,17 @@ export default function PosScreen({
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isHeldOrdersOpen]);
+
+  useEffect(() => {
+    if (!isShortcutGuideOpen) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setIsShortcutGuideOpen(false);
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isShortcutGuideOpen]);
 
   useEffect(() => {
     if (!isPaymentOpen && !receipt) return;
@@ -515,11 +543,18 @@ export default function PosScreen({
 
   const openPayment = useCallback(() => {
     if (!cart.length || !orderTotals || pricingError) return;
+    if (!customerId) {
+      setCartMessage("Select a customer before payment.");
+      setCustomerSearch("");
+      setIsCustomerMenuOpen(true);
+      customerMenuRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     setTenderedAmount(orderTotals.grandTotal.toFixed(2));
     setPaymentError("");
     setPaymentActionError("");
     setIsPaymentOpen(true);
-  }, [cart.length, orderTotals, pricingError]);
+  }, [cart.length, customerId, orderTotals, pricingError]);
 
   function submitPayment(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -570,14 +605,29 @@ export default function PosScreen({
       if (event.key === "Escape") {
         if (isCameraScannerOpen) setIsCameraScannerOpen(false);
         if (isResetConfirmOpen) setIsResetConfirmOpen(false);
+        if (isShortcutGuideOpen) setIsShortcutGuideOpen(false);
+        if (isMobileCartOpen) setIsMobileCartOpen(false);
+        return;
+      }
+      if (isEditingText) {
+        if (event.key === "F7") {
+          event.preventDefault();
+          setSearch("");
+          productSearchRef.current?.focus();
+        }
         return;
       }
       if (
-        isEditingText || isCameraScannerOpen || isCustomerMenuOpen || isCustomerModalOpen
-        || isHeldOrdersOpen || isPaymentOpen || isResetConfirmOpen || receipt
+        isCameraScannerOpen || isCustomerMenuOpen || isCustomerModalOpen
+        || isHeldOrdersOpen || isShortcutGuideOpen || isMobileCartOpen
+        || isPaymentOpen || isResetConfirmOpen || receipt
       ) return;
 
       switch (event.key) {
+        case "F1":
+          event.preventDefault();
+          setIsShortcutGuideOpen(true);
+          break;
         case "F2":
           event.preventDefault();
           productSearchRef.current?.focus();
@@ -590,6 +640,19 @@ export default function PosScreen({
           event.preventDefault();
           setCustomerSearch("");
           setIsCustomerMenuOpen(true);
+          break;
+        case "F5":
+          event.preventDefault();
+          if (cart.length) setIsResetConfirmOpen(true);
+          break;
+        case "F6":
+          event.preventDefault();
+          setIsHeldOrdersOpen(true);
+          break;
+        case "F7":
+          event.preventDefault();
+          setSearch("");
+          productSearchRef.current?.focus();
           break;
         case "F8":
           event.preventDefault();
@@ -606,7 +669,7 @@ export default function PosScreen({
 
     document.addEventListener("keydown", handleShortcuts);
     return () => document.removeEventListener("keydown", handleShortcuts);
-  }, [holdCurrentOrder, isCameraScannerOpen, isCustomerMenuOpen, isCustomerModalOpen, isHeldOrdersOpen, isPaymentOpen, isResetConfirmOpen, openPayment, receipt]);
+  }, [cart.length, holdCurrentOrder, isCameraScannerOpen, isCustomerMenuOpen, isCustomerModalOpen, isHeldOrdersOpen, isShortcutGuideOpen, isMobileCartOpen, isPaymentOpen, isResetConfirmOpen, openPayment, receipt]);
 
   useEffect(() => {
     function handleHidBarcode(event: KeyboardEvent) {
@@ -661,8 +724,17 @@ export default function PosScreen({
     setOrderTax(heldOrder.orderTax);
     setOrderDiscount(heldOrder.orderDiscount);
     setShipping(heldOrder.shipping);
-    if (heldOrder.warehouseId !== warehouseId) setWarehouseId(heldOrder.warehouseId);
+    if (heldOrder.warehouseId !== warehouseId) selectWarehouse(heldOrder.warehouseId);
     setIsHeldOrdersOpen(false);
+  }
+
+  function selectWarehouse(nextWarehouseId: string) {
+    setWarehouseId(nextWarehouseId);
+    try {
+      window.localStorage.setItem(POS_WAREHOUSE_STORAGE_KEY, nextWarehouseId);
+    } catch (error) {
+      console.error("POS warehouse selection could not be saved.", error);
+    }
   }
 
   function openItemEditor(item: PosCartItem) {
@@ -794,6 +866,7 @@ export default function PosScreen({
                         className={customer.id === customerId ? "is-selected" : ""}
                         onClick={() => {
                           setCustomerId(customer.id);
+                          setCartMessage("");
                           setIsCustomerMenuOpen(false);
                         }}
                       >
@@ -845,7 +918,7 @@ export default function PosScreen({
                       setHeldOrders((current) => [heldOrder, ...current]);
                     }
                     clearCurrentOrder();
-                    setWarehouseId(event.target.value);
+                    selectWarehouse(event.target.value);
                   }}
                 >
                   {warehouses.map((warehouse) => (
@@ -858,13 +931,29 @@ export default function PosScreen({
           </label>
         </div>
 
-        <div className="pos-cart">
+        <div
+          className={`pos-cart${isMobileCartOpen ? " is-mobile-open" : ""}`}
+          id="pos-cart-panel"
+          ref={mobileCartRef}
+          role={isMobileCartOpen ? "dialog" : undefined}
+          aria-modal={isMobileCartOpen || undefined}
+          aria-labelledby="pos-cart-title"
+          tabIndex={isMobileCartOpen ? -1 : undefined}
+        >
           <div className="pos-cart-titlebar">
             <div>
-              <h2>Current sale</h2>
+              <h2 id="pos-cart-title">Current sale</h2>
               <span>{cart.length} {cart.length === 1 ? "item" : "items"} · {totalQuantity} units</span>
             </div>
             <span className="pos-cart-shortcut">F8 Hold · F9 Pay</span>
+            <button
+              className="pos-mobile-cart-close"
+              type="button"
+              aria-label="Close current sale"
+              onClick={() => setIsMobileCartOpen(false)}
+            >
+              <X aria-hidden="true" />
+            </button>
           </div>
           <div className="pos-cart-head">
             <span>Product</span><span>Qty</span><span>Price</span><span>Sub Total</span><span />
@@ -1001,7 +1090,7 @@ export default function PosScreen({
                 disabled={!cart.length}
                 onClick={() => setIsResetConfirmOpen(true)}
               >
-                Reset cart <RotateCw aria-hidden="true" />
+                Reset cart <RotateCw aria-hidden="true" /><kbd>F5</kbd>
               </button>
               <button
                 className="pos-action pos-pay"
@@ -1057,6 +1146,7 @@ export default function PosScreen({
               aria-label={`Held orders (${heldOrders.length})`}
               aria-haspopup="dialog"
               aria-expanded={isHeldOrdersOpen}
+              title="Held orders (F6)"
               onClick={() => setIsHeldOrdersOpen(true)}
             >
               <List aria-hidden="true" /><span className="pos-tool-badge">{heldOrders.length}</span>
@@ -1173,6 +1263,53 @@ export default function PosScreen({
           </div>
         </div>
       </section>
+      {isMobileCartOpen && (
+        <button
+          className="pos-mobile-cart-backdrop"
+          type="button"
+          aria-label="Close current sale"
+          onClick={() => setIsMobileCartOpen(false)}
+        />
+      )}
+      <div className="pos-mobile-dock" aria-label="Current sale actions">
+        <div className="pos-mobile-dock-summary">
+          <span>{cart.length} {cart.length === 1 ? "item" : "items"} · {totalQuantity} {totalQuantity === "1" ? "unit" : "units"}</span>
+          <strong>{orderTotals ? formatMoney(orderTotals.grandTotal) : "—"}</strong>
+        </div>
+        <div className="pos-mobile-dock-actions">
+          <button
+            type="button"
+            className="pos-mobile-dock-cart"
+            aria-controls="pos-cart-panel"
+            aria-expanded={isMobileCartOpen}
+            onClick={() => setIsMobileCartOpen((open) => !open)}
+          >
+            <ShoppingBag aria-hidden="true" />Cart
+          </button>
+          <button
+            type="button"
+            className="pos-mobile-dock-hold"
+            disabled={!cart.length}
+            onClick={() => {
+              holdCurrentOrder();
+              setIsMobileCartOpen(false);
+            }}
+          >
+            <Hand aria-hidden="true" />Hold
+          </button>
+          <button
+            type="button"
+            className="pos-mobile-dock-pay"
+            disabled={!cart.length || !orderTotals || Boolean(pricingError) || isSavingSale}
+            onClick={() => {
+              openPayment();
+              setIsMobileCartOpen(false);
+            }}
+          >
+            <Banknote aria-hidden="true" />Pay
+          </button>
+        </div>
+      </div>
       {editingItemId && itemEdit && (
         <PosItemEditModal
           item={cart.find((item) => item.id === editingItemId)}
@@ -1193,6 +1330,9 @@ export default function PosScreen({
           onDiscard={setHeldOrderToDiscard}
           onClose={() => setIsHeldOrdersOpen(false)}
         />
+      )}
+      {isShortcutGuideOpen && (
+        <PosShortcutGuideModal onClose={() => setIsShortcutGuideOpen(false)} />
       )}
       {isResetConfirmOpen && (
         <PosConfirmModal
@@ -1690,6 +1830,55 @@ function PosReceiptModal({
         <p className="pos-print-thanks">Thank you for your purchase.</p>
       </section>
     </>
+  );
+}
+
+function PosShortcutGuideModal({ onClose }: { onClose: () => void }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  useDialogFocus(dialogRef);
+
+  const shortcuts = [
+    ["F1", "Open this shortcut guide"],
+    ["F2", "Focus product search"],
+    ["F3", "Open camera barcode scanner"],
+    ["F4", "Open customer selector"],
+    ["F5", "Reset the current cart"],
+    ["F6", "Open held orders"],
+    ["F7", "Clear product search"],
+    ["F8", "Hold the current sale"],
+    ["F9", "Open payment"],
+    ["Esc", "Close the active dialog"],
+  ];
+
+  return (
+    <div className="pos-held-overlay" role="presentation">
+      <section
+        ref={dialogRef}
+        tabIndex={-1}
+        className="gg-modal pos-shortcut-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pos-shortcut-title"
+      >
+        <div className="gg-modal-head">
+          <h2 className="gg-card-title" id="pos-shortcut-title">POS shortcuts</h2>
+          <button className="gg-modal-close" type="button" aria-label="Close POS shortcuts" onClick={onClose}>
+            <X aria-hidden="true" />
+          </button>
+        </div>
+        <div className="pos-shortcut-grid">
+          {shortcuts.map(([key, label]) => (
+            <div className="pos-shortcut-row" key={key}>
+              <kbd>{key}</kbd>
+              <span>{label}</span>
+            </div>
+          ))}
+        </div>
+        <div className="gg-modal-foot">
+          <button className="gg-btn gg-btn--primary" type="button" onClick={onClose}>Close</button>
+        </div>
+      </section>
+    </div>
   );
 }
 
