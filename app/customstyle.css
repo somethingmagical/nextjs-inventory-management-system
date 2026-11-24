@@ -2328,10 +2328,11 @@ body:has(.pos-screen) { height: 100vh; overflow: hidden; }
   gap: var(--sp-4);
   border-radius: var(--r-md);
   padding: var(--sp-4);
-  background: var(--gold-50);
+  background: var(--surface);
   color: var(--gray-700);
 }
-.pos-payment-total strong { color: var(--gold-700); font: 700 25px var(--font-display); font-variant-numeric: tabular-nums; }
+.pos-payment-total { border: 1px solid var(--gray-200); }
+.pos-payment-total strong { color: var(--primary); font: 700 25px var(--font-display); font-variant-numeric: tabular-nums; }
 .pos-payment-change { border: 1px solid var(--gray-200); background: var(--gray-50); }
 .pos-payment-change strong { color: var(--ink); font-size: 18px; font-variant-numeric: tabular-nums; }
 .pos-receipt-modal { transform: none; }
@@ -2368,10 +2369,11 @@ body:has(.pos-screen) { height: 100vh; overflow: hidden; }
   gap: var(--sp-4);
   border-radius: var(--r-md);
   padding: var(--sp-4);
-  background: var(--gold-50);
+  background: var(--surface);
   color: var(--gray-700);
 }
-.pos-payment-total strong { color: var(--gold-700); font: 700 25px var(--font-display); font-variant-numeric: tabular-nums; }
+.pos-payment-total { border: 1px solid var(--gray-200); }
+.pos-payment-total strong { color: var(--primary); font: 700 25px var(--font-display); font-variant-numeric: tabular-nums; }
 .pos-payment-change { border: 1px solid var(--gray-200); background: var(--gray-50); }
 .pos-payment-change strong { color: var(--ink); font-size: 18px; font-variant-numeric: tabular-nums; }
 .pos-receipt-modal { transform: none; }
