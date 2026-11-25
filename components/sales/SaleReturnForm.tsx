@@ -23,9 +23,11 @@ type SaleReturnItem = {
   name: string;
   price: string;
   unit: string;
+  unitOptions: { name: string; factor: string }[];
   stock: string;
   quantity: string;
   maxQuantity: string;
+  maxStockQuantity: string;
   discountType: "Fixed" | "Percentage";
   discount: string;
   taxType: "Inclusive" | "Exclusive";
@@ -158,6 +160,16 @@ export default function SaleReturnForm({
       closeItemEditor();
       return;
     }
+    const stockFactor = item.unitOptions.find((option) => option.name === itemEdit.unit)?.factor;
+    if (!stockFactor) {
+      setItemEditError("This unit is no longer configured for the product.");
+      return;
+    }
+    const maxQuantity = getMaxQuantity(item.maxStockQuantity, stockFactor);
+    if (new Prisma.Decimal(item.quantity).greaterThan(maxQuantity)) {
+      setItemEditError(`Reduce the return quantity to ${maxQuantity} ${itemEdit.unit} or less.`);
+      return;
+    }
 
     try {
       calculatePurchaseLineTotals({
@@ -174,7 +186,7 @@ export default function SaleReturnForm({
     }
 
     setItems((current) => current.map((entry) => (
-      entry.id === editingItemId ? { ...entry, ...itemEdit } : entry
+      entry.id === editingItemId ? { ...entry, ...itemEdit, maxQuantity } : entry
     )));
     closeItemEditor();
   }
@@ -637,8 +649,10 @@ function SaleReturnItemEditModal({
               onChange={(event) => onChange({ ...edit, unit: event.target.value })}
               disabled={isPending}
             >
-              {!units.includes(edit.unit) && <option value={edit.unit}>{edit.unit}</option>}
-              {units.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+              {[...new Set([
+                ...(item.unitOptions.map((option) => option.name) ?? units),
+                edit.unit,
+              ])].map((unit) => <option key={unit} value={unit}>{unit}</option>)}
             </select>
           </div>
           {error && <p className="warehouse-field-error" role="alert">{error}</p>}
@@ -653,4 +667,13 @@ function SaleReturnItemEditModal({
       </section>
     </div>
   );
+}
+
+function getMaxQuantity(maxStockQuantity: string, factor: string) {
+  return new Prisma.Decimal(maxStockQuantity)
+    .div(factor)
+    .times(1000)
+    .floor()
+    .div(1000)
+    .toString();
 }

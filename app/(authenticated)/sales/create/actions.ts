@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { StockUnitConversionError } from "@/lib/product-unit-conversions";
 import { requirePermission } from "@/lib/authorization";
 import { PERMISSION } from "@/lib/permissions";
 import {
@@ -38,6 +39,7 @@ export type SaleProductSearchResult =
         price: string;
         unit: string;
         stock: string;
+        unitOptions: { name: string; factor: string }[];
       }[];
     }
   | { status: "error"; message: string };
@@ -162,6 +164,9 @@ export async function createSale(
       actorId: access.userId,
     });
   } catch (error) {
+    if (error instanceof StockUnitConversionError) {
+      return { status: "error", message: error.message };
+    }
     if (error instanceof InsufficientStockError) {
       return { status: "error", message: error.message };
     }
@@ -292,6 +297,9 @@ export async function updateSale(
       actorId: access.userId,
     });
   } catch (error) {
+    if (error instanceof StockUnitConversionError) {
+      return { status: "error", message: error.message };
+    }
     if (error instanceof InsufficientStockError) {
       return { status: "error", message: error.message };
     }
@@ -396,6 +404,7 @@ export async function searchSaleProducts(
       productStocks: {
         some: {
           warehouseId: warehouse.id,
+          status: "Received",
           quantity: { gt: 0 },
         },
       },
@@ -413,22 +422,40 @@ export async function searchSaleProducts(
       price: true,
       productUnit: true,
       productStocks: {
-        where: { warehouseId: warehouse.id },
-        select: { quantity: true },
+        where: { warehouseId: warehouse.id, status: "Received" },
+        select: { quantity: true, reservedQuantity: true },
         take: 1,
+      },
+      unitConversions: {
+        where: { unit: { deletedAt: null } },
+        select: { conversionFactor: true, unit: { select: { name: true } } },
       },
     },
   });
 
   return {
     status: "success",
-    products: products.map((product) => ({
+    products: products.flatMap((product) => {
+      const stock = product.productStocks[0];
+      const availableStock = stock
+        ? stock.quantity.minus(stock.reservedQuantity)
+        : new Prisma.Decimal(0);
+      if (!availableStock.greaterThan(0)) return [];
+      return [{
       id: product.id,
       code: product.code,
       name: product.name,
       price: product.price.toString(),
       unit: product.productUnit,
-      stock: product.productStocks[0]?.quantity.toString() ?? "0",
-    })),
+      stock: availableStock.toString(),
+      unitOptions: [
+        { name: product.productUnit, factor: "1" },
+        ...product.unitConversions.map((conversion) => ({
+          name: conversion.unit.name,
+          factor: conversion.conversionFactor.toString(),
+        })),
+      ],
+    }];
+    }),
   };
 }

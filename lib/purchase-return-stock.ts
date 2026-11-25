@@ -3,6 +3,7 @@ import { Prisma, type AdjustmentType } from "@prisma/client";
 type StockEffect = {
   productId: string;
   quantity: string | Prisma.Decimal;
+  stockConversionFactor?: string | Prisma.Decimal;
 };
 
 export type PurchaseReturnStockState = {
@@ -27,7 +28,9 @@ export function calculatePurchaseReturnStockDeltas(
     for (const item of state.items) {
       const key = JSON.stringify([state.warehouseId, item.productId]);
       const current = deltas.get(key);
-      const quantity = new Prisma.Decimal(item.quantity).times(direction);
+      const quantity = new Prisma.Decimal(item.quantity)
+        .times(item.stockConversionFactor ?? 1)
+        .times(direction);
       deltas.set(key, {
         productId: item.productId,
         warehouseId: state.warehouseId,

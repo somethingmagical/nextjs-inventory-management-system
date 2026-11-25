@@ -75,17 +75,22 @@ async function StockDetailsContent({
 
   const stock = await db.productStock.findUnique({
     where: {
-      productId_warehouseId: {
+      productId_warehouseId_status: {
         productId: product.id,
         warehouseId: warehouse.id,
+        status: "Received",
       },
     },
-    select: { quantity: true },
+    select: { quantity: true, reservedQuantity: true },
   });
   const quantity = stock?.quantity.toString() ?? "0";
+  const availableQuantity = stock
+    ? stock.quantity.minus(stock.reservedQuantity).toString()
+    : "0";
   const status = classifyStockStatus(
     quantity,
     product.stockAlert?.toString() ?? null,
+    stock?.reservedQuantity.toString() ?? "0",
   );
   const displayName =
     `${access.user.firstName} ${access.user.lastName}`.trim() ||
@@ -143,6 +148,8 @@ async function StockDetailsContent({
               value={[warehouse.city, warehouse.country].filter(Boolean).join(", ") || "—"}
             />
             <Detail label="On-hand quantity" value={quantity} />
+            <Detail label="Reserved quantity" value={stock?.reservedQuantity.toString() ?? "0"} />
+            <Detail label="Available quantity" value={availableQuantity} />
             <Detail
               label="Stock alert"
               value={product.stockAlert?.toString() ?? "Not set"}

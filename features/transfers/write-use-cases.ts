@@ -68,8 +68,9 @@ export async function createTransferRecord(input: {
         where: {
           warehouseId: input.transfer.fromWarehouseId,
           productId: { in: input.transfer.items.map((item) => item.productId) },
+          status: "Received",
         },
-        select: { productId: true, quantity: true },
+        select: { productId: true, quantity: true, reservedQuantity: true },
       }),
     ]);
 
@@ -83,7 +84,10 @@ export async function createTransferRecord(input: {
     }
 
     const productById = new Map(products.map((product) => [product.id, product]));
-    const stockByProductId = new Map(sourceStocks.map((stock) => [stock.productId, stock.quantity]));
+    const stockByProductId = new Map(sourceStocks.map((stock) => [
+      stock.productId,
+      stock.quantity.minus(stock.reservedQuantity),
+    ]));
     for (const item of input.transfer.items) {
       const sourceStock = stockByProductId.get(item.productId);
       const quantity = new Prisma.Decimal(item.quantity);

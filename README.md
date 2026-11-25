@@ -4,6 +4,12 @@ Inventory is a web-based system for managing products, stock, warehouses, suppli
 
 The **Stock** page (`/stock`) organizes on-hand balances by warehouse and is available to roles with the `View Stock` permission. Warehouse setup remains on the separate Warehouse page; changes to quantities continue through the existing purchase, return, adjustment, and transfer workflows.
 
+### Inventory posting rules
+
+Only stock with a **Received** status counts as sellable on-hand inventory. Pending or ordered purchases remain outside on-hand stock until received; pending or ordered sales reserve received stock, while received sales deduct it. Purchase and sale returns affect stock only when received. Alternate transaction units require a product-specific conversion factor, which is saved with each transaction line so later product changes do not reinterpret historical quantities.
+
+The status-aware stock migration adds the reservation and conversion fields but does not reconstruct them for historical transactions. It is intended for a fresh database; before applying it to a database with existing sales or returns, reconcile pending/ordered sales and non-received returns against current stock.
+
 Role permissions separate read access from changes: **View** grants read-only access to a resource, while **Manage** grants write access and includes its matching View permission. Existing roles that have Manage permissions continue to receive the implied View access.
 
 Administrators can update the application name, favicon, and header logo from Settings. The header logo accepts PNG, JPEG, or WebP images up to 2 MB; after replacing it, apply the checked-in database migrations to make the new setting available.
@@ -74,7 +80,7 @@ Follow these steps to prepare a local development environment: install dependenc
    SEED_DEMO_DATA=true npx prisma db seed
    ```
 
-   The standard preset creates or updates 256 demo records: 2 warehouses, 4 suppliers, 8 customers, 5 categories, 5 brands, 5 units, 20 products, 40 warehouse stock balances, 8 purchases with 16 items, 12 sales with 24 items and 8 payments, 1 purchase return with 2 items, 1 sale return with 2 items, 1 completed transfer with 2 items, 4 expense categories, 4 expenses, and 82 stock movements. Demo records use fixed `demo-` IDs/references so rerunning the preset does not duplicate them. The preset is opt-in and does not delete records. Apply the database migrations before using it, and verify that the configured database is the intended local or staging database before running the command.
+   The standard preset creates or updates demo warehouses, suppliers, customers, categories, brands, units, products, per-product alternate-unit conversions, stock balances, purchases, sales, returns, transfers, expenses, and stock movements. Sales and purchases include received and pending/ordered examples: pending/ordered purchase quantities are stored in their own stock buckets, while pending/ordered sales reserve received stock without reducing physical on-hand quantities. Transaction lines save their stock conversion factor. Demo records use fixed `demo-` IDs/references so rerunning the preset updates those records rather than duplicating them; it does not delete records. Apply database migrations first, and verify that the configured database is the intended local or staging database before running the command.
 
 6. Start the development server:
 
@@ -139,7 +145,10 @@ No Google, Mapbox, commercial geocoder, subscription, trial, or usage-billed ser
 npm run build                       # Create a production build
 npm run start                       # Serve the production build
 npm run auth:cleanup-login-attempts # Remove expired login rate-limit buckets
+npm run audit:cleanup-user-history  # Remove user history older than 12 months
 ```
+
+Schedule `npm run audit:cleanup-user-history` to run daily, including while the module is disabled, so existing entries expire on time. The Settings page can pause new history entries; it does not erase existing entries. Admins can review retained events from the Users page, filter by user/action/date, and export up to 10,000 matching entries as CSV.
 
 ## Learn More
 

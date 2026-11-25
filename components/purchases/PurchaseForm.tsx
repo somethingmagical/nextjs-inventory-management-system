@@ -25,6 +25,7 @@ type ProductResult = {
   netUnitCost: string;
   unit: string;
   stock: string;
+  unitOptions: { name: string; factor: string }[];
 };
 type PurchaseDraftItem = ProductResult & {
   stockUnit: string;
@@ -750,7 +751,10 @@ export default function PurchaseForm({
                   }))}
                   required
                 >
-                  {[...new Set([...units, itemEdit.unit])].map((unit) => (
+                  {[...new Set([
+                    ...(items.find((item) => item.id === editingItemId)?.unitOptions.map((unit) => unit.name) ?? units),
+                    itemEdit.unit,
+                  ])].map((unit) => (
                     <option key={unit} value={unit}>{unit}</option>
                   ))}
                 </select>

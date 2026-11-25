@@ -716,8 +716,10 @@ function SaleItemEditModal({
           <div className="gg-field">
             <label className="gg-label" htmlFor="sale-item-unit">Sale Unit <span className="gg-req">*</span></label>
             <select className="gg-select" id="sale-item-unit" value={edit.unit} onChange={(event) => onChange({ ...edit, unit: event.target.value })}>
-              {!units.includes(edit.unit) && <option value={edit.unit}>{edit.unit}</option>}
-              {units.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+              {[...new Set([
+                ...(item.unitOptions?.map((unit) => unit.name) ?? units),
+                edit.unit,
+              ])].map((unit) => <option key={unit} value={unit}>{unit}</option>)}
             </select>
           </div>
           {error && <p className="warehouse-field-error" role="alert">{error}</p>}

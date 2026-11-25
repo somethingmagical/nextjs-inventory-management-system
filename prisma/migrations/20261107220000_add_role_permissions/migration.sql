@@ -37,8 +37,11 @@ INNER JOIN `Role` AS role_record
 SET user_record.`roleId` = role_record.`id`;
 
 ALTER TABLE `User`
-    MODIFY `roleId` VARCHAR(191) NOT NULL,
-    ADD INDEX `User_roleId_idx`(`roleId`),
+    MODIFY `roleId` VARCHAR(191) NOT NULL;
+
+CREATE INDEX `User_roleId_idx` ON `User`(`roleId`);
+
+ALTER TABLE `User`
     ADD CONSTRAINT `User_roleId_fkey`
         FOREIGN KEY (`roleId`) REFERENCES `Role`(`id`)
         ON DELETE RESTRICT ON UPDATE CASCADE;

@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Pencil,
   Plus,
+  History,
 } from "lucide-react";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
@@ -27,6 +28,7 @@ import SortableTableHeader from "@/components/shared/SortableTableHeader";
 import TableSortFilter from "@/components/shared/TableSortFilter";
 import { parseSortBy, parseSortOrder } from "@/lib/table-sorting";
 import { PERMISSION } from "@/lib/permissions";
+import { getApplicationSettings } from "@/features/settings/application";
 
 export const metadata: Metadata = {
   title: "Users",
@@ -75,6 +77,9 @@ async function UserList({ searchParams }: UsersPageProps) {
   const canManageUsers = access.user.permissions.includes(
     PERMISSION.manageUsers,
   );
+  const applicationSettings = access.user.roleName === "admin"
+    ? await getApplicationSettings()
+    : null;
 
   const rawSearchParams = await searchParams;
   const parsedQuery = searchQuerySchema.safeParse(rawSearchParams.q);
@@ -186,6 +191,12 @@ async function UserList({ searchParams }: UsersPageProps) {
             <Link className="gg-btn gg-btn--primary" href="/users/create">
               <Plus aria-hidden="true" />
               Create User
+            </Link>
+          )}
+          {applicationSettings?.userHistoryEnabled && (
+            <Link className="gg-btn gg-btn--secondary" href="/users/history">
+              <History aria-hidden="true" />
+              User History
             </Link>
           )}
         </div>

@@ -133,7 +133,7 @@ async function AuthorizedProductView({ params }: ProductViewPageProps) {
           <div className="product-stock-heading">
             <div>
               <h2 className="gg-card-title" id="product-stock-title">Stock by Warehouse</h2>
-              <p className="gg-muted">Total recorded quantity: <strong>{stockTotal}</strong></p>
+              <p className="gg-muted">Total tracked quantity: <strong>{stockTotal}</strong></p>
             </div>
           </div>
           <div className="gg-table-wrap">
@@ -143,28 +143,62 @@ async function AuthorizedProductView({ params }: ProductViewPageProps) {
                   <th scope="col">Warehouse</th>
                   <th scope="col">Supplier</th>
                   <th scope="col" className="gg-num">Quantity</th>
+                  <th scope="col" className="gg-num">Reserved</th>
+                  <th scope="col" className="gg-num">Available</th>
                   <th scope="col">Status</th>
                   <th scope="col">Added On</th>
                 </tr>
               </thead>
               <tbody>
                 {product.productStocks.map((stock) => (
-                  <tr key={`${product.id}-${stock.warehouse.name}`}>
+                  <tr key={`${product.id}-${stock.warehouse.name}-${stock.status}`}>
                     <td>{stock.warehouse.name}</td>
                     <td>{stock.supplier?.name ?? "—"}</td>
                     <td className="gg-num">{stock.quantity.toString()}</td>
+                    <td className="gg-num">{stock.reservedQuantity.toString()}</td>
+                    <td className="gg-num">
+                      {stock.status === "Received"
+                        ? stock.quantity.minus(stock.reservedQuantity).toString()
+                        : "0"}
+                    </td>
                     <td><span className="gg-chip-unit">{stock.status}</span></td>
                     <td><time dateTime={stock.createdAt.toISOString()}>{stock.createdAt.toLocaleDateString()}</time></td>
                   </tr>
                 ))}
                 {product.productStocks.length === 0 && (
                   <tr>
-                    <td className="product-empty-cell" colSpan={5}>No warehouse stock has been recorded.</td>
+                    <td className="product-empty-cell" colSpan={7}>No warehouse stock has been recorded.</td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
+        </section>
+
+        <section className="gg-card gg-card-pad product-detail-card" aria-labelledby="product-unit-conversions-title">
+          <h2 className="gg-card-title" id="product-unit-conversions-title">Unit Conversions</h2>
+          {product.unitConversions.length ? (
+            <div className="gg-table-wrap">
+              <table className="gg-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Alternate unit</th>
+                    <th scope="col">Conversion</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {product.unitConversions.map((conversion) => (
+                    <tr key={conversion.unit.name}>
+                      <td>{conversion.unit.name}</td>
+                      <td>1 {conversion.unit.name} = {conversion.conversionFactor.toString()} {product.productUnit}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="gg-muted">No alternate units are configured.</p>
+          )}
         </section>
 
         <section className="gg-card gg-card-pad product-detail-card" aria-labelledby="product-discounts-title">

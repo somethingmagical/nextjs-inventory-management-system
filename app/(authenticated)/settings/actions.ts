@@ -21,6 +21,7 @@ export async function updateApplicationSettings(
     appName: formData.get("appName"),
     favicon: formData.get("favicon"),
     headerLogo: formData.get("headerLogo"),
+    userHistoryEnabled: formData.get("userHistoryEnabled") === "on",
   });
   if (result.status === "error") {
     return { status: "error", message: result.message };

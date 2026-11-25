@@ -53,7 +53,11 @@ async function AuthorizedEditSaleReturnPage({ params }: EditSaleReturnPageProps)
       where: { id: saleReturn.sale.id, deletedAt: null },
       select: {
         items: {
-          select: { productId: true, quantity: true },
+          select: {
+            productId: true,
+            quantity: true,
+            stockConversionFactor: true,
+          },
         },
       },
     }),
@@ -63,7 +67,9 @@ async function AuthorizedEditSaleReturnPage({ params }: EditSaleReturnPageProps)
         deletedAt: null,
         id: { not: saleReturn.id },
       },
-      select: { items: { select: { productId: true, quantity: true } } },
+      select: {
+        items: { select: { productId: true, quantity: true, stockConversionFactor: true } },
+      },
     }),
     db.unit.findMany({
       where: { deletedAt: null },
@@ -74,8 +80,9 @@ async function AuthorizedEditSaleReturnPage({ params }: EditSaleReturnPageProps)
       where: {
         warehouseId: saleReturn.warehouseId,
         productId: { in: saleReturn.items.map((item) => item.product.id) },
+        status: "Received",
       },
-      select: { productId: true, quantity: true },
+      select: { productId: true, quantity: true, reservedQuantity: true },
     }),
   ]);
   if (!sale) notFound();
@@ -84,7 +91,8 @@ async function AuthorizedEditSaleReturnPage({ params }: EditSaleReturnPageProps)
   for (const item of sale.items) {
     soldByProductId.set(
       item.productId,
-      (soldByProductId.get(item.productId) ?? new Prisma.Decimal(0)).plus(item.quantity),
+      (soldByProductId.get(item.productId) ?? new Prisma.Decimal(0))
+        .plus(item.quantity.times(item.stockConversionFactor)),
     );
   }
   const returnedByOtherDocuments = new Map<string, Prisma.Decimal>();
@@ -92,11 +100,15 @@ async function AuthorizedEditSaleReturnPage({ params }: EditSaleReturnPageProps)
     for (const item of otherReturn.items) {
       returnedByOtherDocuments.set(
         item.productId,
-        (returnedByOtherDocuments.get(item.productId) ?? new Prisma.Decimal(0)).plus(item.quantity),
+        (returnedByOtherDocuments.get(item.productId) ?? new Prisma.Decimal(0))
+          .plus(item.quantity.times(item.stockConversionFactor)),
       );
     }
   }
-  const stockByProductId = new Map(stocks.map((stock) => [stock.productId, stock.quantity]));
+  const stockByProductId = new Map(stocks.map((stock) => [
+    stock.productId,
+    stock.quantity.minus(stock.reservedQuantity),
+  ]));
   const initialData: SaleReturnFormInitialData = {
     id: saleReturn.id,
     saleId: saleReturn.sale.id,
@@ -110,20 +122,35 @@ async function AuthorizedEditSaleReturnPage({ params }: EditSaleReturnPageProps)
     shipping: saleReturn.shipping.toString(),
     notes: saleReturn.notes,
     items: saleReturn.items.map((item) => {
-      const maxQuantity = Prisma.Decimal.max(
+      const maxStockQuantity = Prisma.Decimal.max(
         (soldByProductId.get(item.product.id) ?? new Prisma.Decimal(0))
           .minus(returnedByOtherDocuments.get(item.product.id) ?? new Prisma.Decimal(0)),
         new Prisma.Decimal(0),
       );
+      const currentUnitOptions = [
+        { name: item.product.productUnit, factor: "1" },
+        ...item.product.unitConversions.map((conversion) => ({
+          name: conversion.unit.name,
+          factor: conversion.conversionFactor.toString(),
+        })),
+      ];
+      const unitOptions = [
+        ...currentUnitOptions.filter((option) => option.name !== item.unit),
+        { name: item.unit, factor: item.stockConversionFactor.toString() },
+      ];
+      const factor = item.stockConversionFactor.toString();
+      const maxQuantity = maxStockQuantity.div(factor).times(1000).floor().div(1000).toString();
       return {
         id: item.product.id,
         code: item.product.code,
         name: item.product.name,
         price: item.netUnitPrice.toString(),
         unit: item.unit,
+        unitOptions,
         stock: stockByProductId.get(item.product.id)?.toString() ?? "0",
         quantity: item.quantity.toString(),
-        maxQuantity: maxQuantity.toString(),
+        maxQuantity,
+        maxStockQuantity: maxStockQuantity.toString(),
         discountType: item.discountType,
         discount: item.discount.toString(),
         taxType: item.taxType,

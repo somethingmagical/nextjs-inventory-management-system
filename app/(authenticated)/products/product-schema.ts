@@ -57,6 +57,40 @@ const warehouseDiscountsSchema = z.string()
     });
   });
 
+const unitConversionsSchema = z.string()
+  .max(20_000, "Product unit conversions are too large.")
+  .transform((serialized, context) => {
+    try {
+      return JSON.parse(serialized) as unknown;
+    } catch {
+      context.addIssue({ code: "custom", message: "Product unit conversions are invalid." });
+      return z.NEVER;
+    }
+  })
+  .pipe(z.array(z.object({
+    unitName: requiredText("product unit"),
+    conversionFactor: z.string()
+      .trim()
+      .regex(/^\d{1,6}(?:\.\d{1,6})?$/, "Conversion factor must be a positive number with up to 6 decimal places.")
+      .refine(
+        (value) => /^\d{1,6}(?:\.\d{1,6})?$/.test(value) && new Prisma.Decimal(value).greaterThan(0),
+        "Conversion factor must be greater than zero.",
+      ),
+  })).max(50, "A product can have up to 50 alternate units."))
+  .superRefine((conversions, context) => {
+    const unitNames = new Set<string>();
+    conversions.forEach((conversion, index) => {
+      if (unitNames.has(conversion.unitName)) {
+        context.addIssue({
+          code: "custom",
+          message: "Each alternate unit can only be configured once.",
+          path: [index, "unitName"],
+        });
+      }
+      unitNames.add(conversion.unitName);
+    });
+  });
+
 const productDetailsSchemaBase = z.object({
   code: z.string().trim().min(1, "Enter a product code.").max(191, "Product code must be 191 characters or fewer."),
   name: z.string().trim().min(1, "Enter a product name.").max(191, "Name must be 191 characters or fewer."),
@@ -69,6 +103,7 @@ const productDetailsSchemaBase = z.object({
       `Price must be a non-negative amount up to $${MAX_PRODUCT_PRICE} with up to 2 decimal places.`,
     ),
   productUnit: requiredText("product unit"),
+  unitConversions: unitConversionsSchema,
   stockAlert: optionalDecimal(9, 3, "Stock alert"),
   orderTax: optionalDecimal(3, 2, "Order tax"),
   taxType: z.enum(["Exclusive", "Inclusive"]),
@@ -86,6 +121,16 @@ function validateDiscounts(
   product: z.output<typeof productDetailsSchemaBase>,
   context: z.RefinementCtx,
 ) {
+  product.unitConversions.forEach((conversion, index) => {
+    if (conversion.unitName === product.productUnit) {
+      context.addIssue({
+        code: "custom",
+        message: "The base product unit cannot also be an alternate unit.",
+        path: ["unitConversions", index, "unitName"],
+      });
+    }
+  });
+
   const price = new Prisma.Decimal(product.price);
   if (product.defaultDiscountType === "Percentage") {
     if (new Prisma.Decimal(product.defaultDiscount).greaterThan(100)) {
@@ -143,6 +188,7 @@ export type ProductFormValues = {
   brandId: string;
   price: string;
   productUnit: string;
+  unitConversions: string;
   stockAlert: string;
   orderTax: string;
   taxType: "Exclusive" | "Inclusive";

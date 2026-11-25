@@ -390,6 +390,7 @@ export async function searchTransferProducts(
       productStocks: {
         some: {
           warehouseId: warehouse.id,
+          status: "Received",
           quantity: { gt: 0 },
         },
       },
@@ -407,8 +408,8 @@ export async function searchTransferProducts(
       purchasePrice: true,
       productUnit: true,
       productStocks: {
-        where: { warehouseId: warehouse.id, quantity: { gt: 0 } },
-        select: { quantity: true },
+        where: { warehouseId: warehouse.id, status: "Received", quantity: { gt: 0 } },
+        select: { quantity: true, reservedQuantity: true },
         take: 1,
       },
     },
@@ -416,14 +417,21 @@ export async function searchTransferProducts(
 
   return {
     status: "success",
-    products: products.map((product) => ({
+    products: products.flatMap((product) => {
+      const stock = product.productStocks[0];
+      const availableStock = stock
+        ? stock.quantity.minus(stock.reservedQuantity)
+        : new Prisma.Decimal(0);
+      if (!availableStock.greaterThan(0)) return [];
+      return [{
       id: product.id,
       code: product.code,
       name: product.name,
       netUnitCost: product.purchasePrice.toString(),
       unit: product.productUnit,
-      stock: product.productStocks[0].quantity.toString(),
-    })),
+      stock: availableStock.toString(),
+    }];
+    }),
   };
 }
 
@@ -458,8 +466,9 @@ export async function getTransferProductStocks(
       where: {
         warehouseId: warehouse.id,
         productId: { in: parsed.data.productIds },
+        status: "Received",
       },
-      select: { productId: true, quantity: true },
+      select: { productId: true, quantity: true, reservedQuantity: true },
     }),
     parsed.data.transferId
       ? db.transfer.findFirst({
@@ -477,7 +486,10 @@ export async function getTransferProductStocks(
   }
 
   const stockByProductId = new Map(
-    stocks.map((stock) => [stock.productId, stock.quantity]),
+    stocks.map((stock) => [
+      stock.productId,
+      stock.quantity.minus(stock.reservedQuantity),
+    ]),
   );
   if (original?.fromWarehouseId === warehouse.id) {
     const sourceWithdrawal = getTransferStockOperations(original.status)

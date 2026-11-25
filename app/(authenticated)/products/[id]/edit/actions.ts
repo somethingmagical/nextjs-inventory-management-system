@@ -4,7 +4,10 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getProductImageState } from "@/features/catalog/products/queries";
-import { updateProductDetails } from "@/features/catalog/products/update";
+import {
+  ProductBaseUnitChangeError,
+  updateProductDetails,
+} from "@/features/catalog/products/update";
 import { resolveProductImageOrder } from "@/lib/product-image-order";
 import { getProductAccess } from "../../authorization";
 import {
@@ -44,6 +47,7 @@ export async function updateProduct(
     brandId: formData.get("brandId"),
     price: formData.get("price"),
     productUnit: formData.get("productUnit"),
+    unitConversions: formData.get("unitConversions"),
     stockAlert: formData.get("stockAlert"),
     orderTax: formData.get("orderTax"),
     taxType: formData.get("taxType"),
@@ -144,6 +148,9 @@ export async function updateProduct(
     }
   } catch (error) {
     await removeProductImages(upload.images.map((image) => image.path));
+    if (error instanceof ProductBaseUnitChangeError) {
+      return { status: "error", message: error.message };
+    }
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return {
         status: "error",

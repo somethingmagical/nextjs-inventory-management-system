@@ -5,8 +5,11 @@ import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/auth";
+import { requirePermission } from "@/lib/authorization";
 import { db } from "@/lib/db";
+import { PERMISSION } from "@/lib/permissions";
+import { recordUserHistory } from "@/features/users/history";
+import { getChangedUserFields } from "@/features/users/history-fields";
 import { optionalPhoneNumberSchema } from "@/lib/phone-number";
 import type { ProfileActionState } from "./profile-state";
 import { z } from "zod";
@@ -60,12 +63,14 @@ export async function updateProfile(
   _previousState: ProfileActionState,
   formData: FormData,
 ): Promise<ProfileActionState> {
-  const session = await auth();
-  const userId = session?.user?.id;
-
-  if (!userId) {
+  const access = await requirePermission(PERMISSION.editOwnProfile);
+  if (access.status === "unauthenticated") {
     return { status: "error", message: "Please sign in again to update your profile." };
   }
+  if (access.status === "forbidden") {
+    return { status: "error", message: "Your role does not allow you to edit your profile." };
+  }
+  const userId = access.userId;
 
   const parsed = profileSchema.safeParse({
     firstName: formData.get("firstName"),
@@ -94,7 +99,15 @@ export async function updateProfile(
   const hasNewImage = imageEntry instanceof File && imageEntry.size > 0;
   const currentUser = await db.user.findUnique({
     where: { id: userId },
-    select: { firstName: true, lastName: true, email: true, phoneNumber: true },
+    select: {
+      firstName: true,
+      lastName: true,
+      email: true,
+      phoneNumber: true,
+      image: true,
+      roleId: true,
+      role: true,
+    },
   });
 
   if (!currentUser) {
@@ -161,17 +174,55 @@ export async function updateProfile(
   }
 
   try {
-    // Role is intentionally excluded from self-service updates; role changes belong to admin user management.
-    await db.user.update({
-      where: { id: userId },
-      data: {
+    const updated = await db.$transaction(async (transaction) => {
+      const current = await transaction.user.findFirst({
+        where: { id: userId, deletedAt: null },
+        select: {
+          firstName: true,
+          lastName: true,
+          email: true,
+          phoneNumber: true,
+          image: true,
+          roleId: true,
+          role: true,
+        },
+      });
+      if (!current) return false;
+
+      const updateResult = await transaction.user.updateMany({
+        where: { id: userId, deletedAt: null },
+        data: {
+          firstName: parsed.data.firstName,
+          lastName: parsed.data.lastName,
+          email: parsed.data.email,
+          phoneNumber: parsed.data.phoneNumber || null,
+          ...(uploadedImage ? { image: uploadedImage.path } : {}),
+        },
+      });
+      if (updateResult.count !== 1) return false;
+
+      const changedFields = getChangedUserFields(current, {
+        ...current,
         firstName: parsed.data.firstName,
         lastName: parsed.data.lastName,
         email: parsed.data.email,
         phoneNumber: parsed.data.phoneNumber || null,
-        ...(uploadedImage ? { image: uploadedImage.path } : {}),
-      },
+        image: uploadedImage?.path ?? current.image,
+      });
+      if (changedFields.length > 0) {
+        await recordUserHistory(transaction, {
+          actorId: userId,
+          subjectUserId: userId,
+          action: "updated",
+          changedFields,
+        });
+      }
+      return true;
     });
+    if (!updated) {
+      if (uploadedImage) await removeUploadedFile(uploadedImage.filePath);
+      return { status: "error", message: "Your account could not be updated. Please try again." };
+    }
   } catch (error) {
     if (uploadedImage) {
       await removeUploadedFile(uploadedImage.filePath);

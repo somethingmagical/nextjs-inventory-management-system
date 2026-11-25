@@ -8,6 +8,7 @@ import { canManageRoleInHierarchy } from "@/lib/authorization";
 import { getUserManagementAccess } from "./authorization";
 import { userIdSchema } from "./user-schema";
 import type { UserActionState } from "./create/action-state";
+import { recordUserHistory } from "@/features/users/history";
 
 const deleteUserInputSchema = z.object({ userId: userIdSchema });
 
@@ -82,11 +83,19 @@ export async function deleteUser(userId: string): Promise<UserActionState> {
       };
     }
 
+    await recordUserHistory(transaction, {
+      actorId: access.user.id,
+      subjectUserId: target.id,
+      action: "deleted",
+      changedFields: ["deletedAt"],
+    });
+
     return { status: "success" as const };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
 
   if (result.status === "error") return result;
 
   revalidatePath("/users");
+  revalidatePath("/users/history");
   return { status: "success", message: "User deleted successfully." };
 }

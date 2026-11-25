@@ -13,12 +13,16 @@ export async function getProductListData(input: {
   sortBy: "name" | "code" | "brand" | "price" | "createdAt";
   sortOrder: "asc" | "desc";
 }) {
-  const stockFilter = {
+  const productStockFilter = {
     ...(input.warehouseId ? { warehouseId: input.warehouseId } : {}),
     ...(input.supplierId ? { supplierId: input.supplierId } : {}),
     ...(input.status ? { status: input.status } : {}),
   };
-  const hasStockFilter = Object.keys(stockFilter).length > 0;
+  const stockFilter = {
+    ...productStockFilter,
+    status: input.status ?? "Received",
+  };
+  const hasStockFilter = Object.keys(productStockFilter).length > 0;
   const where = {
     deletedAt: null,
     ...(input.query
@@ -31,7 +35,7 @@ export async function getProductListData(input: {
           ],
         }
       : {}),
-    ...(hasStockFilter ? { productStocks: { some: stockFilter } } : {}),
+    ...(hasStockFilter ? { productStocks: { some: productStockFilter } } : {}),
   };
   const totalCount = await db.product.count({ where });
   const totalPages = Math.ceil(totalCount / input.pageSize);

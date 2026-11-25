@@ -30,6 +30,7 @@ export async function createProduct(
     brandId: formData.get("brandId"),
     price: formData.get("price"),
     productUnit: formData.get("productUnit"),
+    unitConversions: formData.get("unitConversions"),
     stockAlert: formData.get("stockAlert"),
     orderTax: formData.get("orderTax"),
     taxType: formData.get("taxType"),

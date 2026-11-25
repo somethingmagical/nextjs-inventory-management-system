@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { canManageRoleInHierarchy } from "@/lib/authorization";
+import { recordUserHistory } from "@/features/users/history";
 import { getUserManagementAccess } from "../authorization";
 import { createUserSchema } from "../user-schema";
 import { getUserImageEntry, removeUserImage, saveUserImage } from "../user-image";
@@ -91,18 +92,27 @@ export async function createUser(
 
   const password = await hash(parsed.data.password, 12);
   try {
-    await db.user.create({
-      data: {
-        firstName: parsed.data.firstName,
-        lastName: parsed.data.lastName,
-        email: parsed.data.email,
-        phoneNumber: parsed.data.phoneNumber || null,
-        role: role.name,
-        roleId: role.id,
-        password,
-        image: uploadedImage?.path ?? null,
-      },
-      select: { id: true },
+    await db.$transaction(async (transaction) => {
+      const created = await transaction.user.create({
+        data: {
+          firstName: parsed.data.firstName,
+          lastName: parsed.data.lastName,
+          email: parsed.data.email,
+          phoneNumber: parsed.data.phoneNumber || null,
+          role: role.name,
+          roleId: role.id,
+          password,
+          image: uploadedImage?.path ?? null,
+        },
+        select: { id: true },
+      });
+      await recordUserHistory(transaction, {
+        actorId: access.user.id,
+        subjectUserId: created.id,
+        action: "created",
+        changedFields: ["firstName", "lastName", "email", "phoneNumber", "role", "image", "credentials"],
+        roleTo: role.name,
+      });
     });
   } catch (error) {
     if (uploadedImage) await removeUserImage(uploadedImage.filePath);

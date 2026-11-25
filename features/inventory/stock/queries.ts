@@ -41,19 +41,23 @@ export async function getStockWarehouseOverview(): Promise<StockWarehouseSummary
       COALESCE(products.\`productCount\`, 0) AS \`productCount\`,
       COUNT(CASE
         WHEN p.\`id\` IS NOT NULL AND c.\`id\` IS NOT NULL
-          AND ps.\`quantity\` > 0
-          AND (p.\`stockAlert\` IS NULL OR ps.\`quantity\` > p.\`stockAlert\`)
+          AND ps.\`quantity\` - ps.\`reservedQuantity\` > 0
+          AND (
+            p.\`stockAlert\` IS NULL
+            OR ps.\`quantity\` - ps.\`reservedQuantity\` > p.\`stockAlert\`
+          )
         THEN 1
       END) AS \`inStockCount\`,
       COUNT(CASE
         WHEN p.\`id\` IS NOT NULL AND c.\`id\` IS NOT NULL
-          AND ps.\`quantity\` > 0
+          AND ps.\`quantity\` - ps.\`reservedQuantity\` > 0
           AND p.\`stockAlert\` IS NOT NULL
-          AND ps.\`quantity\` <= p.\`stockAlert\`
+          AND ps.\`quantity\` - ps.\`reservedQuantity\` <= p.\`stockAlert\`
         THEN 1
       END) AS \`lowStockCount\`,
       COALESCE(products.\`productCount\`, 0) - COUNT(CASE
-        WHEN p.\`id\` IS NOT NULL AND c.\`id\` IS NOT NULL AND ps.\`quantity\` > 0
+        WHEN p.\`id\` IS NOT NULL AND c.\`id\` IS NOT NULL
+          AND ps.\`quantity\` - ps.\`reservedQuantity\` > 0
         THEN 1
       END) AS \`outOfStockCount\`
     FROM \`Warehouse\` w
@@ -65,7 +69,8 @@ export async function getStockWarehouseOverview(): Promise<StockWarehouseSummary
       WHERE activeProduct.\`deletedAt\` IS NULL
         AND activeCategory.\`deletedAt\` IS NULL
     ) products
-    LEFT JOIN \`ProductStock\` ps ON ps.\`warehouseId\` = w.\`id\`
+    LEFT JOIN \`ProductStock\` ps
+      ON ps.\`warehouseId\` = w.\`id\` AND ps.\`status\` = 'Received'
     LEFT JOIN \`Product\` p
       ON p.\`id\` = ps.\`productId\` AND p.\`deletedAt\` IS NULL
     LEFT JOIN \`Category\` c
@@ -99,6 +104,7 @@ export type WarehouseStockItem = {
   category: string;
   productUnit: string;
   quantity: string;
+  availableQuantity: string;
   stockAlert: string | null;
   status: StockStatus;
 };
@@ -129,15 +135,16 @@ export async function getWarehouseStockData(input: {
     conditions.push(Prisma.sql`p.\`categoryId\` = ${input.categoryId}`);
   }
   if (input.status === "in-stock") {
-    conditions.push(Prisma.sql`COALESCE(ps.\`quantity\`, 0) > 0 AND (
-      p.\`stockAlert\` IS NULL OR COALESCE(ps.\`quantity\`, 0) > p.\`stockAlert\`
+    conditions.push(Prisma.sql`COALESCE(ps.\`quantity\` - ps.\`reservedQuantity\`, 0) > 0 AND (
+      p.\`stockAlert\` IS NULL
+      OR COALESCE(ps.\`quantity\` - ps.\`reservedQuantity\`, 0) > p.\`stockAlert\`
     )`);
   } else if (input.status === "low-stock") {
-    conditions.push(Prisma.sql`COALESCE(ps.\`quantity\`, 0) > 0
+    conditions.push(Prisma.sql`COALESCE(ps.\`quantity\` - ps.\`reservedQuantity\`, 0) > 0
       AND p.\`stockAlert\` IS NOT NULL
-      AND COALESCE(ps.\`quantity\`, 0) <= p.\`stockAlert\``);
+      AND COALESCE(ps.\`quantity\` - ps.\`reservedQuantity\`, 0) <= p.\`stockAlert\``);
   } else if (input.status === "out-of-stock") {
-    conditions.push(Prisma.sql`COALESCE(ps.\`quantity\`, 0) <= 0`);
+    conditions.push(Prisma.sql`COALESCE(ps.\`quantity\` - ps.\`reservedQuantity\`, 0) <= 0`);
   }
 
   const where = Prisma.join(conditions, " AND ");
@@ -147,7 +154,9 @@ export async function getWarehouseStockData(input: {
       FROM \`Product\` p
       INNER JOIN \`Category\` c ON c.\`id\` = p.\`categoryId\`
       LEFT JOIN \`ProductStock\` ps
-        ON ps.\`productId\` = p.\`id\` AND ps.\`warehouseId\` = ${input.warehouseId}
+        ON ps.\`productId\` = p.\`id\`
+          AND ps.\`warehouseId\` = ${input.warehouseId}
+          AND ps.\`status\` = 'Received'
       WHERE ${where}
     `,
   );
@@ -170,6 +179,8 @@ export async function getWarehouseStockData(input: {
     category: string;
     productUnit: string;
     quantity: string;
+    reservedQuantity: string;
+    availableQuantity: string;
     stockAlert: string | null;
   }>>(Prisma.sql`
     SELECT
@@ -179,11 +190,15 @@ export async function getWarehouseStockData(input: {
       c.\`name\` AS \`category\`,
       p.\`productUnit\`,
       CAST(COALESCE(ps.\`quantity\`, 0) AS CHAR) AS \`quantity\`,
+      CAST(COALESCE(ps.\`reservedQuantity\`, 0) AS CHAR) AS \`reservedQuantity\`,
+      CAST(COALESCE(ps.\`quantity\` - ps.\`reservedQuantity\`, 0) AS CHAR) AS \`availableQuantity\`,
       CAST(p.\`stockAlert\` AS CHAR) AS \`stockAlert\`
     FROM \`Product\` p
     INNER JOIN \`Category\` c ON c.\`id\` = p.\`categoryId\`
     LEFT JOIN \`ProductStock\` ps
-      ON ps.\`productId\` = p.\`id\` AND ps.\`warehouseId\` = ${input.warehouseId}
+      ON ps.\`productId\` = p.\`id\`
+        AND ps.\`warehouseId\` = ${input.warehouseId}
+        AND ps.\`status\` = 'Received'
     WHERE ${where}
     ORDER BY ${sortColumn} ${sortDirection}, p.\`id\` ASC
     LIMIT ${input.pageSize} OFFSET ${(currentPage - 1) * input.pageSize}
@@ -191,7 +206,7 @@ export async function getWarehouseStockData(input: {
 
   const items = rows.map((row) => ({
     ...row,
-    status: classifyStockStatus(row.quantity, row.stockAlert),
+    status: classifyStockStatus(row.quantity, row.stockAlert, row.reservedQuantity),
   }));
 
   return { totalCount, totalPages, currentPage, items };

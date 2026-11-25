@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { StockUnitConversionError } from "@/lib/product-unit-conversions";
 import {
   InsufficientStockError,
   StockQuantityLimitError,
@@ -35,6 +36,7 @@ export type PurchaseProductSearchResult =
         netUnitCost: string;
         unit: string;
         stock: string;
+        unitOptions: { name: string; factor: string }[];
       }[];
     }
   | { status: "error"; message: string };
@@ -183,6 +185,9 @@ export async function savePurchase(
       await createPurchaseRecord(purchaseInput);
     }
   } catch (error) {
+    if (error instanceof StockUnitConversionError) {
+      return { status: "error", message: error.message };
+    }
     if (error instanceof StockQuantityLimitError) {
       return { status: "error", message: error.message };
     }
@@ -259,8 +264,12 @@ export async function searchPurchaseProducts(
       name: true,
       purchasePrice: true,
       productUnit: true,
+      unitConversions: {
+        where: { unit: { deletedAt: null } },
+        select: { conversionFactor: true, unit: { select: { name: true } } },
+      },
       productStocks: {
-        where: { warehouseId: warehouse.id },
+        where: { warehouseId: warehouse.id, status: "Received" },
         select: { quantity: true },
       },
     },
@@ -275,6 +284,13 @@ export async function searchPurchaseProducts(
       netUnitCost: product.purchasePrice.toString(),
       unit: product.productUnit,
       stock: product.productStocks[0]?.quantity.toString() ?? "0",
+      unitOptions: [
+        { name: product.productUnit, factor: "1" },
+        ...product.unitConversions.map((conversion) => ({
+          name: conversion.unit.name,
+          factor: conversion.conversionFactor.toString(),
+        })),
+      ],
     })),
   };
 }

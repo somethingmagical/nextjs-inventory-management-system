@@ -1,6 +1,7 @@
 import {
   Prisma,
   type AdjustmentType,
+  type ProductStockStatus,
   type StockMovementSourceType,
   type StockMovementType,
 } from "@prisma/client";
@@ -36,14 +37,16 @@ async function increaseStockBalance(
     productId: string;
     warehouseId: string;
     supplierId: string | null;
+    status: ProductStockStatus;
     quantity: Prisma.Decimal;
     expectedQuantity?: Prisma.Decimal;
   },
 ) {
   const unique = {
-    productId_warehouseId: {
+    productId_warehouseId_status: {
       productId: input.productId,
       warehouseId: input.warehouseId,
+      status: input.status,
     },
   };
   const maxQuantity = new Prisma.Decimal("999999999.999");
@@ -55,6 +58,7 @@ async function increaseStockBalance(
     where: {
       productId: input.productId,
       warehouseId: input.warehouseId,
+      status: input.status,
       quantity: {
         lte: maxQuantity.minus(input.quantity),
         ...(input.expectedQuantity ? { equals: input.expectedQuantity } : {}),
@@ -79,8 +83,88 @@ async function increaseStockBalance(
       productId: input.productId,
       warehouseId: input.warehouseId,
       supplierId: input.supplierId,
+      status: input.status,
       quantity: input.quantity,
     },
+  });
+}
+
+async function decreaseStockBalance(
+  transaction: Prisma.TransactionClient,
+  input: {
+    productId: string;
+    warehouseId: string;
+    status: ProductStockStatus;
+    quantity: Prisma.Decimal;
+    expectedQuantity?: Prisma.Decimal;
+    respectReservations: boolean;
+    productName?: string;
+    documentLabel?: string;
+  },
+) {
+  const unique = {
+    productId_warehouseId_status: {
+      productId: input.productId,
+      warehouseId: input.warehouseId,
+      status: input.status,
+    },
+  };
+  const stock = await transaction.productStock.findUnique({
+    where: unique,
+    select: { quantity: true, reservedQuantity: true },
+  });
+  if (!stock) throw new InsufficientStockError(input.productName, input.documentLabel);
+  if (input.expectedQuantity && !stock.quantity.equals(input.expectedQuantity)) {
+    throw new StockBalanceChangedError();
+  }
+
+  const available = input.respectReservations
+    ? stock.quantity.minus(stock.reservedQuantity)
+    : stock.quantity;
+  if (available.lessThan(input.quantity)) {
+    throw new InsufficientStockError(input.productName, input.documentLabel);
+  }
+
+  const updated = await transaction.productStock.updateMany({
+    where: {
+      ...unique.productId_warehouseId_status,
+      quantity: { equals: stock.quantity },
+      reservedQuantity: { equals: stock.reservedQuantity },
+    },
+    data: { quantity: { decrement: input.quantity } },
+  });
+  if (updated.count !== 1) throw new StockBalanceChangedError();
+}
+
+export async function applyStockBucketAdjustment(
+  transaction: Prisma.TransactionClient,
+  input: {
+    productId: string;
+    warehouseId: string;
+    status: ProductStockStatus;
+    quantity: string;
+    type: AdjustmentType;
+    supplierId?: string | null;
+  },
+) {
+  const quantity = new Prisma.Decimal(input.quantity);
+  if (input.type === "Addition") {
+    await increaseStockBalance(transaction, {
+      productId: input.productId,
+      warehouseId: input.warehouseId,
+      supplierId: input.supplierId ?? null,
+      status: input.status,
+      quantity,
+    });
+    return;
+  }
+
+  await decreaseStockBalance(transaction, {
+    productId: input.productId,
+    warehouseId: input.warehouseId,
+    status: input.status,
+    quantity,
+    respectReservations: false,
   });
 }
 
@@ -105,21 +189,16 @@ export async function applyStockAdjustment(
   const quantity = new Prisma.Decimal(input.quantity);
 
   if (input.type === "Subtraction") {
-    const updated = await transaction.productStock.updateMany({
-      where: {
-        productId: input.productId,
-        warehouseId: input.warehouseId,
-        quantity: {
-          gte: quantity,
-          ...(input.expectedQuantity ? { equals: input.expectedQuantity } : {}),
-        },
-      },
-      data: { quantity: { decrement: quantity } },
+    await decreaseStockBalance(transaction, {
+      productId: input.productId,
+      warehouseId: input.warehouseId,
+      status: "Received",
+      quantity,
+      expectedQuantity: input.expectedQuantity,
+      respectReservations: true,
+      productName: input.productName,
+      documentLabel: input.documentLabel,
     });
-    if (updated.count !== 1) {
-      if (input.expectedQuantity) throw new StockBalanceChangedError();
-      throw new InsufficientStockError(input.productName, input.documentLabel);
-    }
     await transaction.stockMovement.create({
       data: {
         productId: input.productId,
@@ -135,6 +214,7 @@ export async function applyStockAdjustment(
     productId: input.productId,
     warehouseId: input.warehouseId,
     supplierId: null,
+    status: "Received",
     quantity,
     expectedQuantity: input.expectedQuantity,
   });
@@ -146,6 +226,61 @@ export async function applyStockAdjustment(
       ...input.movement,
     },
   });
+}
+
+export async function reserveStock(
+  transaction: Prisma.TransactionClient,
+  input: {
+    productId: string;
+    productName: string;
+    warehouseId: string;
+    quantity: string;
+    type: AdjustmentType;
+    documentLabel?: string;
+  },
+) {
+  const quantity = new Prisma.Decimal(input.quantity);
+  const where = {
+    productId_warehouseId_status: {
+      productId: input.productId,
+      warehouseId: input.warehouseId,
+      status: "Received" as const,
+    },
+  };
+  const stock = await transaction.productStock.findUnique({
+    where,
+    select: { quantity: true, reservedQuantity: true },
+  });
+  if (!stock) {
+    if (input.type === "Subtraction") {
+      throw new InsufficientStockError(input.productName, input.documentLabel);
+    }
+    throw new StockBalanceChangedError();
+  }
+
+  if (input.type === "Addition") {
+    if (stock.quantity.minus(stock.reservedQuantity).lessThan(quantity)) {
+      throw new InsufficientStockError(input.productName, input.documentLabel);
+    }
+  } else if (stock.reservedQuantity.lessThan(quantity)) {
+    throw new StockBalanceChangedError();
+  }
+
+  const updated = await transaction.productStock.updateMany({
+    where: {
+      ...where.productId_warehouseId_status,
+      quantity: { equals: stock.quantity },
+      reservedQuantity: input.type === "Addition"
+        ? { equals: stock.reservedQuantity }
+        : { equals: stock.reservedQuantity, gte: quantity },
+    },
+    data: {
+      reservedQuantity: input.type === "Addition"
+        ? { increment: quantity }
+        : { decrement: quantity },
+    },
+  });
+  if (updated.count !== 1) throw new StockBalanceChangedError();
 }
 
 export async function receivePurchaseStock(
@@ -168,6 +303,7 @@ export async function receivePurchaseStock(
     productId: input.productId,
     warehouseId: input.warehouseId,
     supplierId: input.supplierId,
+    status: "Received",
     quantity,
   });
   await transaction.stockMovement.create({

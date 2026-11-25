@@ -71,8 +71,8 @@ export async function searchAdjustmentProducts(
       code: true,
       productUnit: true,
       productStocks: {
-        where: { warehouseId: warehouse.id },
-        select: { quantity: true },
+        where: { warehouseId: warehouse.id, status: "Received" },
+        select: { quantity: true, reservedQuantity: true },
       },
     },
   });
@@ -84,7 +84,9 @@ export async function searchAdjustmentProducts(
       name: product.name,
       code: product.code,
       productUnit: product.productUnit,
-      stock: product.productStocks[0]?.quantity.toString() ?? "0",
+      stock: product.productStocks[0]
+        ? product.productStocks[0].quantity.minus(product.productStocks[0].reservedQuantity).toString()
+        : "0",
     })),
   };
 }

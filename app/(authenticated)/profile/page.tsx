@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { db } from "@/lib/db";
 import ProfileForm from "./ProfileForm";
+import { PERMISSION, permissionIsGranted } from "@/lib/permissions";
 
 export const metadata: Metadata = {
   title: "Profile",
@@ -43,6 +44,15 @@ async function AuthenticatedProfile() {
       phoneNumber: true,
       image: true,
       role: true,
+      roleRecord: {
+        select: {
+          name: true,
+          permissions: {
+            where: { permission: PERMISSION.editOwnProfile },
+            select: { permission: true },
+          },
+        },
+      },
     },
   });
 
@@ -55,6 +65,13 @@ async function AuthenticatedProfile() {
   return (
     <DashboardLayout user={{ name, image: user.image }} pageTitle="Profile">
       <ProfileForm
+        canEditOwnProfile={
+          user.roleRecord.name === "admin"
+          || permissionIsGranted(
+            user.roleRecord.permissions.map(({ permission }) => permission),
+            PERMISSION.editOwnProfile,
+          )
+        }
         profile={{
           ...user,
           phoneNumber: user.phoneNumber ?? "",

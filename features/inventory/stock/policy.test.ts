@@ -17,3 +17,9 @@ test("classifies quantities above the alert or without an alert as in stock", ()
   assert.equal(classifyStockStatus("0.001", "0.000"), "in-stock");
   assert.equal(classifyStockStatus("100.000", null), "in-stock");
 });
+
+test("classifies availability after subtracting reservations", () => {
+  assert.equal(classifyStockStatus("6.000", "5.000", "6.000"), "out-of-stock");
+  assert.equal(classifyStockStatus("6.000", "5.000", "2.000"), "low-stock");
+  assert.equal(classifyStockStatus("10.000", "5.000", "4.000"), "in-stock");
+});

@@ -120,6 +120,7 @@ async function StockReportContent({
     ? await db.productStock.groupBy({
         by: ["productId"],
         where: {
+          status: "Received",
           productId: { in: products.map(({ id }) => id) },
           warehouse: {
             is: {
@@ -128,14 +129,19 @@ async function StockReportContent({
             },
           },
         },
-        _sum: { quantity: true },
+        _sum: { quantity: true, reservedQuantity: true },
       })
     : [];
   const stockByProduct = new Map(
-    stockTotals.map(({ productId, _sum }) => [
-      productId,
-      _sum.quantity?.toFixed(3) ?? "0.000",
-    ]),
+    stockTotals.map(({ productId, _sum }) => {
+      const quantity = _sum.quantity ?? new Prisma.Decimal(0);
+      const reservedQuantity = _sum.reservedQuantity ?? new Prisma.Decimal(0);
+      return [productId, {
+        onHand: quantity.toFixed(3),
+        reserved: reservedQuantity.toFixed(3),
+        available: quantity.minus(reservedQuantity).toFixed(3),
+      }] as const;
+    }),
   );
   const firstRecord = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const lastRecord = Math.min(currentPage * pageSize, totalCount);
@@ -237,7 +243,9 @@ async function StockReportContent({
                   searchParams={params}
                   className="gg-num"
                 />
-                <th scope="col">Current Stock</th>
+                <th scope="col">On hand</th>
+                <th scope="col">Reserved</th>
+                <th scope="col">Available</th>
                 <th scope="col" className="stock-report-action-heading">
                   Action
                 </th>
@@ -258,12 +266,18 @@ async function StockReportContent({
                   <td>
                     <span className="stock-report-quantity">
                       <span className="stock-count gg-num">
-                        {stockByProduct.get(product.id) ?? "0.000"}
+                        {stockByProduct.get(product.id)?.onHand ?? "0.000"}
                       </span>
                       <span className="gg-chip-unit">
                         {product.productUnit}
                       </span>
                     </span>
+                  </td>
+                  <td className="gg-num">
+                    {stockByProduct.get(product.id)?.reserved ?? "0.000"}
+                  </td>
+                  <td className="gg-num">
+                    {stockByProduct.get(product.id)?.available ?? "0.000"}
                   </td>
                   <td className="stock-report-action-cell">
                     <Link
@@ -278,7 +292,7 @@ async function StockReportContent({
               ))}
               {products.length === 0 && (
                 <tr>
-                  <td className="stock-report-empty gg-muted" colSpan={7}>
+                  <td className="stock-report-empty gg-muted" colSpan={9}>
                     {query
                       ? "No products match your search."
                       : "No products to display."}

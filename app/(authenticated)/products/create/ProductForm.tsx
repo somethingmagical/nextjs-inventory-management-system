@@ -27,6 +27,7 @@ type WarehouseDiscount = {
   discountType: "Fixed" | "Percentage";
   discount: string;
 };
+type ProductUnitConversion = { unitName: string; conversionFactor: string };
 type ProductImagePreview = { id: string; src: string; name: string; file: File };
 type OrderedProductImage =
   | { key: string; path: string; preview: null }
@@ -43,6 +44,7 @@ const emptyValues: ProductFormValues = {
   brandId: "",
   price: "",
   productUnit: "",
+  unitConversions: "[]",
   stockAlert: "0",
   orderTax: "0",
   taxType: "Exclusive",
@@ -70,6 +72,7 @@ export default function ProductForm({
   warehouses,
   suppliers,
   initialWarehouseDiscounts = [],
+  initialUnitConversions = [],
   images = [],
 }: {
   mode: "create" | "edit";
@@ -85,6 +88,7 @@ export default function ProductForm({
   warehouses?: ProductOption[];
   suppliers?: ProductOption[];
   initialWarehouseDiscounts?: WarehouseDiscount[];
+  initialUnitConversions?: ProductUnitConversion[];
   images?: string[];
 }) {
   const router = useRouter();
@@ -100,6 +104,7 @@ export default function ProductForm({
   const [supplierOptions, setSupplierOptions] = useState(suppliers ?? []);
   const [warehouseOptions, setWarehouseOptions] = useState(warehouses ?? []);
   const [warehouseDiscounts, setWarehouseDiscounts] = useState(initialWarehouseDiscounts);
+  const [unitConversions, setUnitConversions] = useState(initialUnitConversions);
   const [state, formAction, isPending] = useActionState<ProductActionState, FormData>(
     action,
     initialProductActionState,
@@ -131,6 +136,29 @@ export default function ProductForm({
 
   function updateFormValue(field: ProductField, value: string) {
     setFormValues((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateProductUnit(value: string) {
+    updateFormValue("productUnit", value);
+    setUnitConversions((current) => current.filter((conversion) => conversion.unitName !== value));
+  }
+
+  function addUnitConversion() {
+    const availableUnit = units.find((unit) =>
+      unit.name !== formValues.productUnit
+      && !unitConversions.some((conversion) => conversion.unitName === unit.name),
+    );
+    if (!availableUnit) return;
+    setUnitConversions((current) => [...current, {
+      unitName: availableUnit.name,
+      conversionFactor: "1",
+    }]);
+  }
+
+  function updateUnitConversion(index: number, changes: Partial<ProductUnitConversion>) {
+    setUnitConversions((current) => current.map((conversion, rowIndex) =>
+      rowIndex === index ? { ...conversion, ...changes } : conversion,
+    ));
   }
 
   function updateWarehouseDiscount(warehouseId: string, changes: Partial<Omit<WarehouseDiscount, "warehouseId">>) {
@@ -329,6 +357,7 @@ export default function ProductForm({
           <input key={image.id} type="hidden" name="newImageId" value={image.id} />
         ))}
         <input type="hidden" name="warehouseDiscounts" value={JSON.stringify(warehouseDiscounts)} />
+        <input type="hidden" name="unitConversions" value={JSON.stringify(unitConversions)} />
         <div className="create-layout">
           <div className="field-grid">
             <FormInput
@@ -409,12 +438,86 @@ export default function ProductForm({
               label="Product Unit"
               required
               value={formValues.productUnit}
-              onChange={(value) => updateFormValue("productUnit", value)}
+              onChange={updateProductUnit}
               options={units}
               placeholder="Choose Unit"
               error={fieldError("productUnit")}
               pending={isPending}
             />
+            <section className="product-unit-conversions span-2" aria-labelledby="product-unit-conversions-title">
+              <div className="product-warehouse-discounts-heading">
+                <h2 id="product-unit-conversions-title">Alternate Units</h2>
+                <p>Set how many base units are in one alternate unit. For example, 1 case = 12 pieces.</p>
+              </div>
+              {unitConversions.map((conversion, index) => {
+                const availableUnits = units.filter((unit) =>
+                  unit.name === conversion.unitName
+                  || (unit.name !== formValues.productUnit
+                    && !unitConversions.some((other, otherIndex) =>
+                      otherIndex !== index && other.unitName === unit.name)),
+                );
+                return (
+                  <div className="product-warehouse-discount-fields" key={conversion.unitName}>
+                    <div className="gg-field">
+                      <label className="gg-label" htmlFor={`conversion-unit-${index}`}>Alternate unit</label>
+                      <select
+                        className="gg-select"
+                        id={`conversion-unit-${index}`}
+                        value={conversion.unitName}
+                        disabled={isPending}
+                        onChange={(event) => updateUnitConversion(index, { unitName: event.target.value })}
+                      >
+                        {availableUnits.map((unit) => (
+                          <option key={unit.id} value={unit.name}>{unit.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="gg-field">
+                      <label className="gg-label" htmlFor={`conversion-factor-${index}`}>
+                        Base units per {conversion.unitName}
+                      </label>
+                      <input
+                        className="gg-input"
+                        id={`conversion-factor-${index}`}
+                        type="number"
+                        min="0.000001"
+                        step="0.000001"
+                        value={conversion.conversionFactor}
+                        disabled={isPending}
+                        onChange={(event) => updateUnitConversion(index, { conversionFactor: event.target.value })}
+                      />
+                    </div>
+                    <button
+                      className="gg-btn gg-btn--secondary"
+                      type="button"
+                      aria-label={`Remove ${conversion.unitName} conversion`}
+                      disabled={isPending}
+                      onClick={() => setUnitConversions((current) =>
+                        current.filter((_, rowIndex) => rowIndex !== index),
+                      )}
+                    >
+                      <X aria-hidden="true" />
+                      Remove
+                    </button>
+                  </div>
+                );
+              })}
+              {fieldError("unitConversions") && (
+                <p className="gg-field-error" role="alert">{fieldError("unitConversions")}</p>
+              )}
+              <button
+                className="gg-btn gg-btn--secondary"
+                type="button"
+                disabled={isPending || !units.some((unit) =>
+                  unit.name !== formValues.productUnit
+                  && !unitConversions.some((conversion) => conversion.unitName === unit.name),
+                )}
+                onClick={addUnitConversion}
+              >
+                <Plus aria-hidden="true" />
+                Add alternate unit
+              </button>
+            </section>
             <FormInput
               name="stockAlert"
               label="Stock Alert"

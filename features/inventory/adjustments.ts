@@ -113,9 +113,10 @@ export async function setWarehouseStockQuantity(input: {
 
     const existingStock = await transaction.productStock.findUnique({
       where: {
-        productId_warehouseId: {
+        productId_warehouseId_status: {
           productId: product.id,
           warehouseId: warehouse.id,
+          status: "Received",
         },
       },
       select: { quantity: true },

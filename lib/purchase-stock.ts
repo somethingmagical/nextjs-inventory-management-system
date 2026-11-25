@@ -3,6 +3,7 @@ import { Prisma, type AdjustmentType } from "@prisma/client";
 type StockEffect = {
   productId: string;
   quantity: string | Prisma.Decimal;
+  stockConversionFactor?: string | Prisma.Decimal;
 };
 
 export type PurchaseStockState = {
@@ -17,19 +18,25 @@ export function calculatePurchaseStockDeltas(
 ) {
   const deltas = new Map<
     string,
-    { productId: string; warehouseId: string; quantity: Prisma.Decimal }
+    {
+      productId: string;
+      warehouseId: string;
+      status: PurchaseStockState["status"];
+      quantity: Prisma.Decimal;
+    }
   >();
 
   function apply(state: PurchaseStockState, direction: 1 | -1) {
-    if (state.status !== "Received") return;
-
     for (const item of state.items) {
-      const key = JSON.stringify([state.warehouseId, item.productId]);
+      const key = JSON.stringify([state.warehouseId, item.productId, state.status]);
       const current = deltas.get(key);
-      const quantity = new Prisma.Decimal(item.quantity).times(direction);
+      const quantity = new Prisma.Decimal(item.quantity)
+        .times(item.stockConversionFactor ?? 1)
+        .times(direction);
       deltas.set(key, {
         productId: item.productId,
         warehouseId: state.warehouseId,
+        status: state.status,
         quantity: (current?.quantity ?? new Prisma.Decimal(0)).plus(quantity),
       });
     }
@@ -39,12 +46,12 @@ export function calculatePurchaseStockDeltas(
   apply(next, 1);
 
   return Array.from(deltas.values()).flatMap(
-    ({ productId, warehouseId, quantity }) => {
+    ({ productId, warehouseId, status, quantity }) => {
       if (quantity.isZero()) return [];
       const type: AdjustmentType = quantity.isPositive()
         ? "Addition"
         : "Subtraction";
-      return [{ productId, warehouseId, quantity: quantity.abs(), type }];
+      return [{ productId, warehouseId, status, quantity: quantity.abs(), type }];
     },
   );
 }

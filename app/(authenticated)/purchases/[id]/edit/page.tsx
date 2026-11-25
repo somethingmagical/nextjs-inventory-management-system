@@ -61,6 +61,7 @@ async function AuthorizedEditPurchasePage({ params }: EditPurchasePageProps) {
           productId: true,
           netUnitCost: true,
           quantity: true,
+          stockConversionFactor: true,
           unit: true,
           discountType: true,
           discount: true,
@@ -71,6 +72,10 @@ async function AuthorizedEditPurchasePage({ params }: EditPurchasePageProps) {
               code: true,
               name: true,
               productUnit: true,
+              unitConversions: {
+                where: { unit: { deletedAt: null } },
+                select: { conversionFactor: true, unit: { select: { name: true } } },
+              },
             },
           },
         },
@@ -100,6 +105,7 @@ async function AuthorizedEditPurchasePage({ params }: EditPurchasePageProps) {
       where: {
         warehouseId: purchase.warehouseId,
         productId: { in: productIds },
+        status: "Received",
       },
       select: { productId: true, quantity: true },
     }),
@@ -124,11 +130,20 @@ async function AuthorizedEditPurchasePage({ params }: EditPurchasePageProps) {
       netUnitCost: item.netUnitCost.toString(),
       unit: item.unit,
       stockUnit: item.product.productUnit,
+      unitOptions: [
+        { name: item.product.productUnit, factor: "1" },
+        ...item.product.unitConversions.map((conversion) => ({
+          name: conversion.unit.name,
+          factor: conversion.conversionFactor.toString(),
+        })),
+      ],
       stock: (
         stockByProductId.get(item.productId) ??
         item.quantity.minus(item.quantity)
       )
-        .plus(purchase.status === "Received" ? item.quantity : 0)
+        .plus(purchase.status === "Received"
+          ? item.quantity.times(item.stockConversionFactor)
+          : 0)
         .toString(),
       quantity: item.quantity.toString(),
       discountType: item.discountType,

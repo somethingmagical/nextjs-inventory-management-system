@@ -389,6 +389,9 @@ async function StockContent({ searchParams }: { searchParams: SearchParams }) {
                                   {item.productUnit}
                                 </span>
                               </span>
+                              <span className="stock-available-quantity gg-muted">
+                                Available {formatQuantity(item.availableQuantity)}
+                              </span>
                             </td>
                             <td className="gg-num">
                               {item.stockAlert === null

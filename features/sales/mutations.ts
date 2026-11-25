@@ -6,9 +6,11 @@ import { db } from "@/lib/db";
 import {
   applyStockAdjustment,
   InsufficientStockError,
+  reserveStock,
   StockQuantityLimitError,
 } from "@/lib/product-stock";
 import { calculateSaleStockDeltas } from "@/lib/sale-stock";
+import { getStockConversionFactor, toStockQuantity } from "@/lib/product-unit-conversions";
 
 type SaleItemInput = {
   productId: string;
@@ -57,7 +59,15 @@ export async function createSale(input: SaleInput & {
           id: { in: input.items.map((item) => item.productId) },
           deletedAt: null,
         },
-        select: { id: true, name: true, productUnit: true },
+        select: {
+          id: true,
+          name: true,
+          productUnit: true,
+          unitConversions: {
+            where: { unit: { deletedAt: null } },
+            select: { conversionFactor: true, unit: { select: { name: true } } },
+          },
+        },
       }),
     ]);
 
@@ -82,6 +92,14 @@ export async function createSale(input: SaleInput & {
       }
     }
 
+    const resolvedItems = input.items.map((item) => {
+      const product = productById.get(item.productId);
+      if (!product) throw new Error("One or more selected products are no longer available.");
+      const factor = getStockConversionFactor(product, item.unit);
+      toStockQuantity(item.quantity, factor);
+      return { ...item, stockConversionFactor: factor.toString() };
+    });
+
     const reference = `SA_${randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
     const sale = await transaction.sale.create({
       data: {
@@ -100,7 +118,7 @@ export async function createSale(input: SaleInput & {
         paymentType: input.paymentType,
         notes: input.notes,
         items: {
-          create: input.items.map((item, index) => ({
+          create: resolvedItems.map((item, index) => ({
             productId: item.productId,
             netUnitPrice: new Prisma.Decimal(item.price),
             quantity: new Prisma.Decimal(item.quantity),
@@ -110,6 +128,7 @@ export async function createSale(input: SaleInput & {
             taxType: item.taxType,
             orderTax: new Prisma.Decimal(item.orderTax),
             subtotal: input.lineSubtotals[index],
+            stockConversionFactor: item.stockConversionFactor,
           })),
         },
       },
@@ -127,23 +146,35 @@ export async function createSale(input: SaleInput & {
       });
     }
 
-    for (const item of input.items) {
+    for (const item of resolvedItems) {
       const product = productById.get(item.productId);
       if (!product) throw new Error("One or more selected products are no longer available.");
-      await applyStockAdjustment(transaction, {
-        productId: product.id,
-        productName: product.name,
-        warehouseId: warehouse.id,
-        quantity: item.quantity,
-        type: "Subtraction",
-        documentLabel: "sale",
-        movement: {
-          type: "Sale",
-          sourceType: "Sale",
-          sourceId: sale.id,
-          actorId: input.actorId,
-        },
-      });
+      const quantity = toStockQuantity(item.quantity, item.stockConversionFactor).toString();
+      if (input.status === "Received") {
+        await applyStockAdjustment(transaction, {
+          productId: product.id,
+          productName: product.name,
+          warehouseId: warehouse.id,
+          quantity,
+          type: "Subtraction",
+          documentLabel: "sale",
+          movement: {
+            type: "Sale",
+            sourceType: "Sale",
+            sourceId: sale.id,
+            actorId: input.actorId,
+          },
+        });
+      } else {
+        await reserveStock(transaction, {
+          productId: product.id,
+          productName: product.name,
+          warehouseId: warehouse.id,
+          quantity,
+          type: "Addition",
+          documentLabel: "sale",
+        });
+      }
     }
     return sale;
   }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
@@ -169,18 +200,29 @@ export async function updateSale(input: SaleInput & {
           id: { in: input.items.map((item) => item.productId) },
           deletedAt: null,
         },
-        select: { id: true, name: true, productUnit: true },
+        select: {
+          id: true,
+          name: true,
+          productUnit: true,
+          unitConversions: {
+            where: { unit: { deletedAt: null } },
+            select: { conversionFactor: true, unit: { select: { name: true } } },
+          },
+        },
       }),
       transaction.sale.findFirst({
         where: { id: input.id, deletedAt: null },
         select: {
           id: true,
           warehouseId: true,
+          status: true,
           grandTotal: true,
           items: {
             select: {
               productId: true,
               quantity: true,
+              unit: true,
+              stockConversionFactor: true,
               product: { select: { name: true } },
             },
           },
@@ -209,21 +251,36 @@ export async function updateSale(input: SaleInput & {
         throw new Error("One or more selected sale units are no longer available.");
       }
     }
+    const resolvedItems = input.items.map((item) => {
+      const product = productById.get(item.productId);
+      if (!product) throw new Error("One or more selected products are no longer available.");
+      const previousItem = existingSale.items.find((previous) =>
+        previous.productId === item.productId && previous.unit === item.unit,
+      );
+      const factor = previousItem?.stockConversionFactor
+        ?? getStockConversionFactor(product, item.unit);
+      toStockQuantity(item.quantity, factor);
+      return { ...item, stockConversionFactor: factor.toString() };
+    });
 
     // Reconcile only the old/new quantity difference, preserving prior sale payments.
     const stockDeltas = calculateSaleStockDeltas(
       {
         warehouseId: existingSale.warehouseId,
+        status: existingSale.status,
         items: existingSale.items.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
+          stockConversionFactor: item.stockConversionFactor,
         })),
       },
       {
         warehouseId: warehouse.id,
-        items: input.items.map((item) => ({
+        status: input.status,
+        items: resolvedItems.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
+          stockConversionFactor: item.stockConversionFactor,
         })),
       },
     );
@@ -233,20 +290,31 @@ export async function updateSale(input: SaleInput & {
 
     for (const delta of stockDeltas) {
       const product = productById.get(delta.productId);
-      await applyStockAdjustment(transaction, {
-        productId: delta.productId,
-        productName: product?.name ?? previousProductNames.get(delta.productId) ?? "product",
-        warehouseId: delta.warehouseId,
-        quantity: delta.quantity.toString(),
-        type: delta.type,
-        documentLabel: "sale edit",
-        movement: {
-          type: "Reconciliation",
-          sourceType: "Sale",
-          sourceId: existingSale.id,
-          actorId: input.actorId,
-        },
-      });
+      if (delta.effect === "OnHand") {
+        await applyStockAdjustment(transaction, {
+          productId: delta.productId,
+          productName: product?.name ?? previousProductNames.get(delta.productId) ?? "product",
+          warehouseId: delta.warehouseId,
+          quantity: delta.quantity.toString(),
+          type: delta.type,
+          documentLabel: "sale edit",
+          movement: {
+            type: "Reconciliation",
+            sourceType: "Sale",
+            sourceId: existingSale.id,
+            actorId: input.actorId,
+          },
+        });
+      } else {
+        await reserveStock(transaction, {
+          productId: delta.productId,
+          productName: product?.name ?? previousProductNames.get(delta.productId) ?? "product",
+          warehouseId: delta.warehouseId,
+          quantity: delta.quantity.toString(),
+          type: delta.type,
+          documentLabel: "sale edit",
+        });
+      }
     }
 
     const payments = await transaction.salePayment.aggregate({
@@ -282,7 +350,7 @@ export async function updateSale(input: SaleInput & {
         notes: input.notes,
         items: {
           deleteMany: {},
-          create: input.items.map((item, index) => ({
+          create: resolvedItems.map((item, index) => ({
             productId: item.productId,
             netUnitPrice: new Prisma.Decimal(item.price),
             quantity: new Prisma.Decimal(item.quantity),
@@ -292,6 +360,7 @@ export async function updateSale(input: SaleInput & {
             taxType: item.taxType,
             orderTax: new Prisma.Decimal(item.orderTax),
             subtotal: input.lineSubtotals[index],
+            stockConversionFactor: item.stockConversionFactor,
           })),
         },
       },
@@ -306,10 +375,12 @@ export async function deleteSale(id: string, actorId: string) {
       select: {
         id: true,
         warehouseId: true,
+        status: true,
         items: {
           select: {
             productId: true,
             quantity: true,
+            stockConversionFactor: true,
             product: { select: { name: true } },
           },
         },
@@ -320,22 +391,33 @@ export async function deleteSale(id: string, actorId: string) {
       throw new Error("This sale no longer exists or has already been deleted.");
     }
 
-    // Deleting a sale returns the sold goods to the warehouse inventory.
     for (const item of sale.items) {
-      await applyStockAdjustment(transaction, {
-        productId: item.productId,
-        productName: item.product.name,
-        warehouseId: sale.warehouseId,
-        quantity: item.quantity.toString(),
-        type: "Addition",
-        documentLabel: "sale deletion",
-        movement: {
-          type: "Reconciliation",
-          sourceType: "Sale",
-          sourceId: sale.id,
-          actorId,
-        },
-      });
+      const quantity = toStockQuantity(item.quantity, item.stockConversionFactor).toString();
+      if (sale.status === "Received") {
+        await applyStockAdjustment(transaction, {
+          productId: item.productId,
+          productName: item.product.name,
+          warehouseId: sale.warehouseId,
+          quantity,
+          type: "Addition",
+          documentLabel: "sale deletion",
+          movement: {
+            type: "Reconciliation",
+            sourceType: "Sale",
+            sourceId: sale.id,
+            actorId,
+          },
+        });
+      } else {
+        await reserveStock(transaction, {
+          productId: item.productId,
+          productName: item.product.name,
+          warehouseId: sale.warehouseId,
+          quantity,
+          type: "Subtraction",
+          documentLabel: "sale deletion",
+        });
+      }
     }
 
     const updated = await transaction.sale.updateMany({

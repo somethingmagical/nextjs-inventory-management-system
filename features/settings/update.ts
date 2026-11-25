@@ -26,7 +26,12 @@ export async function updateApplicationSettings(input: {
   appName: unknown;
   favicon: unknown;
   headerLogo: unknown;
+  userHistoryEnabled: unknown;
 }): Promise<SettingsUpdateResult> {
+  if (typeof input.userHistoryEnabled !== "boolean") {
+    return { status: "error", message: "Choose whether user history is enabled." };
+  }
+
   const parsedName = applicationNameSchema.safeParse(input.appName);
   if (!parsedName.success) {
     return {
@@ -81,6 +86,7 @@ export async function updateApplicationSettings(input: {
       appName: parsedName.data,
       faviconPath: faviconPath === "/favicon-default.ico" ? null : faviconPath,
       headerLogoPath,
+      userHistoryEnabled: input.userHistoryEnabled,
     });
   } catch (error) {
     if (newFavicon?.status === "success") await removeFavicon(newFavicon.filePath);

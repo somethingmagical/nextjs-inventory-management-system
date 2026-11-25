@@ -78,18 +78,20 @@ async function StockQuantityEditPageContent({
 
   const stock = await db.productStock.findUnique({
     where: {
-      productId_warehouseId: {
+      productId_warehouseId_status: {
         productId: product.id,
         warehouseId: warehouse.id,
+        status: "Received",
       },
     },
-    select: { quantity: true },
+    select: { quantity: true, reservedQuantity: true },
   });
   const currentQuantity = stock?.quantity ?? new Prisma.Decimal(0);
   const currentQuantityText = currentQuantity.toString();
   const status = classifyStockStatus(
     currentQuantityText,
     product.stockAlert?.toString() ?? null,
+    stock?.reservedQuantity.toString() ?? "0",
   );
   const userName =
     `${access.user.firstName} ${access.user.lastName}`.trim() ||

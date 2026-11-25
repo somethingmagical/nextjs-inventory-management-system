@@ -3,22 +3,33 @@ import test from "node:test";
 import { Prisma, type AdjustmentType } from "@prisma/client";
 import {
   applyStockAdjustment,
+  applyStockBucketAdjustment,
   InsufficientStockError,
+  reserveStock,
   receivePurchaseStock,
   StockQuantityLimitError,
 } from "./product-stock";
 
-function createTransaction(initialQuantity?: string, initialSupplierId: string | null = null) {
+function createTransaction(
+  initialQuantity?: string,
+  initialSupplierId: string | null = null,
+  initialReservedQuantity = "0",
+) {
   let stock = initialQuantity === undefined
     ? null
     : {
         quantity: new Prisma.Decimal(initialQuantity),
+        reservedQuantity: new Prisma.Decimal(initialReservedQuantity),
         supplierId: initialSupplierId,
       };
-  const writes: { create?: { supplierId: string | null }; update?: object }[] = [];
+  const writes: {
+    create?: { supplierId: string | null; status: "Received" | "Pending" | "Ordered" };
+    update?: object;
+  }[] = [];
   const updateFilters: {
     productId: string;
     warehouseId: string;
+    status: string;
   }[] = [];
   const movementWrites: {
     data: {
@@ -34,44 +45,75 @@ function createTransaction(initialQuantity?: string, initialSupplierId: string |
 
   const transaction = {
     productStock: {
-      findUnique: async () => stock && { quantity: stock.quantity },
+      findUnique: async () => stock && {
+        quantity: stock.quantity,
+        reservedQuantity: stock.reservedQuantity,
+      },
       updateMany: async (input: {
         where: {
           productId: string;
           warehouseId: string;
-          quantity?: { gte?: Prisma.Decimal; lte?: Prisma.Decimal };
+          status: string;
+          quantity?: { equals?: Prisma.Decimal; gte?: Prisma.Decimal; lte?: Prisma.Decimal };
+          reservedQuantity?: { equals?: Prisma.Decimal; gte?: Prisma.Decimal };
         };
-        data: { quantity: { increment?: Prisma.Decimal; decrement?: Prisma.Decimal } };
+        data: {
+          quantity?: { increment?: Prisma.Decimal; decrement?: Prisma.Decimal };
+          reservedQuantity?: { increment?: Prisma.Decimal; decrement?: Prisma.Decimal };
+        };
       }) => {
         updateFilters.push({
           productId: input.where.productId,
           warehouseId: input.where.warehouseId,
+          status: input.where.status,
         });
         if (!stock) return { count: 0 };
+        if (input.where.quantity?.equals && !stock.quantity.equals(input.where.quantity.equals)) {
+          return { count: 0 };
+        }
         if (input.where.quantity?.gte && stock.quantity.lessThan(input.where.quantity.gte)) {
           return { count: 0 };
         }
         if (input.where.quantity?.lte && stock.quantity.greaterThan(input.where.quantity.lte)) {
           return { count: 0 };
         }
-        writes.push({ update: input.data.quantity });
-        const quantity = input.data.quantity.increment
+        if (
+          input.where.reservedQuantity?.equals
+          && !stock.reservedQuantity.equals(input.where.reservedQuantity.equals)
+        ) return { count: 0 };
+        if (
+          input.where.reservedQuantity?.gte
+          && stock.reservedQuantity.lessThan(input.where.reservedQuantity.gte)
+        ) return { count: 0 };
+        writes.push({ update: input.data });
+        const quantity = input.data.quantity?.increment
           ? stock.quantity.plus(input.data.quantity.increment)
-          : input.data.quantity.decrement
+          : input.data.quantity?.decrement
             ? stock.quantity.minus(input.data.quantity.decrement)
             : stock.quantity;
+        const reservedQuantity = input.data.reservedQuantity?.increment
+          ? stock.reservedQuantity.plus(input.data.reservedQuantity.increment)
+          : input.data.reservedQuantity?.decrement
+            ? stock.reservedQuantity.minus(input.data.reservedQuantity.decrement)
+            : stock.reservedQuantity;
         stock = {
           quantity,
+          reservedQuantity,
           supplierId: stock.supplierId,
         };
         return { count: 1 };
       },
       create: async (input: {
-        data: { quantity: Prisma.Decimal; supplierId: string | null };
+        data: {
+          quantity: Prisma.Decimal;
+          supplierId: string | null;
+          status: "Received" | "Pending" | "Ordered";
+        };
       }) => {
-        writes.push({ create: { supplierId: input.data.supplierId } });
+        writes.push({ create: { supplierId: input.data.supplierId, status: input.data.status } });
         stock = {
           quantity: input.data.quantity,
+          reservedQuantity: new Prisma.Decimal(0),
           supplierId: input.data.supplierId,
         };
         return stock;
@@ -87,6 +129,7 @@ function createTransaction(initialQuantity?: string, initialSupplierId: string |
   return {
     transaction: transaction as unknown as Prisma.TransactionClient,
     quantity: () => stock?.quantity.toString() ?? null,
+    reservedQuantity: () => stock?.reservedQuantity.toString() ?? null,
     supplierId: () => stock?.supplierId ?? null,
     writes,
     updateFilters,
@@ -118,6 +161,7 @@ test("stock subtraction changes the transaction balance by exact decimal quantit
   assert.deepEqual(fake.updateFilters, [{
     productId: "product-1",
     warehouseId: "warehouse-1",
+    status: "Received",
   }]);
   assert.equal(fake.movementWrites.length, 1);
   assert.equal(fake.movementWrites[0].data.quantity.toString(), "-2.025");
@@ -231,4 +275,53 @@ test("stock adjustment accepts both adjustment types", async (t) => {
       );
     });
   }
+});
+
+test("stock subtraction cannot consume quantities reserved by pending sales", async () => {
+  const fake = createTransaction("5", null, "4");
+
+  await assert.rejects(
+    applyStockAdjustment(fake.transaction, {
+      productId: "product-1",
+      productName: "Widget",
+      warehouseId: "warehouse-1",
+      quantity: "2",
+      type: "Subtraction",
+      movement,
+    }),
+    InsufficientStockError,
+  );
+  assert.equal(fake.quantity(), "5");
+  assert.equal(fake.reservedQuantity(), "4");
+});
+
+test("reserves available stock without changing physical on-hand quantity", async () => {
+  const fake = createTransaction("5");
+
+  await reserveStock(fake.transaction, {
+    productId: "product-1",
+    productName: "Widget",
+    warehouseId: "warehouse-1",
+    quantity: "3.25",
+    type: "Addition",
+  });
+
+  assert.equal(fake.quantity(), "5");
+  assert.equal(fake.reservedQuantity(), "3.25");
+});
+
+test("tracks pending purchase quantities in their own stock bucket", async () => {
+  const fake = createTransaction();
+
+  await applyStockBucketAdjustment(fake.transaction, {
+    productId: "product-1",
+    warehouseId: "warehouse-1",
+    status: "Pending",
+    quantity: "8",
+    type: "Addition",
+  });
+
+  assert.equal(fake.quantity(), "8");
+  assert.equal(fake.movementWrites.length, 0);
+  assert.equal(fake.writes[0].create?.status, "Pending");
 });

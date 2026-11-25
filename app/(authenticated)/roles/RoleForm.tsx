@@ -63,6 +63,20 @@ export default function RoleForm({
     setSelectedPermissions(checked ? [...availablePermissions] : []);
   }
 
+  function toggleCategory(permissions: readonly Permission[], checked: boolean) {
+    setSelectedPermissions((current) => {
+      const next = new Set(current);
+      for (const permission of permissions) {
+        if (checked) {
+          next.add(permission);
+        } else {
+          next.delete(permission);
+        }
+      }
+      return withImpliedViewPermissions([...next]);
+    });
+  }
+
   function togglePermission(permission: string, checked: boolean) {
     setSelectedPermissions((current) => {
       const viewPermission = getViewPermission(permission);
@@ -149,6 +163,10 @@ export default function RoleForm({
                 availablePermissions.includes(permission),
               );
               if (categoryPermissions.length === 0) return null;
+              const selectedCount = categoryPermissions.filter((permission) =>
+                effectivePermissions.includes(permission),
+              ).length;
+              const categoryAllSelected = selectedCount === categoryPermissions.length;
 
               return (
                 <section
@@ -156,12 +174,32 @@ export default function RoleForm({
                   aria-labelledby={`role-permission-category-${category.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
                   key={category.label}
                 >
-                  <h3
-                    className="role-permission-category-title"
-                    id={`role-permission-category-${category.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
-                  >
-                    {category.label}
-                  </h3>
+                  <div className="role-permission-category-head">
+                    <h3
+                      className="role-permission-category-title"
+                      id={`role-permission-category-${category.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+                    >
+                      {category.label}
+                    </h3>
+                    <label className="role-permission-item role-permission-category-all">
+                      <input
+                        className="gg-check"
+                        type="checkbox"
+                        checked={categoryAllSelected}
+                        ref={(element) => {
+                          if (element) {
+                            element.indeterminate = selectedCount > 0 && !categoryAllSelected;
+                          }
+                        }}
+                        onChange={(event) =>
+                          toggleCategory(categoryPermissions, event.currentTarget.checked)
+                        }
+                        aria-label={`Select all permissions in ${category.label}`}
+                        disabled={isPending}
+                      />
+                      <span>All</span>
+                    </label>
+                  </div>
                   <div className="role-permission-grid">
                     {categoryPermissions.map((permission) => (
                       <label className="role-permission-item" key={permission}>

@@ -73,6 +73,15 @@ const DEMO_BRANDS = [
 ] as const;
 
 const DEMO_UNITS = ["piece", "bottle", "bag", "box", "kilogram"] as const;
+const DEMO_ALTERNATE_UNIT_CONVERSIONS: Record<
+  string,
+  { unitName: string; conversionFactor: string }
+> = {
+  piece: { unitName: "box", conversionFactor: "10" },
+  bottle: { unitName: "box", conversionFactor: "12" },
+  bag: { unitName: "box", conversionFactor: "10" },
+  box: { unitName: "piece", conversionFactor: "12" },
+};
 const DEMO_PRODUCT_NAMES = [
   ["Sparkling Water", "Ground Coffee", "Green Tea", "Orange Juice"],
   ["Jasmine Rice", "Rolled Oats", "Pasta", "Olive Oil"],
@@ -202,6 +211,9 @@ async function seedDemoData() {
             categoryId: `demo-category-${categoryIndex + 1}`,
             brandId: `demo-brand-${(index % DEMO_BRANDS.length) + 1}`,
             productUnit: DEMO_UNITS[productIndex % DEMO_UNITS.length],
+            unitConversion: DEMO_ALTERNATE_UNIT_CONVERSIONS[
+              DEMO_UNITS[productIndex % DEMO_UNITS.length]
+            ],
             stockAlert: 5,
             orderTax: 0,
             taxType: "Exclusive" as const,
@@ -216,21 +228,76 @@ async function seedDemoData() {
       );
 
       for (const product of products) {
+        const { unitConversion: _unitConversion, ...productData } = product;
         await transaction.product.upsert({
           where: { id: product.id },
-          create: product,
-          update: { ...product, deletedAt: null },
+          create: productData,
+          update: { ...productData, deletedAt: null },
+        });
+      }
+
+      const conversionUnits = await transaction.unit.findMany({
+        where: {
+          name: {
+            in: [...new Set(products.map((product) => product.unitConversion.unitName))],
+          },
+        },
+        select: { id: true, name: true },
+      });
+      const conversionUnitIdByName = new Map(
+        conversionUnits.map((unit) => [unit.name, unit.id]),
+      );
+      for (const product of products) {
+        const unitId = conversionUnitIdByName.get(product.unitConversion.unitName);
+        if (!unitId) {
+          throw new Error(`Demo conversion unit ${product.unitConversion.unitName} is unavailable.`);
+        }
+        await transaction.productUnitConversion.upsert({
+          where: {
+            productId_unitId: {
+              productId: product.id,
+              unitId,
+            },
+          },
+          create: {
+            productId: product.id,
+            unitId,
+            conversionFactor: product.unitConversion.conversionFactor,
+          },
+          update: { conversionFactor: product.unitConversion.conversionFactor },
         });
       }
 
       const movements: DemoStockMovement[] = [];
       const balances = new Map<string, number>();
+      const inboundBalances = new Map<string, {
+        productId: string;
+        warehouseId: string;
+        status: "Pending" | "Ordered";
+        quantity: number;
+      }>();
+      const reservedBalances = new Map<string, number>();
       const addMovement = (
         movement: Omit<DemoStockMovement, "id"> & { id: string },
       ) => {
         movements.push(movement);
         const key = `${movement.productId}:${movement.warehouseId}`;
         balances.set(key, (balances.get(key) ?? 0) + movement.quantity);
+      };
+      const addInboundStock = (
+        productId: string,
+        warehouseId: string,
+        status: "Pending" | "Ordered",
+        quantity: number,
+      ) => {
+        const key = `${status}:${productId}:${warehouseId}`;
+        const current = inboundBalances.get(key);
+        inboundBalances.set(key, {
+          productId,
+          warehouseId,
+          status,
+          quantity: (current?.quantity ?? 0) + quantity,
+        });
       };
 
       for (const product of products) {
@@ -306,6 +373,7 @@ async function seedDemoData() {
             taxType: "Exclusive" as const,
             orderTax: 0,
             subtotal: line.subtotal,
+            stockConversionFactor: 1,
           };
           await transaction.purchaseItem.upsert({
             where: { id: item.id },
@@ -323,12 +391,25 @@ async function seedDemoData() {
               sourceId: purchase.id,
               createdAt: purchase.date,
             });
+          } else {
+            addInboundStock(
+              line.product.id,
+              purchase.warehouseId,
+              purchase.status,
+              line.quantity,
+            );
           }
         }
       }
 
-      const saleDefinitions = Array.from({ length: 12 }, (_, index) => {
+      const saleDefinitions = Array.from({ length: 14 }, (_, index) => {
         const id = `demo-sale-${index + 1}`;
+        const status =
+          index === 12
+            ? ("Ordered" as const)
+            : index === 13
+              ? ("Pending" as const)
+              : ("Received" as const);
         const lines = [0, 1].map((lineIndex) => {
           const productIndex = (index * 2 + lineIndex) % products.length;
           const product = products[productIndex];
@@ -357,6 +438,7 @@ async function seedDemoData() {
           customerId: `demo-customer-${(index % DEMO_CUSTOMERS.length) + 1}`,
           warehouseId: DEMO_WAREHOUSES[index % DEMO_WAREHOUSES.length].id,
           date: demoDate(index + 10),
+          status,
           grandTotal,
           paid,
           due: roundMoney(grandTotal - paid),
@@ -369,7 +451,6 @@ async function seedDemoData() {
         const { lines, ...saleData } = sale;
         const saleRecord = {
           ...saleData,
-          status: "Received" as const,
           orderTax: 0,
           discount: 0,
           shipping: 0,
@@ -394,22 +475,28 @@ async function seedDemoData() {
             taxType: "Exclusive" as const,
             orderTax: 0,
             subtotal: line.subtotal,
+            stockConversionFactor: 1,
           };
           await transaction.saleItem.upsert({
             where: { id: item.id },
             create: item,
             update: item,
           });
-          addMovement({
-            id: `demo-sale-movement-${index + 1}-${lineIndex + 1}`,
-            productId: line.product.id,
-            warehouseId: sale.warehouseId,
-            quantity: -line.quantity,
-            type: "Sale",
-            sourceType: "Sale",
-            sourceId: sale.id,
-            createdAt: sale.date,
-          });
+          if (sale.status === "Received") {
+            addMovement({
+              id: `demo-sale-movement-${index + 1}-${lineIndex + 1}`,
+              productId: line.product.id,
+              warehouseId: sale.warehouseId,
+              quantity: -line.quantity,
+              type: "Sale",
+              sourceType: "Sale",
+              sourceId: sale.id,
+              createdAt: sale.date,
+            });
+          } else {
+            const key = `${line.product.id}:${sale.warehouseId}`;
+            reservedBalances.set(key, (reservedBalances.get(key) ?? 0) + line.quantity);
+          }
         }
         if (sale.paymentStatus !== "Unpaid") {
           const payment = {
@@ -437,6 +524,7 @@ async function seedDemoData() {
         unit: line.product.productUnit,
         netUnitCost: line.unitCost,
         subtotal: line.unitCost,
+        stockConversionFactor: 1,
       }));
       const purchaseReturnTotal = roundMoney(
         purchaseReturnLines.reduce((total, item) => total + item.subtotal, 0),
@@ -467,6 +555,7 @@ async function seedDemoData() {
           discount: 0,
           taxType: "Exclusive" as const,
           orderTax: 0,
+          stockConversionFactor: line.stockConversionFactor,
         };
         await transaction.purchaseReturnItem.upsert({
           where: { id: line.id },
@@ -494,6 +583,7 @@ async function seedDemoData() {
         unit: line.product.productUnit,
         netUnitPrice: line.product.sellingPrice,
         subtotal: line.product.sellingPrice,
+        stockConversionFactor: 1,
       }));
       const saleReturnTotal = roundMoney(
         saleReturnLines.reduce((total, item) => total + item.subtotal, 0),
@@ -525,6 +615,7 @@ async function seedDemoData() {
           discount: 0,
           taxType: "Exclusive" as const,
           orderTax: 0,
+          stockConversionFactor: line.stockConversionFactor,
         };
         await transaction.saleReturnItem.upsert({
           where: { id: line.id },
@@ -661,13 +752,15 @@ async function seedDemoData() {
             warehouseId: warehouse.id,
             supplierId: null,
             quantity: new Prisma.Decimal(balances.get(key) ?? 0),
+            reservedQuantity: new Prisma.Decimal(reservedBalances.get(key) ?? 0),
             status: "Received" as const,
           };
           await transaction.productStock.upsert({
             where: {
-              productId_warehouseId: {
+              productId_warehouseId_status: {
                 productId: product.id,
                 warehouseId: warehouse.id,
+                status: "Received",
               },
             },
             create: stock,
@@ -675,11 +768,34 @@ async function seedDemoData() {
           });
         }
       }
+
+      for (const inbound of inboundBalances.values()) {
+        await transaction.productStock.upsert({
+          where: {
+            productId_warehouseId_status: {
+              productId: inbound.productId,
+              warehouseId: inbound.warehouseId,
+              status: inbound.status,
+            },
+          },
+          create: {
+            productId: inbound.productId,
+            warehouseId: inbound.warehouseId,
+            supplierId: null,
+            quantity: new Prisma.Decimal(inbound.quantity),
+            status: inbound.status,
+          },
+          update: {
+            supplierId: null,
+            quantity: new Prisma.Decimal(inbound.quantity),
+          },
+        });
+      }
     },
     { maxWait: 10_000, timeout: 300_000 },
   );
 
-  console.info("Standard demo preset ensured: 256 demo records.");
+  console.info("Standard demo preset ensured.");
 }
 
 async function seedDirectCustomer() {

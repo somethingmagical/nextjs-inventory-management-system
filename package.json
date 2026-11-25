@@ -11,6 +11,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "auth:cleanup-login-attempts": "prisma db execute --file prisma/cleanup-expired-login-attempts.sql",
+    "audit:cleanup-user-history": "prisma db execute --file prisma/cleanup-expired-user-history.sql",
     "start": "next start",
     "postinstall": "prisma generate",
     "lint": "eslint"

@@ -8,6 +8,7 @@ type WarehouseDiscountInput = {
   discountType: "Fixed" | "Percentage";
   discount: string;
 };
+type ProductUnitConversionInput = { unitName: string; conversionFactor: string };
 
 export async function createProductWithInitialStock(input: {
   code: string;
@@ -16,6 +17,7 @@ export async function createProductWithInitialStock(input: {
   categoryId: string;
   brandId: string;
   productUnit: string;
+  unitConversions: ProductUnitConversionInput[];
   stockAlert: string | null;
   orderTax: string | null;
   taxType: "Exclusive" | "Inclusive";
@@ -32,7 +34,7 @@ export async function createProductWithInitialStock(input: {
   actorId: string;
 }): Promise<boolean> {
   return db.$transaction(async (transaction) => {
-    const [category, brand, unit, warehouse, supplier, overrideWarehouses] = await Promise.all([
+    const [category, brand, unit, conversionUnits, warehouse, supplier, overrideWarehouses] = await Promise.all([
       transaction.category.findFirst({
         where: { id: input.categoryId, deletedAt: null },
         select: { id: true, name: true },
@@ -44,6 +46,13 @@ export async function createProductWithInitialStock(input: {
       transaction.unit.findFirst({
         where: { name: input.productUnit, deletedAt: null },
         select: { name: true },
+      }),
+      transaction.unit.findMany({
+        where: {
+          name: { in: input.unitConversions.map((conversion) => conversion.unitName) },
+          deletedAt: null,
+        },
+        select: { id: true, name: true },
       }),
       transaction.warehouse.findFirst({
         where: { id: input.warehouseId, deletedAt: null },
@@ -68,11 +77,26 @@ export async function createProductWithInitialStock(input: {
       || !unit
       || !warehouse
       || !supplier
+      || conversionUnits.length !== input.unitConversions.length
+      || input.unitConversions.some((conversion) => conversion.unitName === unit.name)
+      || new Set(input.unitConversions.map((conversion) => conversion.unitName)).size !== input.unitConversions.length
       || overrideWarehouses.length !== input.warehouseDiscounts.length
       || new Set(input.warehouseDiscounts.map((override) => override.warehouseId)).size !== input.warehouseDiscounts.length
     ) {
       return false;
     }
+    const conversionUnitByName = new Map(conversionUnits.map((conversionUnit) => [
+      conversionUnit.name,
+      conversionUnit.id,
+    ]));
+    const conversionData = input.unitConversions.map((conversion) => {
+      const unitId = conversionUnitByName.get(conversion.unitName);
+      if (!unitId) throw new Error("A selected product unit is no longer available.");
+      return {
+        unitId,
+        conversionFactor: conversion.conversionFactor,
+      };
+    });
 
     const product = await transaction.product.create({
       data: {
@@ -109,6 +133,16 @@ export async function createProductWithInitialStock(input: {
       select: { id: true },
     });
 
+    if (input.unitConversions.length) {
+      await transaction.productUnitConversion.createMany({
+        data: conversionData.map((conversion) => ({
+          productId: product.id,
+          unitId: conversion.unitId,
+          conversionFactor: conversion.conversionFactor,
+        })),
+      });
+    }
+
     if (input.warehouseDiscounts.length) {
       await transaction.productWarehouseDiscount.createMany({
         data: input.warehouseDiscounts.map((override) => ({
@@ -121,7 +155,7 @@ export async function createProductWithInitialStock(input: {
     }
 
     const initialQuantity = new Prisma.Decimal(input.quantity);
-    if (!initialQuantity.isZero()) {
+    if (input.status === "Received" && !initialQuantity.isZero()) {
       await transaction.stockMovement.create({
         data: {
           productId: product.id,

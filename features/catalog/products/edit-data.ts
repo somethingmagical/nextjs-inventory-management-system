@@ -13,6 +13,11 @@ export async function getProductEditData(id: string) {
         categoryId: true,
         brandId: true,
         productUnit: true,
+        unitConversions: {
+          where: { unit: { deletedAt: null } },
+          select: { conversionFactor: true, unit: { select: { name: true } } },
+          orderBy: { unit: { name: "asc" } },
+        },
         price: true,
         stockAlert: true,
         orderTax: true,

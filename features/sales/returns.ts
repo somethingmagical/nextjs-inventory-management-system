@@ -9,6 +9,7 @@ import {
   StockQuantityLimitError,
 } from "@/lib/product-stock";
 import { calculateSaleReturnStockDeltas } from "@/lib/sale-return-stock";
+import { getStockConversionFactor, toStockQuantity } from "@/lib/product-unit-conversions";
 
 type SaleReturnItemInput = {
   productId: string;
@@ -47,14 +48,25 @@ export async function createSaleReturn(input: SaleReturnInput) {
         id: true,
         customerId: true,
         warehouseId: true,
+        status: true,
         customer: { select: { deletedAt: true } },
         warehouse: { select: { deletedAt: true } },
         items: {
           select: {
             productId: true,
             quantity: true,
+            stockConversionFactor: true,
             unit: true,
-            product: { select: { name: true } },
+            product: {
+              select: {
+                name: true,
+                productUnit: true,
+                unitConversions: {
+                  where: { unit: { deletedAt: null } },
+                  select: { conversionFactor: true, unit: { select: { name: true } } },
+                },
+              },
+            },
           },
         },
       },
@@ -79,7 +91,7 @@ export async function createSaleReturn(input: SaleReturnInput) {
     const priorReturns = await transaction.saleReturn.findMany({
       where: { saleId: sale.id, deletedAt: null },
       select: {
-        items: { select: { productId: true, quantity: true } },
+        items: { select: { productId: true, quantity: true, stockConversionFactor: true } },
       },
     });
     const previouslyReturned = new Map<string, Prisma.Decimal>();
@@ -87,36 +99,34 @@ export async function createSaleReturn(input: SaleReturnInput) {
       for (const item of saleReturn.items) {
         previouslyReturned.set(
           item.productId,
-          (previouslyReturned.get(item.productId) ?? new Prisma.Decimal(0)).plus(item.quantity),
+          (previouslyReturned.get(item.productId) ?? new Prisma.Decimal(0))
+            .plus(item.quantity.times(item.stockConversionFactor)),
         );
       }
     }
 
-    for (const item of input.items) {
+    const resolvedItems = input.items.map((item) => {
       const saleItem = saleItemsByProductId.get(item.productId);
       if (!saleItem) {
         throw new SaleReturnCreateError("Sale returns can only include products from the original sale.");
       }
 
       const returnQuantity = new Prisma.Decimal(item.quantity);
+      const factor = item.unit === saleItem.unit
+        ? saleItem.stockConversionFactor
+        : getStockConversionFactor(saleItem.product, item.unit);
+      const stockQuantity = toStockQuantity(returnQuantity, factor);
       const totalReturning = (previouslyReturned.get(item.productId) ?? new Prisma.Decimal(0))
-        .plus(returnQuantity);
-      if (totalReturning.greaterThan(saleItem.quantity)) {
+        .plus(stockQuantity);
+      const soldStockQuantity = saleItem.quantity.times(saleItem.stockConversionFactor);
+      if (totalReturning.greaterThan(soldStockQuantity)) {
         throw new SaleReturnCreateError(
-          `Returned quantity for ${saleItem.product.name} cannot exceed the quantity sold (${saleItem.quantity.toString()}).`,
+          `Returned quantity for ${saleItem.product.name} cannot exceed the quantity sold (${soldStockQuantity.toString()} ${saleItem.product.productUnit}).`,
         );
       }
 
-      if (item.unit !== saleItem.unit) {
-        const unit = await transaction.unit.findFirst({
-          where: { name: item.unit, deletedAt: null },
-          select: { name: true },
-        });
-        if (!unit) {
-          throw new SaleReturnCreateError("One or more selected sale return units are no longer available.");
-        }
-      }
-    }
+      return { ...item, stockConversionFactor: factor.toString() };
+    });
 
     const reference = `SR_${randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
     const createdReturn = await transaction.saleReturn.create({
@@ -136,7 +146,7 @@ export async function createSaleReturn(input: SaleReturnInput) {
         paymentStatus: "Unpaid",
         notes: input.notes,
         items: {
-          create: input.items.map((item, index) => ({
+          create: resolvedItems.map((item, index) => ({
             productId: item.productId,
             netUnitPrice: new Prisma.Decimal(item.price),
             quantity: new Prisma.Decimal(item.quantity),
@@ -146,13 +156,14 @@ export async function createSaleReturn(input: SaleReturnInput) {
             taxType: item.taxType,
             orderTax: new Prisma.Decimal(item.orderTax),
             subtotal: input.lineSubtotals[index],
+            stockConversionFactor: item.stockConversionFactor,
           })),
         },
       },
       select: { id: true },
     });
 
-    for (const item of input.items) {
+    if (input.status === "Received") for (const item of resolvedItems) {
       const saleItem = saleItemsByProductId.get(item.productId);
       if (!saleItem) {
         throw new SaleReturnCreateError("Sale returns can only include products from the original sale.");
@@ -161,7 +172,7 @@ export async function createSaleReturn(input: SaleReturnInput) {
         productId: saleItem.productId,
         productName: saleItem.product.name,
         warehouseId: sale.warehouseId,
-        quantity: item.quantity,
+        quantity: toStockQuantity(item.quantity, item.stockConversionFactor).toString(),
         type: "Addition",
         documentLabel: "sale return",
         movement: {
@@ -188,8 +199,9 @@ export async function updateSaleReturn(input: SaleReturnInput & {
         id: true,
         saleId: true,
         warehouseId: true,
+        status: true,
         paid: true,
-        items: { select: { productId: true, quantity: true } },
+        items: { select: { productId: true, quantity: true, unit: true, stockConversionFactor: true } },
       },
     });
     if (!existingReturn) {
@@ -208,7 +220,17 @@ export async function updateSaleReturn(input: SaleReturnInput & {
             productId: true,
             quantity: true,
             unit: true,
-            product: { select: { name: true } },
+            stockConversionFactor: true,
+            product: {
+              select: {
+                name: true,
+                productUnit: true,
+                unitConversions: {
+                  where: { unit: { deletedAt: null } },
+                  select: { conversionFactor: true, unit: { select: { name: true } } },
+                },
+              },
+            },
           },
         },
       },
@@ -218,16 +240,17 @@ export async function updateSaleReturn(input: SaleReturnInput & {
     }
 
     const saleItemsByProductId = new Map<string, {
-      quantity: Prisma.Decimal;
-      unit: string;
+      stockQuantity: Prisma.Decimal;
       productName: string;
+      product: (typeof sale.items)[number]["product"];
     }>();
     for (const saleItem of sale.items) {
       const existing = saleItemsByProductId.get(saleItem.productId);
       saleItemsByProductId.set(saleItem.productId, {
-        quantity: (existing?.quantity ?? new Prisma.Decimal(0)).plus(saleItem.quantity),
-        unit: saleItem.unit,
+        stockQuantity: (existing?.stockQuantity ?? new Prisma.Decimal(0))
+          .plus(saleItem.quantity.times(saleItem.stockConversionFactor)),
         productName: saleItem.product.name,
+        product: saleItem.product,
       });
     }
 
@@ -237,52 +260,58 @@ export async function updateSaleReturn(input: SaleReturnInput & {
         deletedAt: null,
         id: { not: existingReturn.id },
       },
-      select: { items: { select: { productId: true, quantity: true } } },
+      select: { items: { select: { productId: true, quantity: true, stockConversionFactor: true } } },
     });
     const previouslyReturned = new Map<string, Prisma.Decimal>();
     for (const saleReturn of priorReturns) {
       for (const item of saleReturn.items) {
         previouslyReturned.set(
           item.productId,
-          (previouslyReturned.get(item.productId) ?? new Prisma.Decimal(0)).plus(item.quantity),
+          (previouslyReturned.get(item.productId) ?? new Prisma.Decimal(0))
+            .plus(item.quantity.times(item.stockConversionFactor)),
         );
       }
     }
 
-    const customUnits = new Set<string>();
-    for (const item of input.items) {
+    const resolvedItems = input.items.map((item) => {
       const saleItem = saleItemsByProductId.get(item.productId);
       if (!saleItem) {
         throw new SaleReturnUpdateError("Sale returns can only include products from the original sale.");
       }
-      const returnQuantity = new Prisma.Decimal(item.quantity);
+      const savedFactor = existingReturn.items.find((existingItem) =>
+        existingItem.productId === item.productId && existingItem.unit === item.unit,
+      )?.stockConversionFactor;
+      const saleFactor = sale.items.find((saleItem) =>
+        saleItem.productId === item.productId && saleItem.unit === item.unit,
+      )?.stockConversionFactor;
+      const factor = savedFactor
+        ?? saleFactor
+        ?? getStockConversionFactor(saleItem.product, item.unit);
+      const returnQuantity = toStockQuantity(item.quantity, factor);
       if ((previouslyReturned.get(item.productId) ?? new Prisma.Decimal(0))
-        .plus(returnQuantity).greaterThan(saleItem.quantity)) {
+        .plus(returnQuantity)
+        .greaterThan(saleItem.stockQuantity)) {
         throw new SaleReturnUpdateError(
           `Returned quantity for ${saleItem.productName} cannot exceed the remaining quantity available from the sale.`,
         );
       }
-      if (item.unit !== saleItem.unit) customUnits.add(item.unit);
-    }
-
-    if (customUnits.size > 0) {
-      const activeUnits = await transaction.unit.findMany({
-        where: { name: { in: Array.from(customUnits) }, deletedAt: null },
-        select: { name: true },
-      });
-      const activeUnitNames = new Set(activeUnits.map((unit) => unit.name));
-      if (Array.from(customUnits).some((unit) => !activeUnitNames.has(unit))) {
-        throw new SaleReturnUpdateError("One or more selected sale return units are no longer available.");
-      }
-    }
+      return { ...item, stockConversionFactor: factor.toString() };
+    });
 
     // Applying the full replacement return would double-count already returned stock.
     const stockDeltas = calculateSaleReturnStockDeltas(
-      existingReturn.items,
-      input.items.map((item) => ({
-        productId: item.productId,
-        quantity: item.quantity,
-      })),
+      {
+        status: existingReturn.status,
+        items: existingReturn.items,
+      },
+      {
+        status: input.status,
+        items: resolvedItems.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          stockConversionFactor: item.stockConversionFactor,
+        })),
+      },
     );
     for (const delta of stockDeltas) {
       const saleItem = saleItemsByProductId.get(delta.productId);
@@ -331,7 +360,7 @@ export async function updateSaleReturn(input: SaleReturnInput & {
         notes: input.notes,
         items: {
           deleteMany: {},
-          create: input.items.map((item, index) => ({
+          create: resolvedItems.map((item, index) => ({
             productId: item.productId,
             netUnitPrice: new Prisma.Decimal(item.price),
             quantity: new Prisma.Decimal(item.quantity),
@@ -341,6 +370,7 @@ export async function updateSaleReturn(input: SaleReturnInput & {
             taxType: item.taxType,
             orderTax: new Prisma.Decimal(item.orderTax),
             subtotal: input.lineSubtotals[index],
+            stockConversionFactor: item.stockConversionFactor,
           })),
         },
       },
@@ -355,10 +385,12 @@ export async function deleteSaleReturn(id: string, actorId: string) {
       select: {
         id: true,
         warehouseId: true,
+        status: true,
         items: {
           select: {
             productId: true,
             quantity: true,
+            stockConversionFactor: true,
             product: { select: { name: true } },
           },
         },
@@ -368,13 +400,12 @@ export async function deleteSaleReturn(id: string, actorId: string) {
       throw new SaleReturnUpdateError("This sale return no longer exists or has already been deleted.");
     }
 
-    // Deleting a return removes goods previously added back to inventory.
-    for (const item of saleReturn.items) {
+    if (saleReturn.status === "Received") for (const item of saleReturn.items) {
       await applyStockAdjustment(transaction, {
         productId: item.productId,
         productName: item.product.name,
         warehouseId: saleReturn.warehouseId,
-        quantity: item.quantity.toString(),
+        quantity: toStockQuantity(item.quantity, item.stockConversionFactor).toString(),
         type: "Subtraction",
         documentLabel: "sale return deletion",
         movement: {

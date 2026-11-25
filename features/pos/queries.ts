@@ -62,8 +62,8 @@ export async function getPosProducts(warehouseId: string): Promise<PosProduct[]>
       brandId: true,
       brandRecord: { select: { name: true } },
       productStocks: {
-        where: { warehouseId },
-        select: { quantity: true },
+        where: { warehouseId, status: "Received" },
+        select: { quantity: true, reservedQuantity: true },
       },
       warehouseDiscounts: {
         where: { warehouseId },
@@ -92,7 +92,9 @@ export async function getPosProducts(warehouseId: string): Promise<PosProduct[]>
       name: product.name,
       image: getPrimaryImage(product.images, product.image),
       price: product.price.toString(),
-      stock: product.productStocks[0]?.quantity.toString() ?? "0",
+      stock: product.productStocks[0]
+        ? product.productStocks[0].quantity.minus(product.productStocks[0].reservedQuantity).toString()
+        : "0",
       stockAlert: product.stockAlert?.toString() ?? null,
       unit: product.productUnit,
       taxRate: product.orderTax?.toString() ?? "0",

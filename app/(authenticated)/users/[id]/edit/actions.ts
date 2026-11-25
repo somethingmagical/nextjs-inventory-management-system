@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { canManageRoleInHierarchy } from "@/lib/authorization";
+import { recordUserHistory } from "@/features/users/history";
+import { getChangedUserFields } from "@/features/users/history-fields";
 import { getUserManagementAccess } from "../../authorization";
 import { updateUserSchema, userIdSchema } from "../../user-schema";
 import { getUserImageEntry, removeUserImage, saveUserImage } from "../../user-image";
@@ -95,7 +97,15 @@ export async function updateUser(
     const result = await db.$transaction(async (transaction) => {
       const current = await transaction.user.findFirst({
         where: { id: user.id, deletedAt: null },
-        select: { id: true, roleId: true },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phoneNumber: true,
+          image: true,
+          roleId: true,
+        },
       });
       if (!current) {
         return { status: "error" as const, message: "This user no longer exists or has been deleted." };
@@ -170,9 +180,38 @@ export async function updateUser(
           ...(uploadedImage ? { image: uploadedImage.path } : {}),
         },
       });
-      return updated.count === 1
-        ? { status: "success" as const }
-        : { status: "error" as const, message: "This user could not be updated. Refresh and try again." };
+      if (updated.count !== 1) {
+        return { status: "error" as const, message: "This user could not be updated. Refresh and try again." };
+      }
+
+      const changedFields = getChangedUserFields(
+        {
+          ...current,
+          roleId: current.roleId,
+          role: currentRole.name,
+        },
+        {
+          firstName: parsed.data.firstName,
+          lastName: parsed.data.lastName,
+          email: parsed.data.email,
+          phoneNumber: parsed.data.phoneNumber || null,
+          image: uploadedImage?.path ?? current.image,
+          roleId: selectedRole.id,
+          role: selectedRole.name,
+        },
+        Boolean(passwordHash),
+      );
+      if (changedFields.length > 0) {
+        await recordUserHistory(transaction, {
+          actorId: access.user.id,
+          subjectUserId: current.id,
+          action: "updated",
+          changedFields,
+          roleFrom: changedFields.includes("role") ? currentRole.name : null,
+          roleTo: changedFields.includes("role") ? selectedRole.name : null,
+        });
+      }
+      return { status: "success" as const };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
 
     if (result.status === "error") {
@@ -192,6 +231,7 @@ export async function updateUser(
   }
 
   revalidatePath("/users");
+  revalidatePath("/users/history");
   revalidatePath(`/users/${encodeURIComponent(user.id)}/edit`);
   return { status: "success", message: "User updated successfully." };
 }

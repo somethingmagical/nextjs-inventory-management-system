@@ -37,3 +37,9 @@ test("unknown stored permissions are ignored and only paired Manage grants imply
   assert.equal(getViewPermission(PERMISSION.manageProducts), PERMISSION.viewProducts);
   assert.equal(getViewPermission(PERMISSION.manageSetting), undefined);
 });
+
+test("editing one's own profile is an explicit standalone permission", () => {
+  assert.equal(permissionIsGranted([], PERMISSION.editOwnProfile), false);
+  assert.equal(permissionIsGranted([PERMISSION.manageUsers], PERMISSION.editOwnProfile), false);
+  assert.equal(permissionIsGranted([PERMISSION.editOwnProfile], PERMISSION.editOwnProfile), true);
+});

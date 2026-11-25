@@ -85,6 +85,10 @@ async function AuthorizedEditProduct({ params }: EditProductPageProps) {
           discountType: override.discountType,
           discount: override.discount.toString(),
         }))}
+        initialUnitConversions={product.unitConversions.map((conversion) => ({
+          unitName: conversion.unit.name,
+          conversionFactor: conversion.conversionFactor.toString(),
+        }))}
         images={getProductImagePaths(product.images)}
       />
     </DashboardLayout>

@@ -11,6 +11,7 @@ import {
   calculatePurchaseReturnDeleteStockDeltas,
   calculatePurchaseReturnStockDeltas,
 } from "@/lib/purchase-return-stock";
+import { getStockConversionFactor, toStockQuantity } from "@/lib/product-unit-conversions";
 
 type PurchaseReturnItemInput = {
   productId: string;
@@ -59,7 +60,15 @@ export async function savePurchaseReturn(input: PurchaseReturnSaveInput): Promis
           id: { in: input.items.map((item) => item.productId) },
           deletedAt: null,
         },
-        select: { id: true, name: true, productUnit: true },
+        select: {
+          id: true,
+          name: true,
+          productUnit: true,
+          unitConversions: {
+            where: { unit: { deletedAt: null } },
+            select: { conversionFactor: true, unit: { select: { name: true } } },
+          },
+        },
       }),
       input.returnId
         ? transaction.purchaseReturn.findFirst({
@@ -73,6 +82,8 @@ export async function savePurchaseReturn(input: PurchaseReturnSaveInput): Promis
                 select: {
                   productId: true,
                   quantity: true,
+                  unit: true,
+                  stockConversionFactor: true,
                   product: { select: { name: true } },
                 },
               },
@@ -105,7 +116,18 @@ export async function savePurchaseReturn(input: PurchaseReturnSaveInput): Promis
       }
     }
 
-    const itemData = input.items.map((item, index) => ({
+    const resolvedItems = input.items.map((item) => {
+      const product = productById.get(item.productId);
+      if (!product) throw new Error("One or more selected products are no longer available.");
+      const previousItem = existingReturn?.items.find((previous) =>
+        previous.productId === item.productId && previous.unit === item.unit,
+      );
+      const factor = previousItem?.stockConversionFactor
+        ?? getStockConversionFactor(product, item.unit);
+      toStockQuantity(item.quantity, factor);
+      return { ...item, stockConversionFactor: factor.toString() };
+    });
+    const itemData = resolvedItems.map((item, index) => ({
       productId: item.productId,
       netUnitCost: new Prisma.Decimal(item.netUnitCost),
       quantity: new Prisma.Decimal(item.quantity),
@@ -115,6 +137,7 @@ export async function savePurchaseReturn(input: PurchaseReturnSaveInput): Promis
       taxType: item.taxType,
       orderTax: new Prisma.Decimal(item.orderTax),
       subtotal: input.lineSubtotals[index],
+      stockConversionFactor: new Prisma.Decimal(item.stockConversionFactor),
     }));
 
     if (existingReturn) {
@@ -129,14 +152,16 @@ export async function savePurchaseReturn(input: PurchaseReturnSaveInput): Promis
           items: existingReturn.items.map((item) => ({
             productId: item.productId,
             quantity: item.quantity,
+            stockConversionFactor: item.stockConversionFactor,
           })),
         },
         {
           warehouseId: warehouse.id,
           status: input.status,
-          items: input.items.map((item) => ({
+          items: resolvedItems.map((item) => ({
             productId: item.productId,
             quantity: item.quantity,
+            stockConversionFactor: item.stockConversionFactor,
           })),
         },
       );
@@ -207,14 +232,14 @@ export async function savePurchaseReturn(input: PurchaseReturnSaveInput): Promis
     });
 
     if (input.status === "Received") {
-      for (const item of input.items) {
+      for (const item of resolvedItems) {
         const product = productById.get(item.productId);
         if (!product) throw new Error("One or more selected products are no longer available.");
         await applyStockAdjustment(transaction, {
           productId: product.id,
           productName: product.name,
           warehouseId: warehouse.id,
-          quantity: item.quantity,
+          quantity: toStockQuantity(item.quantity, item.stockConversionFactor).toString(),
           type: "Subtraction",
           documentLabel: "purchase return",
           movement: {
@@ -240,6 +265,7 @@ export async function deletePurchaseReturn(id: string, actorId: string): Promise
         items: {
           select: {
             quantity: true,
+            stockConversionFactor: true,
             product: { select: { id: true, name: true } },
           },
         },
@@ -260,14 +286,16 @@ export async function deletePurchaseReturn(id: string, actorId: string): Promise
         items: purchaseReturn.items.map((item) => ({
           productId: item.product.id,
           quantity: item.quantity,
+          stockConversionFactor: item.stockConversionFactor,
         })),
       });
       for (const delta of stockDeltas) {
         const currentStock = await transaction.productStock.findUnique({
           where: {
-            productId_warehouseId: {
+            productId_warehouseId_status: {
               productId: delta.productId,
               warehouseId: purchaseReturn.warehouseId,
+              status: "Received",
             },
           },
           select: { quantity: true },

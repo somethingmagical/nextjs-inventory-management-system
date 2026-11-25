@@ -84,10 +84,17 @@ async function AuthorizedEditTransferPage({ params }: EditTransferPageProps) {
 
   const productIds = transfer.items.map((item) => item.productId);
   const stocks = await db.productStock.findMany({
-    where: { warehouseId: transfer.fromWarehouseId, productId: { in: productIds } },
-    select: { productId: true, quantity: true },
+    where: {
+      warehouseId: transfer.fromWarehouseId,
+      productId: { in: productIds },
+      status: "Received",
+    },
+    select: { productId: true, quantity: true, reservedQuantity: true },
   });
-  const stockByProductId = new Map(stocks.map((stock) => [stock.productId, stock.quantity]));
+  const stockByProductId = new Map(stocks.map((stock) => [
+    stock.productId,
+    stock.quantity.minus(stock.reservedQuantity),
+  ]));
   const sourceWasDebited = getTransferStockOperations(transfer.status)
     .some((operation) => operation.warehouse === "from" && operation.type === "Subtraction");
   const initialItems: TransferDraftItem[] = transfer.items.map((item) => {

@@ -65,11 +65,15 @@ async function AuthorizedEditPurchaseReturnPage({ params }: EditPurchaseReturnPa
       where: {
         warehouseId: purchaseReturn.warehouseId,
         productId: { in: productIds },
+        status: "Received",
       },
-      select: { productId: true, quantity: true },
+      select: { productId: true, quantity: true, reservedQuantity: true },
     }),
   ]);
-  const stockByProductId = new Map(stocks.map((stock) => [stock.productId, stock.quantity]));
+  const stockByProductId = new Map(stocks.map((stock) => [
+    stock.productId,
+    stock.quantity.minus(stock.reservedQuantity),
+  ]));
   const initialData: PurchaseReturnFormInitialData = {
     id: purchaseReturn.id,
     date: purchaseReturn.date.toISOString().slice(0, 10),

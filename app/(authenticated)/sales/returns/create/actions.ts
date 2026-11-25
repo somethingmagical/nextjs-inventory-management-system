@@ -1,6 +1,7 @@
 "use server";
 
 import { Prisma } from "@prisma/client";
+import { StockUnitConversionError } from "@/lib/product-unit-conversions";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
@@ -107,6 +108,9 @@ export async function createSaleReturn(
       actorId: access.userId,
     });
   } catch (error) {
+    if (error instanceof StockUnitConversionError) {
+      return { status: "error", message: error.message };
+    }
     if (error instanceof StockQuantityLimitError) {
       return { status: "error", message: error.message };
     }
@@ -229,6 +233,9 @@ export async function updateSaleReturn(
       actorId: access.userId,
     });
   } catch (error) {
+    if (error instanceof StockUnitConversionError) {
+      return { status: "error", message: error.message };
+    }
     if (error instanceof InsufficientStockError || error instanceof StockQuantityLimitError) {
       return { status: "error", message: error.message };
     }

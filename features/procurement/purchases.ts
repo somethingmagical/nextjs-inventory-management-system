@@ -4,10 +4,12 @@ import { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
 import {
+  applyStockBucketAdjustment,
   applyStockAdjustment,
   receivePurchaseStock,
 } from "@/lib/product-stock";
 import { calculatePurchaseStockDeltas } from "@/lib/purchase-stock";
+import { getStockConversionFactor, toStockQuantity } from "@/lib/product-unit-conversions";
 import { getInitialPurchaseDeliveryStatus } from "./purchase-delivery-status";
 
 type PurchaseItemInput = {
@@ -36,7 +38,11 @@ type PurchaseInput = {
   actorId: string;
 };
 
-function createPurchaseItems(input: PurchaseInput) {
+type ResolvedPurchaseInput = Omit<PurchaseInput, "items"> & {
+  items: (PurchaseItemInput & { stockConversionFactor: string })[];
+};
+
+function createPurchaseItems(input: ResolvedPurchaseInput) {
   return input.items.map((item, index) => ({
     productId: item.productId,
     netUnitCost: new Prisma.Decimal(item.netUnitCost),
@@ -47,6 +53,7 @@ function createPurchaseItems(input: PurchaseInput) {
     taxType: item.taxType,
     orderTax: new Prisma.Decimal(item.orderTax),
     subtotal: input.lineSubtotals[index],
+    stockConversionFactor: new Prisma.Decimal(item.stockConversionFactor),
   }));
 }
 
@@ -68,7 +75,15 @@ async function validatePurchaseReferences(
         id: { in: input.items.map((item) => item.productId) },
         deletedAt: null,
       },
-      select: { id: true, name: true, productUnit: true },
+      select: {
+        id: true,
+        name: true,
+        productUnit: true,
+        unitConversions: {
+          where: { unit: { deletedAt: null } },
+          select: { conversionFactor: true, unit: { select: { name: true } } },
+        },
+      },
     }),
   ]);
 
@@ -93,15 +108,23 @@ async function validatePurchaseReferences(
     }
   }
 
-  return { warehouse, supplier, productById };
+  const resolvedItems = input.items.map((item) => {
+    const product = productById.get(item.productId);
+    if (!product) throw new Error("One or more selected products are no longer available.");
+    const factor = getStockConversionFactor(product, item.unit);
+    toStockQuantity(item.quantity, factor);
+    return { ...item, stockConversionFactor: factor.toString() };
+  });
+  return { warehouse, supplier, productById, resolvedItems };
 }
 
 export async function createPurchase(input: PurchaseInput) {
   return db.$transaction(async (transaction) => {
-    const { warehouse, supplier } = await validatePurchaseReferences(
+    const { warehouse, supplier, resolvedItems } = await validatePurchaseReferences(
       transaction,
       input,
     );
+    const purchaseInput = { ...input, items: resolvedItems };
 
     const reference = `PU_${randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
     const purchase = await transaction.purchase.create({
@@ -117,26 +140,34 @@ export async function createPurchase(input: PurchaseInput) {
         shipping: input.shipping,
         grandTotal: input.grandTotal,
         notes: input.notes,
-        items: {
-          create: createPurchaseItems(input),
-        },
+        items: { create: createPurchaseItems(purchaseInput) },
       },
       select: { id: true },
     });
 
-    if (input.status === "Received") {
-      for (const item of input.items) {
+    for (const item of resolvedItems) {
+      const quantity = toStockQuantity(item.quantity, item.stockConversionFactor).toString();
+      if (input.status === "Received") {
         await receivePurchaseStock(transaction, {
           productId: item.productId,
           warehouseId: warehouse.id,
           supplierId: supplier.id,
-          quantity: item.quantity,
+          quantity,
           movement: {
             type: "PurchaseReceipt",
             sourceType: "Purchase",
             sourceId: purchase.id,
             actorId: input.actorId,
           },
+        });
+      } else {
+        await applyStockBucketAdjustment(transaction, {
+          productId: item.productId,
+          warehouseId: warehouse.id,
+          status: input.status,
+          quantity,
+          type: "Addition",
+          supplierId: supplier.id,
         });
       }
     }
@@ -157,6 +188,8 @@ export async function updatePurchase(input: PurchaseInput & { id: string }) {
             select: {
               productId: true,
               quantity: true,
+              unit: true,
+              stockConversionFactor: true,
               product: { select: { name: true } },
             },
           },
@@ -168,6 +201,14 @@ export async function updatePurchase(input: PurchaseInput & { id: string }) {
       throw new Error("This purchase no longer exists or has already been deleted.");
     }
 
+    const resolvedItems = references.resolvedItems.map((item) => {
+      const previousItem = existingPurchase.items.find((previous) =>
+        previous.productId === item.productId && previous.unit === item.unit,
+      );
+      const factor = previousItem?.stockConversionFactor ?? item.stockConversionFactor;
+      toStockQuantity(item.quantity, factor);
+      return { ...item, stockConversionFactor: factor.toString() };
+    });
     const stockDeltas = calculatePurchaseStockDeltas(
       {
         warehouseId: existingPurchase.warehouseId,
@@ -175,14 +216,16 @@ export async function updatePurchase(input: PurchaseInput & { id: string }) {
         items: existingPurchase.items.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
+          stockConversionFactor: item.stockConversionFactor,
         })),
       },
       {
         warehouseId: references.warehouse.id,
         status: input.status,
-        items: input.items.map((item) => ({
+        items: resolvedItems.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
+          stockConversionFactor: item.stockConversionFactor,
         })),
       },
     );
@@ -192,21 +235,32 @@ export async function updatePurchase(input: PurchaseInput & { id: string }) {
 
     for (const delta of stockDeltas) {
       const product = references.productById.get(delta.productId);
-      await applyStockAdjustment(transaction, {
-        productId: delta.productId,
-        productName:
-          product?.name ?? previousProductNames.get(delta.productId) ?? "product",
-        warehouseId: delta.warehouseId,
-        quantity: delta.quantity.toString(),
-        type: delta.type,
-        documentLabel: "purchase edit",
-        movement: {
-          type: "Reconciliation",
-          sourceType: "Purchase",
-          sourceId: existingPurchase.id,
-          actorId: input.actorId,
-        },
-      });
+      if (delta.status === "Received") {
+        await applyStockAdjustment(transaction, {
+          productId: delta.productId,
+          productName:
+            product?.name ?? previousProductNames.get(delta.productId) ?? "product",
+          warehouseId: delta.warehouseId,
+          quantity: delta.quantity.toString(),
+          type: delta.type,
+          documentLabel: "purchase edit",
+          movement: {
+            type: "Reconciliation",
+            sourceType: "Purchase",
+            sourceId: existingPurchase.id,
+            actorId: input.actorId,
+          },
+        });
+      } else {
+        await applyStockBucketAdjustment(transaction, {
+          productId: delta.productId,
+          warehouseId: delta.warehouseId,
+          status: delta.status,
+          quantity: delta.quantity.toString(),
+          type: delta.type,
+          supplierId: references.supplier.id,
+        });
+      }
     }
 
     await transaction.purchase.update({
@@ -223,7 +277,7 @@ export async function updatePurchase(input: PurchaseInput & { id: string }) {
         notes: input.notes,
         items: {
           deleteMany: {},
-          create: createPurchaseItems(input),
+          create: createPurchaseItems({ ...input, items: resolvedItems }),
         },
       },
     });

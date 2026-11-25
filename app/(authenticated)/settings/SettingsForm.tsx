@@ -10,7 +10,12 @@ import { initialSettingsActionState } from "./action-state";
 export default function SettingsForm({
   settings,
 }: {
-  settings: { appName: string; faviconPath: string; headerLogoPath: string | null };
+  settings: {
+    appName: string;
+    faviconPath: string;
+    headerLogoPath: string | null;
+    userHistoryEnabled: boolean;
+  };
 }) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState(
@@ -159,6 +164,26 @@ export default function SettingsForm({
             </span>
           </div>
         </div>
+      </div>
+
+      <div className="settings-row">
+        <div className="settings-row-description">
+          <label className="gg-label" htmlFor="user-history-enabled">User history module</label>
+          <span className="gg-caption">
+            When enabled, record user account changes for up to 12 months. Disabling pauses new entries without deleting existing history.
+          </span>
+        </div>
+        <label className="settings-toggle" htmlFor="user-history-enabled">
+          <input
+            id="user-history-enabled"
+            name="userHistoryEnabled"
+            type="checkbox"
+            value="on"
+            defaultChecked={settings.userHistoryEnabled}
+            disabled={isPending}
+          />
+          <span>Enabled</span>
+        </label>
       </div>
 
       <div className="gg-form-actions">

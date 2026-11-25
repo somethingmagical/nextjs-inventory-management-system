@@ -6,5 +6,6 @@ FROM (
     UNION ALL SELECT 'Meter'
 ) AS defaults
 WHERE NOT EXISTS (
-    SELECT 1 FROM `Unit` AS existing WHERE existing.`name` = defaults.`name`
+    SELECT 1 FROM `Unit` AS existing
+    WHERE existing.`name` = defaults.`name` COLLATE utf8mb4_unicode_ci
 );

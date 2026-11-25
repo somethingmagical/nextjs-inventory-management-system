@@ -62,12 +62,23 @@ async function AuthorizedEditSalePage({ params }: EditSalePageProps) {
           productId: true,
           netUnitPrice: true,
           quantity: true,
+          stockConversionFactor: true,
           unit: true,
           discountType: true,
           discount: true,
           taxType: true,
           orderTax: true,
-          product: { select: { code: true, name: true } },
+          product: {
+            select: {
+              code: true,
+              name: true,
+              productUnit: true,
+              unitConversions: {
+                where: { unit: { deletedAt: null } },
+                select: { conversionFactor: true, unit: { select: { name: true } } },
+              },
+            },
+          },
         },
       },
     },
@@ -92,15 +103,22 @@ async function AuthorizedEditSalePage({ params }: EditSalePageProps) {
       select: { name: true },
     }),
     db.productStock.findMany({
-      where: { warehouseId: sale.warehouseId, productId: { in: productIds } },
-      select: { productId: true, quantity: true },
+      where: {
+        warehouseId: sale.warehouseId,
+        productId: { in: productIds },
+        status: "Received",
+      },
+      select: { productId: true, quantity: true, reservedQuantity: true },
     }),
     db.salePayment.aggregate({
       where: { saleId: sale.id },
       _sum: { amount: true },
     }),
   ]);
-  const stockByProductId = new Map(stocks.map((stock) => [stock.productId, stock.quantity]));
+  const stockByProductId = new Map(stocks.map((stock) => [
+    stock.productId,
+    stock.quantity.minus(stock.reservedQuantity),
+  ]));
   const initialData: SaleFormInitialData = {
     id: sale.id,
     date: sale.date.toISOString().slice(0, 10),
@@ -119,7 +137,16 @@ async function AuthorizedEditSalePage({ params }: EditSalePageProps) {
       name: item.product.name,
       price: item.netUnitPrice.toString(),
       unit: item.unit,
-      stock: (stockByProductId.get(item.productId)?.plus(item.quantity) ?? item.quantity).toString(),
+      unitOptions: [
+        { name: item.product.productUnit, factor: "1" },
+        ...item.product.unitConversions.map((conversion) => ({
+          name: conversion.unit.name,
+          factor: conversion.conversionFactor.toString(),
+        })),
+      ],
+      stock: (stockByProductId.get(item.productId)?.plus(
+        item.quantity.times(item.stockConversionFactor),
+      ) ?? item.quantity.times(item.stockConversionFactor)).toString(),
       quantity: item.quantity.toString(),
       discountType: item.discountType,
       discount: item.discount.toString(),

@@ -8,6 +8,14 @@ type WarehouseDiscountInput = {
   discountType: "Fixed" | "Percentage";
   discount: string;
 };
+type ProductUnitConversionInput = { unitName: string; conversionFactor: string };
+
+export class ProductBaseUnitChangeError extends Error {
+  constructor() {
+    super("The base product unit cannot be changed after stock or transaction history exists.");
+    this.name = "ProductBaseUnitChangeError";
+  }
+}
 
 export async function updateProductDetails(input: {
   id: string;
@@ -19,6 +27,7 @@ export async function updateProductDetails(input: {
     brandId: string;
     price: string;
     productUnit: string;
+    unitConversions: ProductUnitConversionInput[];
     stockAlert: string | null;
     orderTax: string | null;
     taxType: "Exclusive" | "Inclusive";
@@ -33,13 +42,35 @@ export async function updateProductDetails(input: {
   return db.$transaction(async (transaction) => {
     const current = await transaction.product.findFirst({
       where: { id: input.id, deletedAt: null },
-      select: { id: true, updatedAt: true },
+      select: {
+        id: true,
+        updatedAt: true,
+        productUnit: true,
+        _count: {
+          select: {
+            productStocks: true,
+            stockMovements: true,
+            adjustmentItems: true,
+            purchaseItems: true,
+            purchaseReturnItems: true,
+            saleItems: true,
+            saleReturnItems: true,
+            transferItems: true,
+          },
+        },
+      },
     });
     if (!current || current.updatedAt.getTime() !== input.expectedUpdatedAt.getTime()) {
       return false;
     }
+    if (
+      current.productUnit !== input.details.productUnit
+      && Object.values(current._count).some((count) => count > 0)
+    ) {
+      throw new ProductBaseUnitChangeError();
+    }
 
-    const [category, brand, unit, activeWarehouses] = await Promise.all([
+    const [category, brand, unit, conversionUnits, activeWarehouses] = await Promise.all([
       transaction.category.findFirst({
         where: { id: input.details.categoryId, deletedAt: null },
         select: { id: true, name: true },
@@ -52,6 +83,13 @@ export async function updateProductDetails(input: {
         where: { name: input.details.productUnit, deletedAt: null },
         select: { name: true },
       }),
+      transaction.unit.findMany({
+        where: {
+          name: { in: input.details.unitConversions.map((conversion) => conversion.unitName) },
+          deletedAt: null,
+        },
+        select: { id: true, name: true },
+      }),
       transaction.warehouse.findMany({
         where: { deletedAt: null },
         select: { id: true },
@@ -62,10 +100,26 @@ export async function updateProductDetails(input: {
       !category
       || !brand
       || !unit
+      || conversionUnits.length !== input.details.unitConversions.length
+      || input.details.unitConversions.some((conversion) => conversion.unitName === unit.name)
+      || new Set(input.details.unitConversions.map((conversion) => conversion.unitName)).size
+        !== input.details.unitConversions.length
       || input.details.warehouseDiscounts.some((override) => !activeWarehouseIds.has(override.warehouseId))
       || new Set(input.details.warehouseDiscounts.map((override) => override.warehouseId)).size
         !== input.details.warehouseDiscounts.length
     ) return false;
+    const conversionUnitByName = new Map(conversionUnits.map((conversionUnit) => [
+      conversionUnit.name,
+      conversionUnit.id,
+    ]));
+    const conversionData = input.details.unitConversions.map((conversion) => {
+      const unitId = conversionUnitByName.get(conversion.unitName);
+      if (!unitId) throw new Error("A selected product unit is no longer available.");
+      return {
+        unitId,
+        conversionFactor: conversion.conversionFactor,
+      };
+    });
 
     const result = await transaction.product.updateMany({
       where: { id: current.id, updatedAt: current.updatedAt, deletedAt: null },
@@ -95,6 +149,17 @@ export async function updateProductDetails(input: {
     });
 
     if (result.count !== 1) return false;
+
+    await transaction.productUnitConversion.deleteMany({ where: { productId: current.id } });
+    if (input.details.unitConversions.length) {
+      await transaction.productUnitConversion.createMany({
+        data: conversionData.map((conversion) => ({
+          productId: current.id,
+          unitId: conversion.unitId,
+          conversionFactor: conversion.conversionFactor,
+        })),
+      });
+    }
 
     await transaction.productWarehouseDiscount.deleteMany({
       where: {

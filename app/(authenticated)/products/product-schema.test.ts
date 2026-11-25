@@ -9,6 +9,7 @@ const validProductDetails = {
   brandId: "brand-1",
   price: "999999.99",
   productUnit: "each",
+  unitConversions: "[]",
   stockAlert: "0",
   orderTax: "0",
   taxType: "Exclusive" as const,
@@ -118,4 +119,26 @@ test("rejects invalid warehouse override values", () => {
     }).success,
     false,
   );
+});
+
+test("validates alternate unit conversion factors and duplicate units", () => {
+  assert.equal(productDetailsSchema.safeParse({
+    ...validProductDetails,
+    unitConversions: JSON.stringify([{ unitName: "case", conversionFactor: "12" }]),
+  }).success, true);
+  assert.equal(productDetailsSchema.safeParse({
+    ...validProductDetails,
+    unitConversions: JSON.stringify([{ unitName: "case", conversionFactor: "0" }]),
+  }).success, false);
+  assert.equal(productDetailsSchema.safeParse({
+    ...validProductDetails,
+    unitConversions: JSON.stringify([
+      { unitName: "case", conversionFactor: "12" },
+      { unitName: "case", conversionFactor: "24" },
+    ]),
+  }).success, false);
+  assert.equal(productDetailsSchema.safeParse({
+    ...validProductDetails,
+    unitConversions: JSON.stringify([{ unitName: "each", conversionFactor: "1" }]),
+  }).success, false);
 });

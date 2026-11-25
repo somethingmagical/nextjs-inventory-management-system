@@ -23,7 +23,13 @@ type ProfileValues = {
   role: string;
 };
 
-export default function ProfileForm({ profile }: { profile: ProfileValues }) {
+export default function ProfileForm({
+  profile,
+  canEditOwnProfile,
+}: {
+  profile: ProfileValues;
+  canEditOwnProfile: boolean;
+}) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState<ProfileActionState, FormData>(
     updateProfile,
@@ -91,6 +97,11 @@ export default function ProfileForm({ profile }: { profile: ProfileValues }) {
       </div>
 
       <form ref={formRef} onSubmit={retainValues} className="gg-card gg-card-pad" action={formAction}>
+        {!canEditOwnProfile && (
+          <p className="profile-info" role="status">
+            Your role does not allow you to edit your profile. Contact an administrator if this needs to change.
+          </p>
+        )}
         {state.status === "error" && (
           <p className="profile-alert" role="alert">
             <Info size={18} aria-hidden="true" />
@@ -111,8 +122,12 @@ export default function ProfileForm({ profile }: { profile: ProfileValues }) {
         )}
 
         <section className="profile-avatar-section" aria-labelledby="profile-image-label">
-          <label className="gg-label profile-avatar-label" id="profile-image-label" htmlFor="profile-image">
-            Change Image
+          <label
+            className="gg-label profile-avatar-label"
+            id="profile-image-label"
+            htmlFor={canEditOwnProfile ? "profile-image" : undefined}
+          >
+            {canEditOwnProfile ? "Change Image" : "Profile Image"}
           </label>
           <div className="profile-avatar-control">
             <div className="profile-avatar-circle">
@@ -129,24 +144,30 @@ export default function ProfileForm({ profile }: { profile: ProfileValues }) {
                 <UserRound className="profile-avatar-fallback" size={60} aria-hidden="true" />
               )}
             </div>
-            <label className="profile-avatar-button" htmlFor="profile-image" title="Change image">
-              <Pencil aria-hidden="true" />
-              <span className="sr-only">Choose a profile image</span>
-            </label>
-            <input
-              className="profile-file-input"
-              id="profile-image"
-              name="image"
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              aria-describedby={fieldError("image") ? "profile-image-error" : "profile-image-hint"}
-              onChange={handleImageChange}
-              disabled={isPending}
-            />
+            {canEditOwnProfile && (
+              <>
+                <label className="profile-avatar-button" htmlFor="profile-image" title="Change image">
+                  <Pencil aria-hidden="true" />
+                  <span className="sr-only">Choose a profile image</span>
+                </label>
+                <input
+                  className="profile-file-input"
+                  id="profile-image"
+                  name="image"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  aria-describedby={fieldError("image") ? "profile-image-error" : "profile-image-hint"}
+                  onChange={handleImageChange}
+                  disabled={isPending}
+                />
+              </>
+            )}
           </div>
-          <span className="gg-caption profile-image-hint" id="profile-image-hint">
-            PNG, JPEG, or WebP. Maximum file size: 1 MB.
-          </span>
+          {canEditOwnProfile && (
+            <span className="gg-caption profile-image-hint" id="profile-image-hint">
+              PNG, JPEG, or WebP. Maximum file size: 1 MB.
+            </span>
+          )}
           {fieldError("image") && (
             <span className="profile-field-error" id="profile-image-error">{fieldError("image")}</span>
           )}
@@ -165,7 +186,7 @@ export default function ProfileForm({ profile }: { profile: ProfileValues }) {
               required
               aria-invalid={Boolean(fieldError("firstName"))}
               aria-describedby={fieldError("firstName") ? "firstName-error" : undefined}
-              disabled={isPending}
+              disabled={isPending || !canEditOwnProfile}
             />
             {fieldError("firstName") && <span className="profile-field-error" id="firstName-error">{fieldError("firstName")}</span>}
           </div>
@@ -181,7 +202,7 @@ export default function ProfileForm({ profile }: { profile: ProfileValues }) {
               required
               aria-invalid={Boolean(fieldError("lastName"))}
               aria-describedby={fieldError("lastName") ? "lastName-error" : undefined}
-              disabled={isPending}
+              disabled={isPending || !canEditOwnProfile}
             />
             {fieldError("lastName") && <span className="profile-field-error" id="lastName-error">{fieldError("lastName")}</span>}
           </div>
@@ -198,14 +219,14 @@ export default function ProfileForm({ profile }: { profile: ProfileValues }) {
               required
               aria-invalid={Boolean(fieldError("email"))}
               aria-describedby={fieldError("email") ? "email-error" : undefined}
-              disabled={isPending}
+              disabled={isPending || !canEditOwnProfile}
             />
             {fieldError("email") && <span className="profile-field-error" id="email-error">{fieldError("email")}</span>}
           </div>
           <PhoneNumberInput
             defaultValue={profile.phoneNumber}
             error={fieldError("phoneNumber")}
-            disabled={isPending}
+            disabled={isPending || !canEditOwnProfile}
           />
           <div className="gg-field">
             <label className="gg-label" htmlFor="role">Role</label>
@@ -221,7 +242,11 @@ export default function ProfileForm({ profile }: { profile: ProfileValues }) {
         </div>
 
         <div className="gg-form-actions">
-          <button className="gg-btn gg-btn--primary" type="submit" disabled={isPending}>
+          <button
+            className="gg-btn gg-btn--primary"
+            type="submit"
+            disabled={isPending || !canEditOwnProfile}
+          >
             <Check aria-hidden="true" />
             {isPending ? "Saving..." : "Save"}
           </button>

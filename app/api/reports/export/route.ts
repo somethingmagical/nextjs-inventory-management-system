@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { requirePermission } from "@/lib/authorization";
 import { db } from "@/lib/db";
 import {
@@ -183,6 +184,7 @@ async function getExportData(filters: {
       db.productStock.groupBy({
         by: ["productId"],
         where: {
+          status: "Received",
           warehouse: {
             is: {
               deletedAt: null,
@@ -196,11 +198,19 @@ async function getExportData(filters: {
             },
           },
         },
-        _sum: { quantity: true },
+        _sum: { quantity: true, reservedQuantity: true },
       }),
     ]);
     const stockByProduct = new Map(
-      stockTotals.map(({ productId, _sum }) => [productId, _sum.quantity?.toNumber() ?? 0]),
+      stockTotals.map(({ productId, _sum }) => {
+        const quantity = _sum.quantity ?? new Prisma.Decimal(0);
+        const reservedQuantity = _sum.reservedQuantity ?? new Prisma.Decimal(0);
+        return [productId, {
+          onHand: quantity.toNumber(),
+          reserved: reservedQuantity.toNumber(),
+          available: quantity.minus(reservedQuantity).toNumber(),
+        }] as const;
+      }),
     );
     return {
       filename: "stock-report.xlsx",
@@ -211,7 +221,9 @@ async function getExportData(filters: {
         { header: "Category", width: 24 },
         { header: "Cost", width: 16, numberFormat: '"$"#,##0.00' },
         { header: "Price", width: 16, numberFormat: '"$"#,##0.00' },
-        { header: "Current Stock", width: 18, numberFormat: "0.000" },
+        { header: "On hand", width: 16, numberFormat: "0.000" },
+        { header: "Reserved", width: 16, numberFormat: "0.000" },
+        { header: "Available", width: 16, numberFormat: "0.000" },
       ],
       rows: products.map((product) => [
         product.code,
@@ -219,7 +231,9 @@ async function getExportData(filters: {
         product.categoryRecord.name,
         product.purchasePrice.toNumber(),
         product.price.toNumber(),
-        stockByProduct.get(product.id) ?? 0,
+        stockByProduct.get(product.id)?.onHand ?? 0,
+        stockByProduct.get(product.id)?.reserved ?? 0,
+        stockByProduct.get(product.id)?.available ?? 0,
       ]),
     };
   }

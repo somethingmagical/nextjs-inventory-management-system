@@ -1,0 +1,2 @@
+DELETE FROM `UserHistoryEntry`
+WHERE `createdAt` < UTC_TIMESTAMP(3) - INTERVAL 12 MONTH;

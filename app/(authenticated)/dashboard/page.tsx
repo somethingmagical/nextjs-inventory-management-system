@@ -213,7 +213,7 @@ async function DashboardData() {
         p.code AS code,
         p.name AS product,
         w.name AS warehouse,
-        ps.quantity AS quantity,
+        ps.quantity - ps.reservedQuantity AS quantity,
         p.stockAlert AS alertQuantity,
         p.productUnit AS unit
       FROM ProductStock AS ps
@@ -221,7 +221,9 @@ async function DashboardData() {
         ON p.id = ps.productId AND p.deletedAt IS NULL
       INNER JOIN Warehouse AS w
         ON w.id = ps.warehouseId AND w.deletedAt IS NULL
-      WHERE p.stockAlert IS NOT NULL AND ps.quantity <= p.stockAlert
+      WHERE ps.status = 'Received'
+        AND p.stockAlert IS NOT NULL
+        AND ps.quantity - ps.reservedQuantity <= p.stockAlert
       ORDER BY p.name ASC, w.name ASC
       LIMIT 5
     `,

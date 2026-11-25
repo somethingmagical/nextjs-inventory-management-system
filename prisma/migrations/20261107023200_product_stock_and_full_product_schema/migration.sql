@@ -113,12 +113,17 @@ ALTER TABLE `Product`
     MODIFY COLUMN `categoryId` VARCHAR(191) NOT NULL,
     MODIFY COLUMN `brandId` VARCHAR(191) NOT NULL,
     MODIFY COLUMN `productUnit` VARCHAR(191) NOT NULL,
-    MODIFY COLUMN `taxType` ENUM('Exclusive', 'Inclusive') NOT NULL DEFAULT 'Exclusive',
-    ADD INDEX `Product_categoryId_idx`(`categoryId`),
-    ADD INDEX `Product_brandId_idx`(`brandId`),
+    MODIFY COLUMN `taxType` ENUM('Exclusive', 'Inclusive') NOT NULL DEFAULT 'Exclusive';
+
+CREATE INDEX `Product_categoryId_idx` ON `Product`(`categoryId`);
+CREATE INDEX `Product_brandId_idx` ON `Product`(`brandId`);
+
+ALTER TABLE `Product`
     ADD CONSTRAINT `Product_categoryId_fkey`
         FOREIGN KEY (`categoryId`) REFERENCES `Category`(`id`)
-        ON DELETE RESTRICT ON UPDATE CASCADE,
+        ON DELETE RESTRICT ON UPDATE CASCADE;
+
+ALTER TABLE `Product`
     ADD CONSTRAINT `Product_brandId_fkey`
         FOREIGN KEY (`brandId`) REFERENCES `Brand`(`id`)
         ON DELETE RESTRICT ON UPDATE CASCADE;
