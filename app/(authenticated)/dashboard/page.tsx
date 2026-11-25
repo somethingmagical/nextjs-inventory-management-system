@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import BusinessInsights from "@/components/dashboard/BusinessInsights";
 import CustomerSourcesChart from "@/components/dashboard/CustomerSourcesChart";
 import DashboardCard, { KpiGrid } from "@/components/dashboard/DashboardCard";
 import { WeeklySalesChart } from "@/components/dashboard/DashboardCharts";
@@ -319,6 +320,9 @@ async function DashboardData() {
     <main className="gg-content">
       <div className="dash-section-gap">
         <KpiGrid values={kpiValues} />
+        {access.user.permissions.includes(PERMISSION.viewBusinessInsights) && (
+          <BusinessInsights />
+        )}
 
         <section className="dash-2col" aria-label="Sales and customer reports">
           <div className="dash-col">

@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { calculatePurchaseTotals } from "@/lib/purchase-pricing";
+import { getApplicationSettings } from "@/features/settings/application";
 import { getSaleViewAccess } from "../../authorization";
 import { saleIdSchema } from "../payments/payment-schema";
 import { generateSalePdf } from "../../sale-pdf";
@@ -71,7 +72,9 @@ export async function GET(_request: Request, { params }: SalePdfRouteContext) {
     discount: sale.discount,
     shipping: sale.shipping,
   });
+  const { appName } = await getApplicationSettings();
   const pdf = await generateSalePdf({
+    businessName: appName,
     reference: sale.reference,
     date: formatDate(sale.date),
     createdOn: sale.createdAt.toLocaleString("en"),
@@ -92,6 +95,7 @@ export async function GET(_request: Request, { params }: SalePdfRouteContext) {
     paid: sale.paid.toFixed(2),
     due: sale.due.toFixed(2),
     notes: sale.notes ?? "",
+    subtotal: totals.subtotal.toFixed(2),
     orderTax: totals.orderTax.toFixed(2),
     orderTaxRate: sale.orderTax.toFixed(2),
     discount: sale.discount.toFixed(2),

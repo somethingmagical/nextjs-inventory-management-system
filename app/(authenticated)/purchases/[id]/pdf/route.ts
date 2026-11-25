@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { getApplicationSettings } from "@/features/settings/application";
 import { db } from "@/lib/db";
 import { calculatePurchaseTotals } from "@/lib/purchase-pricing";
 import { getPurchaseViewAccess } from "../../authorization";
@@ -79,7 +80,9 @@ export async function GET(_request: Request, { params }: PurchasePdfRouteContext
     discount: purchase.discount,
     shipping: purchase.shipping,
   });
+  const { appName } = await getApplicationSettings();
   const pdf = await generatePurchasePdf({
+    businessName: appName,
     reference: purchase.reference,
     date,
     createdOn,
@@ -98,6 +101,7 @@ export async function GET(_request: Request, { params }: PurchasePdfRouteContext
     paymentType: purchase.paymentType,
     paymentStatus: purchase.paymentStatus,
     notes: purchase.notes ?? "",
+    subtotal: totals.subtotal.toFixed(2),
     orderTax: totals.orderTax.toFixed(2),
     orderTaxRate: purchase.orderTax.toFixed(2),
     discount: purchase.discount.toFixed(2),

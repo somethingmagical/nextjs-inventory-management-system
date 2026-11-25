@@ -43,3 +43,18 @@ test("editing one's own profile is an explicit standalone permission", () => {
   assert.equal(permissionIsGranted([PERMISSION.manageUsers], PERMISSION.editOwnProfile), false);
   assert.equal(permissionIsGranted([PERMISSION.editOwnProfile], PERMISSION.editOwnProfile), true);
 });
+
+test("business insights access is separate from dashboard and reports access", () => {
+  assert.equal(
+    permissionIsGranted([PERMISSION.viewDashboard], PERMISSION.viewBusinessInsights),
+    false,
+  );
+  assert.equal(
+    permissionIsGranted([PERMISSION.viewReports], PERMISSION.viewBusinessInsights),
+    false,
+  );
+  assert.equal(
+    permissionIsGranted([PERMISSION.viewBusinessInsights], PERMISSION.viewBusinessInsights),
+    true,
+  );
+});

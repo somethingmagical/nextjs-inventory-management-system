@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
 import {
+  applySaleStockAdjustments,
   applyStockAdjustment,
   InsufficientStockError,
   reserveStock,
@@ -146,38 +147,46 @@ export async function createSale(input: SaleInput & {
       });
     }
 
-    for (const item of resolvedItems) {
-      const product = productById.get(item.productId);
-      if (!product) throw new Error("One or more selected products are no longer available.");
-      const quantity = toStockQuantity(item.quantity, item.stockConversionFactor).toString();
-      if (input.status === "Received") {
-        await applyStockAdjustment(transaction, {
-          productId: product.id,
-          productName: product.name,
-          warehouseId: warehouse.id,
-          quantity,
-          type: "Subtraction",
-          documentLabel: "sale",
-          movement: {
-            type: "Sale",
-            sourceType: "Sale",
-            sourceId: sale.id,
-            actorId: input.actorId,
-          },
-        });
-      } else {
+    if (input.status === "Received") {
+      await applySaleStockAdjustments(
+        transaction,
+        resolvedItems.map((item) => {
+          const product = productById.get(item.productId);
+          if (!product) throw new Error("One or more selected products are no longer available.");
+          return {
+            productId: product.id,
+            productName: product.name,
+            warehouseId: warehouse.id,
+            quantity: toStockQuantity(item.quantity, item.stockConversionFactor).toString(),
+            documentLabel: "sale",
+            movement: {
+              type: "Sale",
+              sourceType: "Sale",
+              sourceId: sale.id,
+              actorId: input.actorId,
+            },
+          };
+        }),
+      );
+    } else {
+      for (const item of resolvedItems) {
+        const product = productById.get(item.productId);
+        if (!product) throw new Error("One or more selected products are no longer available.");
         await reserveStock(transaction, {
           productId: product.id,
           productName: product.name,
           warehouseId: warehouse.id,
-          quantity,
+          quantity: toStockQuantity(item.quantity, item.stockConversionFactor).toString(),
           type: "Addition",
           documentLabel: "sale",
         });
       }
     }
     return sale;
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+  }, {
+    isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+    timeout: 30_000,
+  });
 }
 
 export async function updateSale(input: SaleInput & {

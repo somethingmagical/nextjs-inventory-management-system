@@ -72,6 +72,11 @@ type PosReceipt = {
   warehouseName: string;
   date: string;
   paymentType: string;
+  subtotal: string;
+  orderTax: string;
+  orderTaxRate: string;
+  orderDiscount: string;
+  shipping: string;
   total: string;
   change: string;
   items: {
@@ -571,6 +576,11 @@ export default function PosScreen({
       warehouseName: warehouses.find((warehouse) => warehouse.id === warehouseId)?.name ?? "Unknown warehouse",
       date: saleDate,
       paymentType,
+      subtotal: orderTotals.subtotal.toFixed(2),
+      orderTax: orderTotals.orderTax.toFixed(2),
+      orderTaxRate: orderTax,
+      orderDiscount: orderTotals.discount.toFixed(2),
+      shipping: orderTotals.shipping.toFixed(2),
       total: orderTotals.grandTotal.toFixed(2),
       change: changeDue?.toFixed(2) ?? "0.00",
       items: cart.map((item) => ({
@@ -1798,23 +1808,30 @@ function PosReceiptModal({
       </div>
       <section className="pos-print-receipt" aria-label="Printable sale receipt">
         <header className="pos-print-head">
-          <h1>Sales Receipt</h1>
-          <strong>{receipt.reference}</strong>
-          <span>{receipt.date}</span>
+          <div className="pos-print-brand-block">
+            <div className="pos-print-brand"><span aria-hidden="true">W</span><strong>thewarehouse</strong></div>
+            <p>{receipt.warehouseName}</p>
+          </div>
+          <div className="pos-print-title">
+            <h1>Sales Invoice</h1>
+            <strong>{receipt.reference}</strong>
+            <span>{receipt.date}</span>
+            <span className="pos-print-paid">PAID</span>
+          </div>
         </header>
         <dl className="pos-print-details">
-          <div><dt>Customer</dt><dd>{receipt.customerName}</dd></div>
-          <div><dt>Warehouse</dt><dd>{receipt.warehouseName}</dd></div>
-          <div><dt>Payment</dt><dd>{receipt.paymentType}</dd></div>
+          <div><dt>Bill to</dt><dd>{receipt.customerName}</dd></div>
+          <div><dt>Store</dt><dd>{receipt.warehouseName}</dd></div>
+          <div><dt>Payment type</dt><dd>{receipt.paymentType}</dd></div>
         </dl>
         <table className="pos-print-items">
           <thead>
-            <tr><th>Product</th><th>Qty</th><th>Price</th><th>Discount</th><th>Subtotal</th></tr>
+            <tr><th>Item</th><th>Qty</th><th>Unit price</th><th>Discount</th><th>Amount</th></tr>
           </thead>
           <tbody>
             {receipt.items.map((item, index) => (
               <tr key={`${item.code}-${index}`}>
-                <td>{item.name}<small>{item.code}</small></td>
+                <td><strong>{item.name}</strong><small>SKU: {item.code}</small></td>
                 <td>{item.quantity} {item.unit}</td>
                 <td>{formatMoney(new Prisma.Decimal(item.price))}</td>
                 <td>{item.discountType === "Fixed"
@@ -1825,9 +1842,18 @@ function PosReceiptModal({
             ))}
           </tbody>
         </table>
-        <div className="pos-print-total"><span>Total</span><strong>{formatMoney(new Prisma.Decimal(receipt.total))}</strong></div>
-        <div className="pos-print-total"><span>Change</span><strong>{formatMoney(new Prisma.Decimal(receipt.change))}</strong></div>
-        <p className="pos-print-thanks">Thank you for your purchase.</p>
+        <div className="pos-print-summary">
+          <p>Thank you for your purchase.</p>
+          <div>
+            <div className="pos-print-total"><span>Subtotal</span><strong>{formatMoney(new Prisma.Decimal(receipt.subtotal))}</strong></div>
+            <div className="pos-print-total"><span>Tax ({formatPrice(receipt.orderTaxRate)}%)</span><strong>{formatMoney(new Prisma.Decimal(receipt.orderTax))}</strong></div>
+            <div className="pos-print-total"><span>Discount</span><strong>− {formatMoney(new Prisma.Decimal(receipt.orderDiscount))}</strong></div>
+            <div className="pos-print-total"><span>Shipping</span><strong>{formatMoney(new Prisma.Decimal(receipt.shipping))}</strong></div>
+            <div className="pos-print-total pos-print-grand"><span>Invoice total</span><strong>{formatMoney(new Prisma.Decimal(receipt.total))}</strong></div>
+            <div className="pos-print-total"><span>Change</span><strong>{formatMoney(new Prisma.Decimal(receipt.change))}</strong></div>
+          </div>
+        </div>
+        <footer className="pos-print-thanks">Thank you for your business. <span>{receipt.reference}</span></footer>
       </section>
     </>
   );

@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { getApplicationSettings } from "@/features/settings/application";
 import { calculatePurchaseTotals } from "@/lib/purchase-pricing";
 import { getSaleReturnViewAccess } from "../../../authorization";
 import { getSaleReturnDetails } from "../../sale-return-details";
@@ -29,7 +30,9 @@ export async function GET(_request: Request, { params }: SaleReturnPdfRouteConte
     discount: saleReturn.discount,
     shipping: saleReturn.shipping,
   });
+  const { appName } = await getApplicationSettings();
   const pdf = await generateSalePdf({
+    businessName: appName,
     documentType: "Sale Return",
     relatedSaleReference: saleReturn.sale?.reference ?? "",
     reference: saleReturn.reference,
@@ -54,6 +57,7 @@ export async function GET(_request: Request, { params }: SaleReturnPdfRouteConte
     paid: saleReturn.paid.toFixed(2),
     due: saleReturn.due.toFixed(2),
     notes: saleReturn.notes ?? "",
+    subtotal: totals.subtotal.toFixed(2),
     orderTax: totals.orderTax.toFixed(2),
     orderTaxRate: saleReturn.orderTax.toFixed(2),
     discount: saleReturn.discount.toFixed(2),

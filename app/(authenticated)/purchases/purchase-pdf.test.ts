@@ -18,6 +18,7 @@ const purchase: PurchasePdfData = {
   paymentType: "Cash",
   paymentStatus: "Unpaid",
   notes: "Sample purchase",
+  subtotal: "26.50",
   orderTax: "1.25",
   orderTaxRate: "5.00",
   discount: "2.00",
@@ -47,7 +48,7 @@ test("generates a downloadable PDF for a purchase", async () => {
   try {
     const result = await parser.getText();
     assert.match(result.text, /Sample Supplier/);
-    assert.match(result.text, /Grand Total/);
+    assert.match(result.text, /Bill total/);
     assert.match(result.text, /31\.50/);
   } finally {
     await parser.destroy();
@@ -65,10 +66,10 @@ test("generates a purchase return PDF with payment balances", async () => {
   const parser = new PDFParse({ data: pdf });
   try {
     const result = await parser.getText();
-    assert.match(result.text, /P U R C H A S E R E T U R N/);
-    assert.match(result.text, /Return Items/);
-    assert.match(result.text, /Paid/);
-    assert.match(result.text, /Due/);
+    assert.match(result.text, /DEBIT NOTE/i);
+    assert.match(result.text, /DEBIT TO/);
+    assert.match(result.text, /Paid to date/);
+    assert.match(result.text, /Balance due/);
     assert.match(result.text, /PR_TEST123/);
   } finally {
     await parser.destroy();

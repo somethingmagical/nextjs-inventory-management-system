@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
-import { AlertTriangle, Info, Pencil, Trash2 } from "lucide-react";
+import { AlertTriangle, Download, Info, Pencil, Trash2 } from "lucide-react";
 import TableRowActionsMenu from "@/components/shared/TableRowActionsMenu";
 import { deleteExpense } from "./actions";
 
@@ -42,6 +42,14 @@ export default function ExpenseRowActions({
         >
           <Pencil aria-hidden="true" />
           Edit Expense
+        </Link>
+        <Link
+          className="gg-menu-item"
+          href={`/expenses/${encodeURIComponent(expenseId)}/pdf`}
+          role="menuitem"
+        >
+          <Download aria-hidden="true" />
+          Download Voucher
         </Link>
         <button
           className="gg-menu-item is-danger"

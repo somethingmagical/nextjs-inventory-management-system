@@ -43,6 +43,9 @@ Follow these steps to prepare a local development environment: install dependenc
    DB_PASSWORD=''
    DB_DATABASE='nextinventory'
    AUTH_SECRET="replace-with-a-random-secret"
+   OPENAI_API_KEY=""
+   # Optional; defaults to gpt-4.1-mini for business insights.
+   OPENAI_BUSINESS_INSIGHTS_MODEL="gpt-4.1-mini"
    # Set to true only when a trusted reverse proxy overwrites X-Forwarded-For.
    AUTH_TRUST_PROXY_IP="false"
    ADMIN_EMAIL="admin@example.com"
@@ -112,6 +115,8 @@ the timing log contains no account or credential values.
 | `DB_PASSWORD` | Yes | Database password; may be empty for local development. |
 | `DB_DATABASE` | Yes | Database name. |
 | `AUTH_SECRET` | Yes | Secret used to sign authentication tokens. |
+| `OPENAI_API_KEY` | No | Server-side OpenAI API key used for on-demand business insights. Without it, the insights page reports that AI is not configured. |
+| `OPENAI_BUSINESS_INSIGHTS_MODEL` | No | OpenAI model for business insights; defaults to `gpt-4.1-mini`. |
 | `AUTH_TRUST_PROXY_IP` | No | Set to `true` only when a trusted reverse proxy overwrites `X-Forwarded-For`; enables per-IP login throttling. |
 | `AUTH_TIMING_LOGS` | No | Set to `true` temporarily to log credential sign-in stage durations without personal data. |
 | `ADMIN_EMAIL` | Yes, for seeding | Email address for the initial administrator account. |
@@ -126,6 +131,12 @@ the timing log contains no account or credential values.
 | `COUNTRIES_API_BASE_URL` | No | Countries.dev API base URL. Country options use local phone metadata when unset; city and postal-code suggestions then remain unavailable and can be entered manually. Set this to `https://countries.dev` to enable those lookups. |
 | `GEOGRAPHY_DATA_DIR` | No | Directory for GeoNames archives; defaults to `.data/geonames`. Country and postal archives are downloaded on first use and cached locally for 30 days. |
 | `OSM_NOMINATIM_BASE_URL` | No | URL of a self-hosted Nominatim instance for the optional street-search endpoint. Public OpenStreetMap search servers are explicitly rejected. |
+
+### AI business insights
+
+The dashboard links to a separate **Business Insights** page. Access is controlled by the **View Business Insights** role permission; grant it to roles that should access the page and generate provider requests. Generating insights is on demand. The application calculates the last two completed UTC weeks of received sales less received sales returns and expenses, plus current outstanding balances and low-stock position counts. It sends only those aggregate facts to OpenAI; customer and supplier identities, transaction records, and notes are not sent. The response is limited to recommendations tied to the supplied facts, is not persisted, and should be reviewed before acting. No profit or margin estimate is provided.
+
+OpenAI Responses requests set `store` to `false`; OpenAI's abuse-monitoring retention policies may still apply. Review the provider's data controls and terms for your account before enabling this feature.
 
 ### Global address data
 

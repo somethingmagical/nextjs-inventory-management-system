@@ -20,6 +20,7 @@ const sale: SalePdfData = {
   paid: "10.00",
   due: "21.50",
   notes: "Sample sale",
+  subtotal: "26.50",
   orderTax: "1.25",
   orderTaxRate: "5.00",
   discount: "2.00",
@@ -56,10 +57,10 @@ test("generates a sale PDF with items, totals, and payment history", async () =>
     const result = await parser.getText();
     assert.match(result.text, /Sample Customer/);
     assert.match(result.text, /Sample Product/);
-    assert.match(result.text, /Net Unit Price|Unit Price/);
-    assert.match(result.text, /Grand Total/);
+    assert.match(result.text, /UNIT PRICE/);
+    assert.match(result.text, /Invoice total/i);
     assert.match(result.text, /31\.50/);
-    assert.match(result.text, /Payment History/);
+    assert.match(result.text, /PAYMENT HISTORY/);
     assert.match(result.text, /Deposit/);
     assert.match(result.text, /21\.50/);
   } finally {
@@ -82,14 +83,14 @@ test("generates a sale return PDF with returned items and refund summary", async
   const parser = new PDFParse({ data: pdf });
   try {
     const result = await parser.getText();
-    assert.match(result.text, /S A L E R E T U R N/);
+    assert.match(result.text, /CREDIT NOTE/i);
     assert.match(result.text, /SR_TEST123/);
     assert.match(result.text, /SA_ORIGINAL/);
-    assert.match(result.text, /Returned Items/);
-    assert.match(result.text, /Refund Summary/);
+    assert.match(result.text, /CREDIT TO/);
+    assert.match(result.text, /Credit total/);
     assert.match(result.text, /REFUND STATUS/);
-    assert.match(result.text, /Refunded/);
-    assert.match(result.text, /Refund Due/);
+    assert.match(result.text, /Refunded to date/);
+    assert.match(result.text, /Refund due/);
     assert.doesNotMatch(result.text, /Payment History/);
   } finally {
     await parser.destroy();

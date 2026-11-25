@@ -31,6 +31,7 @@ export const PERMISSION = {
   manageSetting: "Manage Setting",
   viewDashboard: "View Dashboard",
   manageDashboard: "Manage Dashboard",
+  viewBusinessInsights: "View Business Insights",
   managePosScreen: "Manage Pos Screen",
   viewPurchases: "View Purchase",
   managePurchase: "Manage Purchase",
@@ -112,6 +113,7 @@ export const PERMISSION_CATEGORIES = [
     permissions: [
       PERMISSION.viewDashboard,
       PERMISSION.manageDashboard,
+      PERMISSION.viewBusinessInsights,
       PERMISSION.viewReports,
       PERMISSION.manageReports,
     ],

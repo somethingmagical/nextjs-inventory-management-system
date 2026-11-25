@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { getApplicationSettings } from "@/features/settings/application";
 import { calculatePurchaseTotals } from "@/lib/purchase-pricing";
 import { getPurchaseReturnViewAccess } from "../../authorization";
 import { purchaseReturnIdSchema } from "../../purchase-return-create-schema";
@@ -29,7 +30,9 @@ export async function GET(_request: Request, { params }: PurchaseReturnPdfRouteC
     discount: purchaseReturn.discount,
     shipping: purchaseReturn.shipping,
   });
+  const { appName } = await getApplicationSettings();
   const pdf = await generatePurchasePdf({
+    businessName: appName,
     documentType: "Purchase Return",
     reference: purchaseReturn.reference,
     date: formatDate(purchaseReturn.date),
@@ -54,6 +57,7 @@ export async function GET(_request: Request, { params }: PurchaseReturnPdfRouteC
     paid: purchaseReturn.paid.toFixed(2),
     due: purchaseReturn.due.toFixed(2),
     notes: purchaseReturn.notes ?? "",
+    subtotal: totals.subtotal.toFixed(2),
     orderTax: totals.orderTax.toFixed(2),
     orderTaxRate: purchaseReturn.orderTax.toFixed(2),
     discount: purchaseReturn.discount.toFixed(2),

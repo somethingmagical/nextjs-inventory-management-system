@@ -805,7 +805,7 @@ select option { background: var(--dropdown-bg); color: var(--ink); }
 .gg-badge--neutral { background: var(--neutral-bg); color: var(--neutral-fg); }
 .gg-badge--dot-none::before { display: none; }
 /* reference-style code chip (soft red) */
-.gg-chip-code { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: var(--r-sm); background: var(--gray-100); color: var(--gray-700); font-weight: 600; font-size: 12.5px; }
+.gg-chip-code { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: var(--r-sm); background: var(--gray-100); color: var(--gray-700); font-weight: 600; font-size: 12.5px; white-space: nowrap; }
 .gg-chip-unit { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: var(--r-sm); background: var(--success-bg); color: var(--success-fg); font-weight: 600; font-size: 12.5px; }
 .gg-chip-time { display: inline-flex; flex-direction: column; align-items: center; padding: 4px 10px; border-radius: var(--r-sm); background: var(--info-bg); color: var(--info-fg); font-weight: 600; font-size: 11.5px; line-height: 1.35; }
 .dash-foot { text-align: left; color: var(--gray-500); font-size: 13px; padding: var(--sp-8) 0 var(--sp-4); }
@@ -1262,7 +1262,7 @@ select option { background: var(--dropdown-bg); color: var(--ink); }
 .ppl-cell .em { color: var(--gray-600); font-size: 13px; }
 .supplier-empty-cell { padding: var(--sp-10) var(--sp-5) !important; text-align: center; }
 .supplier-empty-cell .gg-btn { margin-top: var(--sp-4); }
-.page-head { display: flex; align-items: center; margin-bottom: var(--sp-6); }
+.page-head { display: flex; align-items: center; gap: var(--sp-6); margin-bottom: var(--sp-6); }
 .page-head .gg-page-title { flex: 1; }
 .exp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-5) var(--sp-8); }
 .date-field { position: relative; }
@@ -2466,6 +2466,44 @@ body:has(.pos-screen) { height: 100vh; overflow: hidden; }
 .pos-print-items td:first-child small { display: block; color: #555; }
 .pos-print-total { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; font-size: 13px; }
 .pos-print-thanks { margin-top: 22px; border-top: 1px dashed #777; padding-top: 12px; font-size: 12px; text-align: center; }
+.pos-print-receipt {
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+.pos-print-head {
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 22px;
+  border-bottom: 2px solid var(--pos-accent);
+  text-align: left;
+}
+.pos-print-brand { display: flex; align-items: center; gap: 10px; color: var(--pos-accent); font-size: 19px; }
+.pos-print-brand > span { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 9px; background: var(--pos-accent); color: #fff; font-size: 16px; }
+.pos-print-brand-block > p { margin: 10px 0 0 48px; color: var(--gray-500); font-size: 11px; }
+.pos-print-title { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.pos-print-title h1 { margin: 0 0 2px; color: var(--pos-accent); font-size: 26px; letter-spacing: .04em; }
+.pos-print-title strong { color: var(--ink); font-size: 12px; }
+.pos-print-title > span { color: var(--gray-500); font-size: 10px; }
+.pos-print-paid { padding: 3px 8px; border-radius: 999px; background: var(--success-bg); color: var(--success-fg) !important; font-weight: 700; }
+.pos-print-details { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin: 22px 0; }
+.pos-print-details > div { display: block; }
+.pos-print-details dt { margin-bottom: 4px; color: var(--gray-500); font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.pos-print-details dd { color: var(--ink); font-size: 11px; font-weight: 600; text-align: left; }
+.pos-print-items { font-size: 10px; }
+.pos-print-items th { padding: 9px 8px; background: var(--pos-accent); color: #fff; font-size: 9px; letter-spacing: .06em; text-transform: uppercase; }
+.pos-print-items td { padding: 10px 8px; border-color: var(--gray-150); color: var(--ink); }
+.pos-print-items td:first-child strong { display: block; font-size: 10px; }
+.pos-print-items td:first-child small { margin-top: 2px; color: var(--gray-500); font-size: 8px; }
+.pos-print-summary { display: grid; grid-template-columns: 1fr minmax(220px, 310px); gap: 28px; margin-top: 22px; }
+.pos-print-summary > p { align-self: start; padding: 14px; border: 1px solid var(--gray-200); border-radius: 7px; background: var(--gray-50); color: var(--gray-600); font-size: 11px; }
+.pos-print-summary .pos-print-total { margin-top: 0; padding: 4px 0; color: var(--gray-600); font-size: 10px; }
+.pos-print-summary .pos-print-total strong { color: var(--ink); }
+.pos-print-summary .pos-print-grand { margin-top: 4px; padding-top: 9px; border-top: 1px solid var(--gray-200); color: var(--ink); font-size: 12px; font-weight: 700; }
+.pos-print-summary .pos-print-grand strong { color: var(--pos-accent); font-size: 15px; }
+.pos-print-thanks { display: flex; justify-content: space-between; margin-top: 22px; border-top: 1px solid var(--gray-200); color: var(--gray-500); font-size: 9px; text-align: left; }
+.pos-print-thanks span { font-weight: 600; }
 .pos-payment-modal { max-height: min(90vh, 680px); overflow-y: auto; transform: none; }
 .pos-payment-modal .gg-modal-head .gg-card-title { margin: 0; }
 .pos-payment-body { display: flex; flex-direction: column; gap: var(--sp-5); padding: var(--sp-6); }
@@ -2794,7 +2832,10 @@ body:has(.pos-screen) { height: 100dvh; overflow: hidden; background: var(--canv
 .pos-camera-scan kbd { border-color: color-mix(in srgb, var(--pos-text) 35%, transparent); color: #fff; }
 .pos-tool { width: 60px; height: 60px; border-radius: 10px; background: var(--pos-control); }
 .pos-tool-rose { background: var(--pos-accent); }
-.pos-tool-badge { background: var(--pos-surface); }
+.pos-tool-badge {
+  background: var(--pos-surface);
+  color: var(--pos-accent-text);
+}
 .pos-cart,
 .pos-products {
   border: 1px solid var(--pos-border);

@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sales Invoice Design Preview</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --green: #3d733a;
+        --green-dark: #2f5e2e;
+        --ink: #292723;
+        --muted: #77746d;
+        --line: #e7e4dc;
+        --paper: #fff;
+        --canvas: #f3f1ec;
+        --soft: #f7f6f2;
+        --gold: #b38336;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        background: var(--canvas);
+        color: var(--ink);
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      button { font: inherit; }
+
+      .toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px max(24px, calc((100vw - 1060px) / 2));
+        border-bottom: 1px solid var(--line);
+        background: #fff;
+      }
+
+      .toolbar-label {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+      }
+
+      .print-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 40px;
+        padding: 0 16px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--green);
+        color: #fff;
+        cursor: pointer;
+        font-weight: 700;
+      }
+
+      .print-button:hover { background: var(--green-dark); }
+      .print-button:focus-visible { outline: 3px solid #b9d1b7; outline-offset: 2px; }
+
+      .invoice {
+        width: min(100% - 40px, 850px);
+        margin: 32px auto 56px;
+        padding: 54px 60px 40px;
+        border: 1px solid #e8e5de;
+        border-radius: 12px;
+        background: var(--paper);
+        box-shadow: 0 12px 32px rgb(41 39 35 / 8%);
+      }
+
+      .invoice-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 32px;
+        padding-bottom: 30px;
+        border-bottom: 2px solid var(--green);
+      }
+
+      .brand-lockup {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 42px;
+        height: 42px;
+        place-items: center;
+        border-radius: 10px;
+        background: var(--green);
+        color: #fff;
+        font-size: 18px;
+        font-weight: 800;
+        letter-spacing: -.08em;
+      }
+
+      .brand-name {
+        color: var(--green);
+        font-size: 20px;
+        letter-spacing: -.06em;
+      }
+
+      .brand-name strong { font-weight: 800; }
+
+      .seller-contact {
+        margin: 15px 0 0 54px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.7;
+      }
+
+      .invoice-heading { min-width: 220px; text-align: right; }
+
+      .invoice-heading h1 {
+        margin: -8px 0 5px;
+        color: var(--green-dark);
+        font-size: 38px;
+        font-weight: 800;
+        letter-spacing: .06em;
+        line-height: 1.15;
+      }
+
+      .invoice-number {
+        color: var(--ink);
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        margin-top: 12px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: #fff4dc;
+        color: #805a17;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: .07em;
+      }
+
+      .status::before {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+        content: "";
+      }
+
+      .parties {
+        display: grid;
+        grid-template-columns: 1.2fr .8fr;
+        gap: 36px;
+        padding: 30px 0 28px;
+      }
+
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+      }
+
+      .party-name {
+        margin: 0 0 5px;
+        color: var(--ink);
+        font-size: 16px;
+        font-weight: 750;
+      }
+
+      .party-detail {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.75;
+      }
+
+      .invoice-meta {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px 20px;
+        align-content: start;
+      }
+
+      .meta-label {
+        display: block;
+        margin-bottom: 3px;
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: .07em;
+        text-transform: uppercase;
+      }
+
+      .meta-value { font-size: 12px; font-weight: 700; }
+
+      .items {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+      }
+
+      .items th {
+        padding: 12px 10px;
+        background: var(--green-dark);
+        color: #fff;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .items th:first-child { padding-left: 14px; border-radius: 7px 0 0; }
+      .items th:last-child { padding-right: 14px; border-radius: 0 7px 0 0; }
+      .items td { padding: 14px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+      .items td:first-child { padding-left: 14px; }
+      .items td:last-child { padding-right: 14px; }
+      .items .number { text-align: right; white-space: nowrap; }
+      .item-name { display: block; font-size: 12px; font-weight: 700; }
+      .item-code { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+
+      .summary {
+        display: grid;
+        grid-template-columns: 1fr minmax(240px, 310px);
+        gap: 28px;
+        padding: 26px 0 24px;
+      }
+
+      .payment-note {
+        align-self: start;
+        padding: 15px 16px;
+        border: 1px solid #e5ecdf;
+        border-radius: 8px;
+        background: #f8faf6;
+      }
+
+      .payment-note .eyebrow { margin-bottom: 5px; color: var(--green-dark); }
+      .payment-note p { margin: 0; color: var(--muted); font-size: 11px; }
+
+      .totals { display: grid; gap: 9px; }
+
+      .total-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .total-row strong { color: var(--ink); font-weight: 700; }
+      .total-row.discount strong { color: var(--green); }
+
+      .total-row.grand {
+        margin-top: 3px;
+        padding-top: 12px;
+        border-top: 1px solid var(--line);
+        color: var(--ink);
+        font-size: 14px;
+        font-weight: 800;
+      }
+
+      .total-row.grand strong { color: var(--green-dark); font-size: 18px; }
+
+      .amount-due {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        margin-top: 2px;
+        padding: 12px 14px;
+        border-radius: 7px;
+        background: #f3f1ec;
+        color: var(--ink);
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .amount-due strong { color: var(--green-dark); font-size: 16px; }
+
+      .invoice-footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        padding-top: 20px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .invoice-footer strong { color: var(--green-dark); }
+
+      .sample-note {
+        margin: 24px auto 0;
+        color: var(--muted);
+        font-size: 11px;
+        text-align: center;
+      }
+
+      @media (max-width: 640px) {
+        .toolbar { padding: 12px 16px; }
+        .invoice { width: 100%; margin: 0; padding: 30px 20px; border: 0; border-radius: 0; }
+        .invoice-header { gap: 16px; }
+        .brand-name { font-size: 17px; }
+        .seller-contact { margin-left: 0; }
+        .invoice-heading { min-width: 0; }
+        .invoice-heading h1 { font-size: 28px; }
+        .parties { grid-template-columns: 1fr; gap: 24px; }
+        .summary { grid-template-columns: 1fr; }
+        .items { min-width: 590px; }
+        .items-wrap { overflow-x: auto; }
+      }
+
+      @page { size: A4; margin: 14mm; }
+
+      @media print {
+        body { background: #fff; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+        .toolbar, .sample-note { display: none; }
+        .invoice {
+          width: 100%;
+          margin: 0;
+          padding: 0;
+          border: 0;
+          border-radius: 0;
+          box-shadow: none;
+        }
+        .items-wrap { overflow: visible; }
+        .items { min-width: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="toolbar">
+      <span class="toolbar-label">Sales invoice · design review</span>
+      <button class="print-button" type="button" onclick="window.print()">Print preview</button>
+    </header>
+
+    <main>
+      <article class="invoice" aria-label="Sample sales invoice">
+        <header class="invoice-header">
+          <div>
+            <div class="brand-lockup">
+              <span class="brand-mark" aria-hidden="true">W</span>
+              <span class="brand-name">the<strong>warehouse</strong></span>
+            </div>
+            <p class="seller-contact">
+              21 Market Street, Auckland 1010<br>
+              New Zealand · +64 9 555 0184<br>
+              accounts@thewarehouse.example
+            </p>
+          </div>
+          <div class="invoice-heading">
+            <h1>INVOICE</h1>
+            <div class="invoice-number">INV-2026-00418</div>
+            <span class="status">PARTIALLY PAID</span>
+          </div>
+        </header>
+
+        <section class="parties" aria-label="Invoice parties and dates">
+          <div>
+            <h2 class="eyebrow">Bill to</h2>
+            <p class="party-name">Alex Morgan</p>
+            <p class="party-detail">
+              18 Lake Road, Auckland<br>
+              New Zealand<br>
+              alex.morgan@example.test · +64 21 555 0142
+            </p>
+          </div>
+          <div class="invoice-meta">
+            <div>
+              <span class="meta-label">Invoice date</span>
+              <span class="meta-value">25 Nov 2026</span>
+            </div>
+            <div>
+              <span class="meta-label">Due date</span>
+              <span class="meta-value">09 Dec 2026</span>
+            </div>
+            <div>
+              <span class="meta-label">Payment terms</span>
+              <span class="meta-value">14 days</span>
+            </div>
+            <div>
+              <span class="meta-label">Reference</span>
+              <span class="meta-value">SAL-2026-00418</span>
+            </div>
+          </div>
+        </section>
+
+        <div class="items-wrap">
+          <table class="items">
+            <thead>
+              <tr>
+                <th scope="col">Item</th>
+                <th scope="col" class="number">Qty</th>
+                <th scope="col" class="number">Unit price</th>
+                <th scope="col" class="number">Tax</th>
+                <th scope="col" class="number">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="item-name">Espresso Beans · 1 kg</span><span class="item-code">SKU: COF-ESP-01</span></td>
+                <td class="number">2</td>
+                <td class="number">$ 22.50</td>
+                <td class="number">15%</td>
+                <td class="number"><strong>$ 45.00</strong></td>
+              </tr>
+              <tr>
+                <td><span class="item-name">Ceramic Coffee Mug</span><span class="item-code">SKU: MUG-CER-04</span></td>
+                <td class="number">4</td>
+                <td class="number">$ 12.00</td>
+                <td class="number">15%</td>
+                <td class="number"><strong>$ 48.00</strong></td>
+              </tr>
+              <tr>
+                <td><span class="item-name">Pour-over Paper Filters</span><span class="item-code">SKU: FIL-PO-02</span></td>
+                <td class="number">3</td>
+                <td class="number">$ 8.00</td>
+                <td class="number">15%</td>
+                <td class="number"><strong>$ 24.00</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <section class="summary" aria-label="Payment and invoice totals">
+          <div class="payment-note">
+            <h2 class="eyebrow">Payment received</h2>
+            <p>$ 100.00 received by bank transfer on 25 Nov 2026.</p>
+          </div>
+          <div class="totals">
+            <div class="total-row"><span>Subtotal</span><strong>$ 117.00</strong></div>
+            <div class="total-row discount"><span>Discount</span><strong>− $ 7.00</strong></div>
+            <div class="total-row"><span>Shipping</span><strong>$ 8.00</strong></div>
+            <div class="total-row"><span>GST (15%)</span><strong>$ 17.70</strong></div>
+            <div class="total-row grand"><span>Invoice total</span><strong>$ 135.70</strong></div>
+            <div class="total-row"><span>Paid to date</span><strong>$ 100.00</strong></div>
+            <div class="amount-due"><span>Balance due</span><strong>$ 35.70</strong></div>
+          </div>
+        </section>
+
+        <footer class="invoice-footer">
+          <span><strong>Thank you for your business.</strong><br>Please include INV-2026-00418 with your payment.</span>
+          <span>Questions? accounts@thewarehouse.example</span>
+        </footer>
+        <p class="sample-note">Design draft only — all business, customer, and transaction details are sample data.</p>
+      </article>
+    </main>
+  </body>
+</html>

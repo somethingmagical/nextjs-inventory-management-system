@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { Prisma, type AdjustmentType } from "@prisma/client";
 import {
+  applySaleStockAdjustments,
   applyStockAdjustment,
   applyStockBucketAdjustment,
   InsufficientStockError,
@@ -165,6 +166,86 @@ test("stock subtraction changes the transaction balance by exact decimal quantit
   }]);
   assert.equal(fake.movementWrites.length, 1);
   assert.equal(fake.movementWrites[0].data.quantity.toString(), "-2.025");
+});
+
+test("sale stock adjustments fetch balances once and batch their movement records", async () => {
+  const balances = new Map([
+    ["product-1", {
+      quantity: new Prisma.Decimal("8"),
+      reservedQuantity: new Prisma.Decimal("1"),
+    }],
+    ["product-2", {
+      quantity: new Prisma.Decimal("5"),
+      reservedQuantity: new Prisma.Decimal("0"),
+    }],
+  ]);
+  const updatedProducts: string[] = [];
+  let balanceReads = 0;
+  let movementBatch: { productId: string; quantity: Prisma.Decimal }[] = [];
+  const transaction = {
+    productStock: {
+      findMany: async () => {
+        balanceReads += 1;
+        return [...balances].map(([productId, balance]) => ({ productId, ...balance }));
+      },
+      updateMany: async (input: {
+        where: {
+          productId: string;
+          quantity?: { equals?: Prisma.Decimal };
+          reservedQuantity?: { equals?: Prisma.Decimal };
+        };
+        data: { quantity?: { decrement?: Prisma.Decimal } };
+      }) => {
+        const stock = balances.get(input.where.productId);
+        const decrement = input.data.quantity?.decrement;
+        if (
+          !stock
+          || !decrement
+          || !stock.quantity.equals(input.where.quantity?.equals ?? -1)
+          || !stock.reservedQuantity.equals(input.where.reservedQuantity?.equals ?? -1)
+        ) return { count: 0 };
+        balances.set(input.where.productId, {
+          quantity: stock.quantity.minus(decrement),
+          reservedQuantity: stock.reservedQuantity,
+        });
+        updatedProducts.push(input.where.productId);
+        return { count: 1 };
+      },
+    },
+    stockMovement: {
+      createMany: async (input: {
+        data: { productId: string; quantity: Prisma.Decimal }[];
+      }) => {
+        movementBatch = input.data;
+      },
+    },
+  } as unknown as Prisma.TransactionClient;
+
+  await applySaleStockAdjustments(transaction, [
+    {
+      productId: "product-1",
+      productName: "Widget",
+      warehouseId: "warehouse-1",
+      quantity: "2",
+      movement,
+    },
+    {
+      productId: "product-2",
+      productName: "Gadget",
+      warehouseId: "warehouse-1",
+      quantity: "1.25",
+      movement,
+    },
+  ]);
+
+  assert.equal(balanceReads, 1);
+  assert.deepEqual(updatedProducts, ["product-1", "product-2"]);
+  assert.equal(balances.get("product-1")?.quantity.toString(), "6");
+  assert.equal(balances.get("product-2")?.quantity.toString(), "3.75");
+  assert.deepEqual(
+    movementBatch.map(({ productId, quantity }) => [productId, quantity.toString()]),
+    [["product-1", "-2"], ["product-2", "-1.25"]],
+  );
 });
 
 test("insufficient stock rejects without writing a balance", async () => {

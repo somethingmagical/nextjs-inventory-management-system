@@ -23,6 +23,7 @@ const iconPaths: Record<string, ReactNode> = {
   shieldCheck: <><path d="M12 3 5.5 6v5.5c0 4.1 2.6 7.7 6.5 9.5 3.9-1.8 6.5-5.4 6.5-9.5V6L12 3Z" /><path d="m9 12 2 2 4-4" /></>,
   warehouse: <><path d="m3 9 9-5 9 5M5 10v9h14v-9M9 19v-6h6v6" /></>,
   chart: <><path d="M4 18V7M9 18V4M14 18v-9M19 18v-5" /></>,
+  sparkles: <><path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z" /><path d="m19 14 .8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8L19 14Z" /><path d="m5 3 .6 1.4L7 5l-1.4.6L5 7l-.6-1.4L3 5l1.4-.6L5 3Z" /></>,
   dollar: <><path d="M12 3v18M16 7.5c0-1.4-1.7-2.5-4-2.5s-4 1.1-4 2.5 1.7 2.5 4 2.5 4 1.1 4 2.5-1.7 2.5-4 2.5-4-1.1-4-2.5" /></>,
   languages: <><path d="M4 7h16M4 12h10M4 17h7" /><path d="M18 5a7 7 0 0 1 0 14M16 9a7 7 0 0 1 0 12" /></>,
   layoutTemplate: <><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="13" y="3" width="8" height="4" rx="1.5" /><rect x="13" y="10" width="8" height="11" rx="1.5" /><rect x="3" y="12" width="7" height="9" rx="1.5" /></>,
@@ -68,6 +69,8 @@ type NavigationItem = {
 
 const navigation: NavigationItem[] = [
   { label: "Dashboard", icon: "dashboard", section: "Overview", href: "/dashboard", permission: PERMISSION.viewDashboard },
+  { label: "Business Insights", icon: "sparkles", section: "Overview", href: "/business-insights", permission: PERMISSION.viewBusinessInsights, activePrefix: "/business-insights" },
+  { label: "Reports", icon: "chart", section: "Overview", href: "/reports/warehouse", permission: PERMISSION.viewReports },
   {
     label: "Products",
     icon: "boxes",
@@ -124,7 +127,6 @@ const navigation: NavigationItem[] = [
     ],
   },
   { label: "Roles/Permissions", icon: "shieldCheck", section: "People & access", href: "/roles", permission: PERMISSION.viewRoles },
-  { label: "Reports", icon: "chart", section: "Insights & setup", href: "/reports/warehouse", permission: PERMISSION.viewReports },
   // { label: "Currencies", icon: "dollar", permission: PERMISSION.manageCurrency },
   // { label: "Languages", icon: "languages", permission: PERMISSION.manageLanguage },
   // {

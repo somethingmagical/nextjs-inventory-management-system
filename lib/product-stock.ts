@@ -100,6 +100,7 @@ async function decreaseStockBalance(
     respectReservations: boolean;
     productName?: string;
     documentLabel?: string;
+    knownStock?: { quantity: Prisma.Decimal; reservedQuantity: Prisma.Decimal };
   },
 ) {
   const unique = {
@@ -109,7 +110,7 @@ async function decreaseStockBalance(
       status: input.status,
     },
   };
-  const stock = await transaction.productStock.findUnique({
+  const stock = input.knownStock ?? await transaction.productStock.findUnique({
     where: unique,
     select: { quantity: true, reservedQuantity: true },
   });
@@ -225,6 +226,63 @@ export async function applyStockAdjustment(
       quantity,
       ...input.movement,
     },
+  });
+}
+
+export async function applySaleStockAdjustments(
+  transaction: Prisma.TransactionClient,
+  adjustments: {
+    productId: string;
+    productName: string;
+    warehouseId: string;
+    quantity: string;
+    documentLabel?: string;
+    movement: {
+      type: StockMovementType;
+      sourceType: StockMovementSourceType;
+      sourceId: string;
+      actorId: string | null;
+    };
+  }[],
+) {
+  if (adjustments.length === 0) return;
+
+  const warehouseId = adjustments[0].warehouseId;
+  const stocks = await transaction.productStock.findMany({
+    where: {
+      productId: { in: adjustments.map(({ productId }) => productId) },
+      warehouseId,
+      status: "Received",
+    },
+    select: { productId: true, quantity: true, reservedQuantity: true },
+  });
+  const stockByProductId = new Map(stocks.map((stock) => [stock.productId, stock]));
+
+  for (const adjustment of adjustments) {
+    const stock = stockByProductId.get(adjustment.productId);
+    if (!stock) {
+      throw new InsufficientStockError(adjustment.productName, adjustment.documentLabel);
+    }
+
+    await decreaseStockBalance(transaction, {
+      productId: adjustment.productId,
+      warehouseId: adjustment.warehouseId,
+      status: "Received",
+      quantity: new Prisma.Decimal(adjustment.quantity),
+      respectReservations: true,
+      productName: adjustment.productName,
+      documentLabel: adjustment.documentLabel,
+      knownStock: stock,
+    });
+  }
+
+  await transaction.stockMovement.createMany({
+    data: adjustments.map((adjustment) => ({
+      productId: adjustment.productId,
+      warehouseId: adjustment.warehouseId,
+      quantity: new Prisma.Decimal(adjustment.quantity).negated(),
+      ...adjustment.movement,
+    })),
   });
 }
 
