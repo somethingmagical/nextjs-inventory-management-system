@@ -48,6 +48,7 @@ export async function POST() {
     }));
   }
 
+  // For Vercel AI Gateway, use AI_GATEWAY_API_KEY, set baseURL to https://ai-gateway.vercel.sh/v1, and use a provider/model ID below.
   const openai = new OpenAI({
     apiKey,
     timeout: 20_000,
@@ -112,9 +113,21 @@ export async function POST() {
     }));
   } catch (error) {
     const details = error instanceof OpenAI.APIError
-      ? { status: error.status, code: error.code }
+      ? {
+          status: error.status,
+          code: error.code,
+          requestId: error.requestID,
+        }
       : { type: error instanceof Error ? error.name : "unknown" };
     console.error("OpenAI business insight generation failed.", details);
-    return jsonResponse({ error: "Business insights could not be generated right now. Please try again." }, 502);
+    const diagnostic = error instanceof OpenAI.APIError
+      ? error.message
+          .replaceAll(apiKey, "[redacted]")
+          .replace(/\s+/g, " ")
+          .slice(0, 240)
+      : `The request failed (${details.type}).`;
+    return jsonResponse({
+      error: `Business insights could not be generated right now. ${diagnostic} Please try again.`,
+    }, 502);
   }
 }

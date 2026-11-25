@@ -1349,12 +1349,12 @@ select option { background: var(--dropdown-bg); color: var(--ink); }
 .gg-divider { height: 1px; background: var(--gray-150); border: none; margin: var(--sp-6) 0; }
 
 /* Sign in page */
-.auth-page { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
-.auth { width: 540px; max-width: 100%; display: flex; flex-direction: column; align-items: center; }
+.auth-page { min-height: 100vh; min-height: 100svh; display: grid; place-items: center; padding: 24px; }
+.auth { width: min(540px, 100%); min-width: 0; display: flex; flex-direction: column; align-items: center; }
 .auth-ava { width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, var(--gold-400), var(--gold-700)); display: grid; place-items: center; box-shadow: var(--shadow-md); margin: 0 auto var(--sp-6); color: #fff; }
-.auth-ava.has-logo { width: min(180px, 100%); height: 72px; border-radius: 0; background: none; box-shadow: none; }
+.auth-ava.has-logo { width: min(220px, 100%); height: auto; aspect-ratio: 2.5; border-radius: 0; background: none; box-shadow: none; }
 .auth-ava.has-logo img { width: 100%; height: 100%; object-fit: contain; }
-.auth-card { width: 100%; background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow-md); padding: var(--sp-8) var(--sp-10) var(--sp-10); }
+.auth-card { width: 100%; min-width: 0; background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow-md); padding: var(--sp-8) var(--sp-10) var(--sp-10); }
 .auth-title { font-family: var(--font-display); font-weight: 700; font-size: 26px; color: var(--ink); text-align: center; margin: 0 0 var(--sp-8); letter-spacing: -.01em; }
 .auth-field { margin-bottom: var(--sp-6); }
 .auth-label-row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: var(--sp-3); }
@@ -1449,7 +1449,11 @@ select option { background: var(--dropdown-bg); color: var(--ink); }
 }
 
 @media (max-width: 560px) {
+  .auth-page { padding: 16px; }
   .auth-card { padding: var(--sp-6) var(--sp-5); }
+  .auth-title { font-size: 24px; margin-bottom: var(--sp-6); }
+  .auth-input { height: 50px; padding-inline: 14px; }
+  .auth-btn { height: 52px; }
   .profile-page-head { align-items: flex-start; }
   .warehouse-form-head { align-items: flex-start; }
   :root { --sidebar-w-collapsed: 60px; --topbar-h: 58px; }
