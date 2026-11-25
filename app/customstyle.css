@@ -2853,11 +2853,41 @@ body:has(.pos-screen) { height: 100dvh; overflow: hidden; background: var(--canv
 .pos-pricing-error { color: var(--pos-danger-text); }
 .pos-cart-actions { gap: 8px; margin-top: 12px; }
 .pos-action { height: 46px; gap: 6px; border-radius: 8px; font-size: 13px; }
-.pos-action kbd { padding: 1px 4px; color: var(--pos-muted); font-size: 9px; }
+.pos-action kbd {
+  display: inline-flex;
+  min-width: 28px;
+  height: 21px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--pos-border);
+  border-radius: 5px;
+  padding: 0 5px;
+  background: var(--pos-surface);
+  color: var(--pos-text);
+  font-size: 10px;
+  line-height: 1;
+}
+.pos-reset kbd { border-color: color-mix(in srgb, var(--pos-danger) 42%, var(--pos-border)); }
+.pos-pay kbd {
+  border-color: color-mix(in srgb, #fff 62%, transparent);
+  background: color-mix(in srgb, var(--pos-success) 78%, #000);
+  color: #fff;
+}
 .pos-hold { background: var(--pos-control); color: var(--pos-text); }
 .pos-reset { background: var(--pos-danger-soft); color: var(--pos-danger-text); }
 .pos-pay { background: var(--pos-success); font-size: 14px; }
-.pos-action:disabled { opacity: .48; }
+.pos-action:disabled { cursor: not-allowed; opacity: 1; }
+.pos-hold:disabled,
+.pos-reset:disabled { color: var(--pos-muted); }
+.pos-pay:disabled {
+  background: color-mix(in srgb, var(--pos-success) 18%, var(--pos-surface));
+  color: var(--pos-muted);
+}
+.pos-action:disabled kbd {
+  border-color: var(--pos-border);
+  background: var(--pos-surface);
+  color: var(--pos-text);
+}
 .pos-products { padding: 16px; }
 .pos-filter-row { gap: 8px; margin-bottom: 12px; }
 .pos-filter-select { min-height: 48px; gap: 0; border-color: var(--pos-border); border-radius: 8px; padding: 4px 12px; background: var(--pos-control); }
