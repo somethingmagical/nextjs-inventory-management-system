@@ -1,6 +1,62 @@
-# Inventory
+# The Warehouse - Inventory Management System
 
-Inventory is a web-based system for managing products, stock, warehouses, suppliers, customers, and staff accounts. It includes role-based access, searchable management pages, purchases and sales with returns, stock adjustments, transfers, expenses, and reports. Data is stored in MySQL or MariaDB through Prisma.
+<div align="center">
+
+![Dashboard](docs/images/dashboard.png)
+
+**A complete, role-based inventory and sales platform for modern warehouse operations.**
+
+</div>
+
+Inventory is a web-based system for managing products, stock, warehouses, suppliers, customers, and staff accounts. It includes role-based access, purchases and sales with returns, stock adjustments, transfers, expenses, reports, a point-of-sale screen, and AI-assisted business insights.
+
+## Features
+
+- **Inventory control** - Products, categories, brands, units, warehouse stock, alerts, and stock movements
+- **Purchasing** - Purchase orders, delivery status, suppliers, returns, and received-stock posting
+- **Sales** - Sales orders, payments, customers, returns, and POS checkout
+- **Warehouse operations** - Adjustments, inter-warehouse transfers, and status-aware stock reconciliation
+- **Finance and reporting** - Expenses, expense categories, sales/purchase reports, stock reports, and warehouse reports
+- **Team administration** - Users, roles, granular permissions, account history, and login protection
+- **Business intelligence** - Dashboard charts and on-demand OpenAI business insights
+- **Configurable branding** - Application name, favicon, and header logo
+- **International-ready addresses** - Structured country, region, city, suburb, postal code, and street data
+
+## Technology Stack
+
+| Area | Technology |
+| --- | --- |
+| Framework | Next.js 16 App Router, React 19 |
+| Language | TypeScript |
+| Database | MySQL or MariaDB |
+| ORM | Prisma 7 |
+| Authentication | Auth.js / NextAuth |
+| Charts | Chart.js |
+| Styling | Tailwind CSS 4 |
+| Documents | PDFKit and ExcelJS |
+| AI | OpenAI Responses API |
+
+## Showcase
+
+### Product Catalog
+
+Search, filter, and manage products, pricing, units, brands, categories, and warehouse availability.
+
+![Product catalog](docs/images/products.png)
+
+### Point of Sale
+
+Process in-person sales from a responsive POS interface with warehouse selection, customer lookup, stock-aware products, discounts, tax, and payment controls.
+
+![Point of sale](docs/images/pos.png)
+
+### Sales Management
+
+Track sales references, customers, warehouses, fulfillment status, payment status, and totals from a searchable sales workspace.
+
+![Sales management](docs/images/sales.png)
+
+## Core workflows
 
 The **Stock** page (`/stock`) organizes on-hand balances by warehouse and is available to roles with the `View Stock` permission. Warehouse setup remains on the separate Warehouse page; changes to quantities continue through the existing purchase, return, adjustment, and transfer workflows.
 
@@ -165,6 +221,7 @@ Schedule `npm run audit:cleanup-user-history` to run daily, including while the 
 
 - [Next.js Documentation](https://nextjs.org/docs)
 - [Prisma Documentation](https://www.prisma.io/docs)
+- [Security policy](Security.md)
 
 ## Deploy
 
